@@ -1,0 +1,194 @@
+{
+  "id": "snakeTelegramNoticeSendV1",
+  "name": "Snake Media - Deliver Telegram Completion",
+  "nodes": [
+    {
+      "id": "37f01b6b-37ed-5a9b-9bf0-c4f90123f9c7",
+      "name": "Notice Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "adda518c-7e5f-5f4c-baf4-9756e716373c",
+      "name": "Prepare Completion Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$input.first().json;const p=JSON.parse(r.payloadJson);if(r.source!=='telegram'||!/^[-]?[1-9][0-9]*$/.test(r.destinationId)||p.userId==='1')return [];return [{json:{...r,text:String(p.text).slice(0,1800),messageId:p.messageId}}];"
+      },
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.destinationId }}",
+        "text": "={{ $json.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}",
+        "additionalFields": {
+          "parse_mode": "HTML",
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        0
+      ],
+      "id": "ff1c04ce-776e-5c60-81c2-11b8147119fa",
+      "name": "Send Telegram Completion",
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_TELEGRAMAPI",
+          "name": "Configure telegramApi"
+        }
+      }
+    },
+    {
+      "id": "11fe6d6b-9581-594a-85e6-b274571d46aa",
+      "name": "Validate Telegram Delivery",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const response=$input.first().json;\nconst id=response.result?.message_id;\nif(response.ok!==true||!Number.isSafeInteger(id)||id<=0)throw new Error('Telegram send not confirmed');\nreturn [{json:{deliveredMessageId:String(id)}}];\n"
+      },
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "id": "2bab81ed-15d6-5e36-ac17-7fb6fa083828",
+      "name": "Acknowledge Telegram Notice",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_notifications"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "notificationKey",
+              "condition": "eq",
+              "keyValue": "={{ $('Notice Input').first().json.notificationKey }}"
+            },
+            {
+              "keyName": "source",
+              "condition": "eq",
+              "keyValue": "telegram"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "state": "delivered",
+            "deliveredAt": "={{ $now.toISO() }}",
+            "deliveredMessageId": "={{ $json.deliveredMessageId }}"
+          },
+          "schema": [
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deliveredAt",
+              "displayName": "deliveredAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deliveredMessageId",
+              "displayName": "deliveredMessageId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        600,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Notice Input": {
+      "main": [
+        [
+          {
+            "node": "Prepare Completion Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Completion Text": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Completion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Completion": {
+      "main": [
+        [
+          {
+            "node": "Validate Telegram Delivery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Telegram Delivery": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Telegram Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 240
+  },
+  "active": false
+}

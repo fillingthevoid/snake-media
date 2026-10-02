@@ -1,0 +1,35 @@
+services:
+  discord-bot:
+    build: .
+    image: snake-media-discord:local
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    environment:
+      TZ: America/Los_Angeles
+      DISCORD_TOKEN: ${DISCORD_TOKEN:?Set DISCORD_TOKEN in .env}
+      ALLOWED_DISCORD_USER_IDS: ${ALLOWED_DISCORD_USER_IDS:?Set ALLOWED_DISCORD_USER_IDS in .env}
+      ALLOWED_DISCORD_CHANNEL_IDS: ${ALLOWED_DISCORD_CHANNEL_IDS:?Set ALLOWED_DISCORD_CHANNEL_IDS in .env}
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
+      BOT_MODE: ${BOT_MODE:-test}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:-}
+      N8N_TIMEOUT_SECONDS: ${N8N_TIMEOUT_SECONDS:-60}
+      N8N_NOTIFICATIONS_URL: ${N8N_NOTIFICATIONS_URL:-}
+      NOTIFICATION_STATE_PATH: /state/notifications.sqlite3
+      ADMIN_DISCORD_USER_IDS: ${ADMIN_DISCORD_USER_IDS:-}
+      ADMIN_SOCKET_PATH: ${ADMIN_SOCKET_PATH:-}
+      AUTHORIZATION_STATE_PATH: ${AUTHORIZATION_STATE_PATH:-}
+    volumes:
+      - ${APPDATA_DIR:-./data}/state:/state
+      - ${ADMIN_RUNTIME_DIR:-./admin-runtime}:/admin:ro
+      - ${APPDATA_DIR:-./data}/admin-config:/admin-config:ro
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

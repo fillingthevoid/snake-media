@@ -1,0 +1,669 @@
+{
+  "id": "snakePreviewMediaV1",
+  "name": "Snake Media - Preview Media",
+  "nodes": [
+    {
+      "id": "41a7ff90-f4b9-5101-a972-c89194086ecb",
+      "name": "Preview Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "1c09bb40-9cac-5382-a563-0dcf694884e8",
+      "name": "Ensure Pending Table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "snake_media_pending",
+        "columns": {
+          "column": [
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "userId",
+              "type": "string"
+            },
+            {
+              "name": "destinationId",
+              "type": "string"
+            },
+            {
+              "name": "requestKey",
+              "type": "string"
+            },
+            {
+              "name": "contextJson",
+              "type": "string"
+            },
+            {
+              "name": "mediaType",
+              "type": "string"
+            },
+            {
+              "name": "mediaJson",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": "string"
+            },
+            {
+              "name": "claimId",
+              "type": "string"
+            },
+            {
+              "name": "choice",
+              "type": "string"
+            },
+            {
+              "name": "expiresAt",
+              "type": "date"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        250,
+        0
+      ]
+    },
+    {
+      "id": "b1100cab-02f6-5d5d-9a8f-25485b34b1ef",
+      "name": "Validate Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const i=$('Preview Input').first().json,c=i.context;if(!['movie','tv'].includes(i.mediaType)||typeof i.title!=='string'||!i.title.trim()||!c||!['discord','telegram'].includes(c.source)||!/^[-]?[1-9][0-9]*$/.test(c.destinationId)||!/^[0-9]+$/.test(c.userId)||!/^[0-9]+$/.test(c.messageId)||!Number.isFinite(Date.parse(c.requestedAt)))throw new Error('Invalid preview context');return [{json:i}];"
+      },
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "id": "b1075b4d-892e-553b-9be6-1fb8d3db58e0",
+      "name": "Movie Lookup?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ $json.mediaType==='movie' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        750,
+        0
+      ]
+    },
+    {
+      "id": "16d288fc-3c8a-5bdd-a0c9-b0941515ba76",
+      "name": "Lookup Movie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:7878/api/v3/movie/lookup",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "term",
+              "value": "={{ $('Preview Input').first().json.title }}"
+            }
+          ]
+        }
+      },
+      "position": [
+        1000,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "bfd615e4-8aa9-5c7e-89c5-b50ca1a3ca2b",
+      "name": "Lookup Series",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8989/api/v3/series/lookup",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "term",
+              "value": "={{ $('Preview Input').first().json.title }}"
+            }
+          ]
+        }
+      },
+      "position": [
+        1250,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "2914a7cf-f951-5c33-b2cc-747fa37846a1",
+      "name": "Select Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const i=$('Preview Input').first().json;const m=$input.all().map(x=>x.json).find(x=>Number.isSafeInteger(x[i.mediaType==='movie'?'tmdbId':'tvdbId'])&&(!i.year||x.year===i.year));if(!m)return [{json:{version:1,status:'not_found'}}];const c=i.context;return [{json:{source:c.source,userId:c.userId,destinationId:c.destinationId,requestKey:[c.source,c.destinationId,c.messageId].join(':'),contextJson:JSON.stringify(c),mediaType:i.mediaType,mediaJson:JSON.stringify(m),state:'preview',claimId:'',choice:'',expiresAt:new Date(Date.now()+30*60000).toISOString()}}];"
+      },
+      "position": [
+        1500,
+        0
+      ]
+    },
+    {
+      "id": "c68a281c-8620-52f0-a899-0b83e48ef991",
+      "name": "Found Preview?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ !!$json.requestKey }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1750,
+        0
+      ]
+    },
+    {
+      "id": "d7338070-6e85-5d35-8e09-6f90ba8960d6",
+      "name": "Existing Preview",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_pending"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requestKey",
+              "condition": "eq",
+              "keyValue": "={{ $json.requestKey }}"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        0,
+        280
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "fbd2bad9-6991-5655-8269-34d7ca79e413",
+      "name": "Resolve Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const rows=$input.all().filter(x=>x.json.id);if(rows.length>1)throw new Error('Duplicate preview');return [{json:{existing:rows.length===1,record:rows[0]?.json||$('Select Preview').first().json}}];"
+      },
+      "position": [
+        250,
+        280
+      ]
+    },
+    {
+      "id": "d12f57c4-4edf-5a72-8ada-78be402d5c86",
+      "name": "Reuse Preview?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ $json.existing }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        500,
+        280
+      ]
+    },
+    {
+      "id": "69c0dbe8-7756-51c2-ab58-4ae7b83b2903",
+      "name": "Existing Card",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:$json.record}];"
+      },
+      "position": [
+        750,
+        280
+      ]
+    },
+    {
+      "id": "ce9d9403-f926-5192-9f54-9f6d96a4dfa0",
+      "name": "Store Preview",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_pending"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "source": "={{ $json.record.source }}",
+            "userId": "={{ $json.record.userId }}",
+            "destinationId": "={{ $json.record.destinationId }}",
+            "requestKey": "={{ $json.record.requestKey }}",
+            "contextJson": "={{ $json.record.contextJson }}",
+            "mediaType": "={{ $json.record.mediaType }}",
+            "mediaJson": "={{ $json.record.mediaJson }}",
+            "state": "={{ $json.record.state }}",
+            "claimId": "={{ $json.record.claimId }}",
+            "choice": "={{ $json.record.choice }}",
+            "expiresAt": "={{ $json.record.expiresAt }}"
+          },
+          "schema": [
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userId",
+              "displayName": "userId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "destinationId",
+              "displayName": "destinationId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requestKey",
+              "displayName": "requestKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contextJson",
+              "displayName": "contextJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaType",
+              "displayName": "mediaType",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaJson",
+              "displayName": "mediaJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "claimId",
+              "displayName": "claimId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "choice",
+              "displayName": "choice",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expiresAt",
+              "displayName": "expiresAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1000,
+        280
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "74d8cb71-7d21-5b34-ab7f-0c829013e03f",
+      "name": "Render Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$json;\nif(r.version)return [{json:r}];\nconst notice=text=>[{json:{version:1,status:'notice',text}}];\nif(!r.id)return notice('Unable to prepare that request. Please try again.');\nif(r.state==='cancelled')return notice('Request cancelled. Nothing was downloaded.');\nif(!['preview','scope','seasons'].includes(r.state))return notice('This request was already handled. Send a new request if needed.');\nif(Date.parse(r.expiresAt)<=Date.now())return notice('This request expired. Please send it again.');\nconst m=JSON.parse(r.mediaJson);\nconst header=(r.mediaType==='movie'?'\ud83c\udfac ':'\ud83d\udcfa ')+m.title+(m.year?' ('+m.year+')':'');\nlet choices=[],text=header;\nif(r.state==='preview'){\n text+='\\n\\n'+String(m.overview||'No description available.').slice(0,450)+'\\n\\nIs this the correct '+(r.mediaType==='movie'?'movie':'series')+'?';\n choices=[{label:'Confirm',action:'confirm'},{label:'Cancel',action:'cancel'}];\n}else if(r.state==='scope'){\n text+='\\n\\nWhich episodes would you like?\\nLatest means the newest season with aired episodes. Specials and future episodes are excluded.';\n choices=[{label:'Latest season',action:'latest'},{label:'Choose a season',action:'choose'},{label:'All seasons',action:'all'},{label:'Cancel',action:'cancel'}];\n}else{\n const seasons=[...new Set((m.seasons||[]).map(s=>s.seasonNumber).filter(s=>Number.isInteger(s)&&s>0&&s<=9999))].sort((a,b)=>a-b);\n const page=/^page_[0-9]+$/.test(r.choice||'')?Number(r.choice.slice(5)):0;\n text+='\\n\\nChoose a season. Only aired episodes will be requested.';\n choices=seasons.slice(page*20,page*20+20).map(s=>({label:'Season '+s,action:'season_'+s}));\n if(page>0)choices.push({label:'Previous',action:'page_'+(page-1)});\n if((page+1)*20<seasons.length)choices.push({label:'Next',action:'page_'+(page+1)});\n choices.push({label:'Cancel',action:'cancel'});\n}\nconst poster=(m.images||[]).find(x=>x.coverType==='poster');\nconst url=poster?.remoteUrl||poster?.url;\nconst out={version:1,status:'confirmation',text,pendingId:String(r.id),choices};\nif(typeof url==='string'&&url.length<=2048&&/^https:\\/\\/(image\\.tmdb\\.org|artworks\\.thetvdb\\.com)\\/[A-Za-z0-9_./%~-]+$/.test(url))out.posterUrl=url;\nreturn [{json:out}];\n"
+      },
+      "position": [
+        1250,
+        280
+      ]
+    }
+  ],
+  "connections": {
+    "Preview Input": {
+      "main": [
+        [
+          {
+            "node": "Ensure Pending Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure Pending Table": {
+      "main": [
+        [
+          {
+            "node": "Validate Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Preview": {
+      "main": [
+        [
+          {
+            "node": "Movie Lookup?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Movie Lookup?": {
+      "main": [
+        [
+          {
+            "node": "Lookup Movie",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lookup Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Movie": {
+      "main": [
+        [
+          {
+            "node": "Select Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Preview": {
+      "main": [
+        [
+          {
+            "node": "Found Preview?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Found Preview?": {
+      "main": [
+        [
+          {
+            "node": "Existing Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Render Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existing Preview": {
+      "main": [
+        [
+          {
+            "node": "Resolve Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Preview": {
+      "main": [
+        [
+          {
+            "node": "Reuse Preview?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reuse Preview?": {
+      "main": [
+        [
+          {
+            "node": "Existing Card",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existing Card": {
+      "main": [
+        [
+          {
+            "node": "Render Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Series": {
+      "main": [
+        [
+          {
+            "node": "Select Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Preview": {
+      "main": [
+        [
+          {
+            "node": "Render Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  },
+  "active": false
+}

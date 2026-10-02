@@ -1,0 +1,232 @@
+{
+  "id": "snakeInspectRequestV1",
+  "name": "Snake Media - Inspect Requested Imports",
+  "nodes": [
+    {
+      "id": "82a7c7cc-f73f-55c1-b04e-1e74faf728f3",
+      "name": "Inspect Request",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "e55a422f-9813-584d-a885-a305ff9081db",
+      "name": "Movie Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.mediaType==='movie' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://192.168.1.10:7878/api/v3/movie/'+$json.mediaId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": []
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        400,
+        0
+      ],
+      "id": "a86e2ce1-bfc8-5774-9d01-ffb10adc067d",
+      "name": "Read Requested Movie",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8989/api/v3/episode",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "seriesId",
+              "value": "={{ $json.mediaId }}"
+            },
+            {
+              "name": "includeEpisodeFile",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        400,
+        0
+      ],
+      "id": "f4c6f377-80f3-5dfe-8197-3b48e74ede02",
+      "name": "Read Requested Episodes",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "caf0e649-6e39-516d-a3dc-65251cb611f9",
+      "name": "Imported Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$('Inspect Request').first().json;\nif(!r.baselineCaptured || !r.requestKey || r.userId==='1' || !['discord','telegram'].includes(r.source))return [];\nconst before=new Set(JSON.parse(r.preexistingFileIdsJson));\nconst scope=new Set(JSON.parse(r.episodeIdsJson));\nconst requested=Date.parse(r.requestedAt);\nif(!Number.isFinite(requested))return [];\nconst candidates=[];\nlet items=$input.all();\nlet downloadCount=0,remainingCount=0;\nif(r.mediaType==='tv') {\n const selected=items.filter(x=>scope.has(String(x.json.id)));\n // An incomplete API response must not move the notification to a later episode.\n if(new Set(selected.map(x=>String(x.json.id))).size!==scope.size)return [];\n const downloads=selected.filter(({json:e})=>!before.has(String(e.episodeFile?.id ?? e.episodeFileId)));\n if(downloads.some(({json:e})=>!Number.isSafeInteger(e.seasonNumber)||!Number.isSafeInteger(e.episodeNumber)))return [];\n downloads.sort((a,b)=>a.json.seasonNumber-b.json.seasonNumber||a.json.episodeNumber-b.json.episodeNumber||a.json.id-b.json.id);\n downloadCount=downloads.length;\n remainingCount=downloads.slice(1).filter(({json:e})=>!e.episodeFile?.path || !(r.jellyfinLibrary||[]).some(x=>x.Id&&x.Path==='/data'+e.episodeFile.path)).length;\n items=downloads.slice(0,1);\n}\nfor(const item of items) {\n const e=item.json;\n const f=r.mediaType==='movie'?e.movieFile:e.episodeFile;\n if(!f || !Number.isSafeInteger(f.id) || f.id<1 || before.has(String(f.id)))continue;\n if(r.mediaType==='tv' && !scope.has(String(e.id)))continue;\n const imported=Date.parse(f.dateAdded);\n if(!Number.isFinite(imported) || imported<requested || imported>Date.now()+60000)continue;\n const prefix=r.mediaType==='movie'?'/movies/':'/tv/';\n if(typeof f.path!=='string' || !f.path.startsWith(prefix) || f.path.includes('/../'))continue;\n const fileKey=r.mediaType==='movie'?`movie:${r.mediaId}`:`tv:${r.mediaId}:episode:${e.id}`;\n const label=r.mediaType==='movie'?r.title:`${r.title} \u2014 S${String(e.seasonNumber).padStart(2,'0')}E${String(e.episodeNumber).padStart(2,'0')}`;\n const {jellyfinLibrary,...originalRequest}=r;\n const jellyfinItems=(jellyfinLibrary||[]).filter(x=>x.Path==='/data'+f.path);\n candidates.push({json:{jellyfinItems,request:originalRequest,fileKey,fileId:String(f.id),importedAt:new Date(imported).toISOString(),jellyfinPath:'/data'+f.path,label,downloadCount,remainingCount,providerId:r.mediaType==='movie'?`tmdb.${r.externalId}`:`tvdb.${e.tvdbId}`,mediaType:r.mediaType}});\n}\nreturn candidates;\n"
+      },
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "id": "e52ce2a3-1698-5c4e-bacf-029c68c0737c",
+      "name": "Queue Verified Candidate",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeQueueCandidateV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "mode": "each"
+      },
+      "position": [
+        800,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Inspect Request": {
+      "main": [
+        [
+          {
+            "node": "Movie Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Movie Request?": {
+      "main": [
+        [
+          {
+            "node": "Read Requested Movie",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Requested Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Requested Movie": {
+      "main": [
+        [
+          {
+            "node": "Imported Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Requested Episodes": {
+      "main": [
+        [
+          {
+            "node": "Imported Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Imported Candidates": {
+      "main": [
+        [
+          {
+            "node": "Queue Verified Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 240
+  },
+  "active": false
+}

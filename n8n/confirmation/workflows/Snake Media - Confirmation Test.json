@@ -1,0 +1,725 @@
+{
+  "id": "snakeConfirmTestV1",
+  "name": "Snake Media - Confirmation Test",
+  "description": null,
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "snake-confirmation-test",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c31cb56c-d81d-4080-a8ee-429f561f0c41",
+      "name": "Discord Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "notesInFlow": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CONFIGURE_HTTPHEADERAUTH",
+          "name": "Configure httpHeaderAuth"
+        }
+      },
+      "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e815a2f6-7b73-4269-a5f2-fe74629c8119",
+              "name": "allowedUserIds",
+              "type": "string",
+              "value": "100000000000000001,100000000000000002,100000000000000003"
+            },
+            {
+              "id": "88d0a926-e4c4-461c-a3e1-b2637427eb5a",
+              "name": "allowedChannelIds",
+              "type": "string",
+              "value": "100000000000000004"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "0031e0cf-b781-41b2-9735-6b7f80ea78c9",
+      "name": "Discord Access Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        250,
+        0
+      ],
+      "notes": "Editable comma-separated IDs. Keep these synchronized with the bot environment allowlists. IDs must stay strings."
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst data = $input.first().json;\nconst b = data.body;\nconst denied = [{json: {authorized: false, version: 1, status: 'error'}}];\nconst validId = x => typeof x === 'string' && /^[1-9][0-9]{0,19}$/.test(x) && BigInt(x) < 2n ** 64n;\nconst ids = x => typeof x === 'string' ? x.split(',').map(s => s.trim()) : [];\nconst users = ids(data.allowedUserIds);\nconst channels = ids(data.allowedChannelIds);\nif (!users.length || !channels.length || !users.every(validId) || !channels.every(validId)) return denied;\nif (!b || typeof b !== 'object' || Array.isArray(b) || b.source !== 'discord') return denied;\nif (![b.userId, b.channelId, b.guildId].every(validId)) return denied;\nif (!users.includes(b.userId) || !channels.includes(b.channelId)) return denied;\nif (typeof b.text !== 'string' || !b.text.trim() || b.text.trim().length > 2000) return denied;\nreturn [{json: {authorized: true, text: b.text.trim(), userId: b.userId,\n  channelId: b.channelId, guildId: b.guildId, messageId: b.messageId, requestedAt: b.requestedAt, action:b.action, pendingId:b.pendingId}}];\n"
+      },
+      "id": "a87a8722-9f2e-4fe7-bb82-fb14fb376382",
+      "name": "Validate Discord Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2358ec09-5404-4b8c-b243-d8212e53073a",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7e5997be-fde9-486c-9c70-8fc3ddfdebe6",
+      "name": "Authorized Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        750,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.text }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "type",
+              "description": "Classify the requested media as exactly one of: movie, tv, unknown. Use \"movie\" for films and \"tv\" for television/streaming series. Use \"unknown\" if the request is not for media or you cannot reliably determine whether the title is a movie or TV series. Never guess when genuinely ambiguous.",
+              "required": true
+            },
+            {
+              "name": "title",
+              "description": "The canonical title of the movie or TV series being requested. Remove conversational command words such as add, download, grab, get, please, movie, show, series, and year phrases. Preserve the actual media title. If no media title can be identified, return an empty string.",
+              "required": true
+            },
+            {
+              "name": "year",
+              "type": "number",
+              "description": "The four-digit release or premiere year specified by the user. If the user does not specify a year, do not invent one."
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "You extract movie and TV series requests for a personal media-management system.\n\nReturn only information supported by the user's request or reliably identifiable from the named media title.\n\nThe \"type\" field must be exactly:\n- movie\n- tv\n- unknown\n\nInterpret natural conversational commands such as \"add\", \"grab\", \"get\", \"download\", \"find\", or \"I want\" as media requests.\n\nDo not include command words in the title.\n\nIf a year is explicitly supplied, extract it. If no year is supplied, do not invent one.\n\nIf the message is not a recognizable request for a movie or TV series, set type to \"unknown\".\n\nWhen genuinely uncertain whether a title refers to a movie or TV series, set type to \"unknown\" rather than guessing."
+        }
+      },
+      "id": "79dade90-a377-4fae-bb2c-9d82df9cab94",
+      "name": "Interpret Media Request",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        1000,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.6-luna",
+          "mode": "list",
+          "cachedResultName": "gpt-5.6-luna"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "ec712087-ca9b-4a22-b407-41768b0327b1",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1250,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "CONFIGURE_OPENAIAPI",
+          "name": "Configure openAiApi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst data = $input.first().json;\nif (Object.prototype.hasOwnProperty.call(data, 'error')) return [{json: {route: 'error'}}];\nconst out = data.output;\nconst clarify = [{json: {route: 'clarification'}}];\nif (!out || !['movie', 'tv'].includes(out.type) || typeof out.title !== 'string' || !out.title.trim()) return clarify;\nif (out.title.length > 300) return clarify;\nconst result = {route: out.type, title: out.title.trim()};\nif (out.year !== undefined && out.year !== null) {\n  if (!Number.isInteger(out.year) || out.year < 1800 || out.year > 2200) return clarify;\n  result.year = out.year;\n}\nreturn [{json: result}];\n"
+      },
+      "id": "d4fee48d-041a-4eaf-9272-53442a1ffbbd",
+      "name": "Validate Interpretation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d3b013ba-515d-4e2e-87dc-084016522f3c",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "movie",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "movie"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "11cf36de-e2ff-449e-8e6d-28968d8b743e",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "tv",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "tv"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "fe05f60a-0b52-43de-8077-d0e01ee4ebaa",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "clarification",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clarification"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "86ffa5dd-52a4-4a1b-ac3a-fec893e33c44",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 3
+        }
+      },
+      "id": "e5a55545-7efc-4f14-9901-2c4ca4f2fc34",
+      "name": "Route Media Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1750,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json: {version: 1, status: 'clarification'}}];"
+      },
+      "id": "fd62b5f5-c09a-4285-8bb5-552a99a475bc",
+      "name": "Clarification Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json: {version: 1, status: 'error'}}];"
+      },
+      "id": "ce1ee85a-6dbc-442a-8ef9-52360d2ae553",
+      "name": "Error Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        250,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "45b547a6-1792-4b2e-90c1-2a1909ad7470",
+      "name": "Respond to Discord",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        500,
+        280
+      ]
+    },
+    {
+      "id": "5248a0a0-b4c1-50e3-a64f-e4d1674500d8",
+      "name": "Confirmation Callback?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ !!$json.action }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        750,
+        280
+      ]
+    },
+    {
+      "id": "168651ce-8ff8-54f9-a23b-007b8922fa62",
+      "name": "Prepare Confirmation Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Validate Discord Request').first().json;return [{json:{...{source:'discord',userId:p.userId,destinationId:p.channelId,messageId:p.messageId,requestedAt:p.requestedAt,text:p.text},pendingId:p.pendingId,action:p.action}}];"
+      },
+      "position": [
+        1000,
+        280
+      ]
+    },
+    {
+      "id": "7353239e-d59b-5d21-b0f0-7c49b8f3fedb",
+      "name": "Resolve Confirmation",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeConfirmMediaV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1250,
+        280
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "7ada7315-0647-572f-bf6d-58c5c245b364",
+      "name": "Prepare movie Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Validate Discord Request').first().json,m=$('Validate Interpretation').first().json;return [{json:{context:{source:'discord',userId:p.userId,destinationId:p.channelId,messageId:p.messageId,requestedAt:p.requestedAt,text:p.text},mediaType:'movie',title:m.title,year:m.year}}];"
+      },
+      "position": [
+        1500,
+        280
+      ]
+    },
+    {
+      "id": "26a6994a-721a-5bcd-a123-538937eb903f",
+      "name": "Preview movie",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakePreviewMediaV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1750,
+        280
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "13be7b05-bd32-558f-88fa-18613800785d",
+      "name": "Prepare tv Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Validate Discord Request').first().json,m=$('Validate Interpretation').first().json;return [{json:{context:{source:'discord',userId:p.userId,destinationId:p.channelId,messageId:p.messageId,requestedAt:p.requestedAt,text:p.text},mediaType:'tv',title:m.title,year:m.year}}];"
+      },
+      "position": [
+        0,
+        560
+      ]
+    },
+    {
+      "id": "b5d7a0bf-8931-5e03-96b0-378fcf865698",
+      "name": "Preview tv",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakePreviewMediaV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        250,
+        560
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Discord Webhook": {
+      "main": [
+        [
+          {
+            "node": "Discord Access Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord Access Settings": {
+      "main": [
+        [
+          {
+            "node": "Validate Discord Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Discord Request": {
+      "main": [
+        [
+          {
+            "node": "Authorized Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorized Request?": {
+      "main": [
+        [
+          {
+            "node": "Confirmation Callback?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpret Media Request": {
+      "main": [
+        [
+          {
+            "node": "Validate Interpretation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Interpretation": {
+      "main": [
+        [
+          {
+            "node": "Route Media Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clarification Result": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Result": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Interpret Media Request",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Media Type": {
+      "main": [
+        [
+          {
+            "node": "Prepare movie Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare tv Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clarification Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmation Callback?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Confirmation Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Interpret Media Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Confirmation Action": {
+      "main": [
+        [
+          {
+            "node": "Resolve Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare movie Preview": {
+      "main": [
+        [
+          {
+            "node": "Preview movie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview movie": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare tv Preview": {
+      "main": [
+        [
+          {
+            "node": "Preview tv",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview tv": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "versionMetadata": {
+    "name": "Discord Media Request V1",
+    "description": ""
+  }
+}

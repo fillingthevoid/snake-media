@@ -1,0 +1,75 @@
+{
+  "id": "snakeRetentionProbeTest",
+  "name": "Snake Media - Lock Probe TEST",
+  "nodes": [
+    {
+      "id": "ac36f526-1f9e-5225-a47d-cd62c7e39880",
+      "name": "Probe Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "14cf6bb4-d351-5645-95a4-db6951e4213e",
+      "name": "Hold Test Lock",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "position": [
+        270,
+        0
+      ]
+    },
+    {
+      "id": "6d7d0781-d5b0-5ba0-aef4-b9d90f3568dc",
+      "name": "Probe Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{probe:true}}];"
+      },
+      "position": [
+        540,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Probe Input": {
+      "main": [
+        [
+          {
+            "node": "Hold Test Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hold Test Lock": {
+      "main": [
+        [
+          {
+            "node": "Probe Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 600
+  }
+}

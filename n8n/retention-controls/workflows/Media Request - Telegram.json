@@ -1,0 +1,959 @@
+{
+  "id": "0e67KTcphqxEKNsh",
+  "name": "Media Request - Telegram",
+  "description": null,
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const u=$json,q=u.callback_query,m=q?.message||u.message;if(!m)return [];const d=q?.data?.match(/^snake:([1-9][0-9]{0,15}):([a-z_0-9]+)$/);return [{json:{text:q?'confirmation':m.text||'',chatId:m.chat.id,userId:(q?.from||m.from).id,messageId:String(m.message_id),requestedAt:new Date(m.date*1000).toISOString(),action:d?.[2],pendingId:d?.[1],callbackId:q?.id}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9e90bbf8-9ada-4380-8dbe-45b8a455ea0d",
+      "name": "Prepare Request"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        270,
+        0
+      ],
+      "id": "3d7ea825-42fe-448d-8d6f-a9b2c64f5ce9",
+      "name": "On message",
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_TELEGRAMAPI",
+          "name": "Configure telegramApi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.text }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "type",
+              "description": "Classify the requested media as exactly one of: movie, tv, unknown. Use \"movie\" for films and \"tv\" for television/streaming series. Use \"unknown\" if the request is not for media or you cannot reliably determine whether the title is a movie or TV series. Never guess when genuinely ambiguous.",
+              "required": true
+            },
+            {
+              "name": "title",
+              "description": "The canonical title of the movie or TV series being requested. Remove conversational command words such as add, download, grab, get, please, movie, show, series, and year phrases. Preserve the actual media title. If no media title can be identified, return an empty string.",
+              "required": true
+            },
+            {
+              "name": "year",
+              "type": "number",
+              "description": "The four-digit release or premiere year specified by the user. If the user does not specify a year, do not invent one."
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "You extract movie and TV series requests for a personal media-management system.\n\nReturn only information supported by the user's request or reliably identifiable from the named media title.\n\nThe \"type\" field must be exactly:\n- movie\n- tv\n- unknown\n\nInterpret natural conversational commands such as \"add\", \"grab\", \"get\", \"download\", \"find\", or \"I want\" as media requests.\n\nDo not include command words in the title.\n\nIf a year is explicitly supplied, extract it. If no year is supplied, do not invent one.\n\nIf the message is not a recognizable request for a movie or TV series, set type to \"unknown\".\n\nWhen genuinely uncertain whether a title refers to a movie or TV series, set type to \"unknown\" rather than guessing."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        540,
+        0
+      ],
+      "id": "a34eae75-0060-474e-9d54-4a9c9315b4dc",
+      "name": "Interpret Media Request"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.6-luna",
+          "mode": "list",
+          "cachedResultName": "gpt-5.6-luna"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        810,
+        0
+      ],
+      "id": "4e3f513b-58f3-4388-9bf8-845dd2f091ec",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "CONFIGURE_OPENAIAPI",
+          "name": "Configure openAiApi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.type }}",
+                    "rightValue": "movie",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "321a9a7f-afad-4ea9-9f9e-86f50ef00121"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Movie"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7cb2e823-c430-4263-9e15-3b8de1225145",
+                    "leftValue": "={{ $json.output.type }}",
+                    "rightValue": "tv",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "TV"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "297af099-0b96-4727-9f61-0a816dca8e42",
+                    "leftValue": "={{ $json.output.type }}",
+                    "rightValue": "unknown",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Unknown"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1080,
+        0
+      ],
+      "id": "7449565e-8dbc-44a5-831a-72f9f0a9e5a1",
+      "name": "Route Media Type"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Prepare Request').first().json.chatId }}",
+        "text": "={{ '\ud83e\udd14 I couldn\\'t confidently determine whether you meant a movie or TV show.\\n\\nTry something like:\\n\\n\ud83c\udfac Movie: Add Step Brothers from 2008\\n\\n\ud83d\udcfa TV: Add Severance' }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1350,
+        0
+      ],
+      "id": "e555eb47-eecc-4564-9f8e-8e388428582e",
+      "name": "Ask for Clarification",
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_TELEGRAMAPI",
+          "name": "Configure telegramApi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8e0a2c4c-112a-48f3-9fed-a45ae53c2d13",
+              "leftValue": "={{ [1005350592,8752658721].includes(Number($json.userId)) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1620,
+        0
+      ],
+      "id": "8709c787-6dea-473f-a60a-0b460c000e2e",
+      "name": "Authorized User?"
+    },
+    {
+      "parameters": {
+        "operation": "sendRichMessage",
+        "chatId": "={{ $('Prepare Request').first().json.chatId }}",
+        "richMessageText": "\u26d4 This Telegram account isn't authorized to use Snake Media.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        250
+      ],
+      "id": "81e8cc41-b43a-4813-92cb-c9f987b036f3",
+      "name": "Access Denied",
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_TELEGRAMAPI",
+          "name": "Configure telegramApi"
+        }
+      }
+    },
+    {
+      "id": "3e8cfa4b-2ffd-5cdf-ad36-7d2aae0c56b0",
+      "name": "Format Interactive Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$json;const p=$('Prepare Request').first().json;let text=r.text|| (r.status==='not_found'?'\ud83d\udd0e No matching title was found. Try including the year.':'\u26a0\ufe0f Unable to process that request. Please try again.');return [{json:{...r,chatId:p.chatId,replyText:text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'),keyboard:{rows:(r.choices||[]).map(c=>({row:{buttons:[{text:c.label,additionalFields:{callback_data:'snake:'+r.pendingId+':'+c.action}}]}}))}}}];"
+      },
+      "position": [
+        270,
+        250
+      ]
+    },
+    {
+      "id": "5248a0a0-b4c1-50e3-a64f-e4d1674500d8",
+      "name": "Confirmation Callback?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ !!$json.action }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        540,
+        250
+      ]
+    },
+    {
+      "id": "168651ce-8ff8-54f9-a23b-007b8922fa62",
+      "name": "Prepare Confirmation Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Prepare Request').first().json;return [{json:{...{source:'telegram',userId:String(p.userId),destinationId:String(p.chatId),messageId:p.messageId,requestedAt:p.requestedAt,text:p.text},pendingId:p.pendingId,action:p.action}}];"
+      },
+      "position": [
+        810,
+        250
+      ]
+    },
+    {
+      "id": "7353239e-d59b-5d21-b0f0-7c49b8f3fedb",
+      "name": "Resolve Confirmation",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeConfirmMediaV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1080,
+        250
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "b596e4c9-b060-5f3e-8ac0-eebb62a75d8f",
+      "name": "Acknowledge Button",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $('Prepare Request').first().json.callbackId }}",
+        "additionalFields": {}
+      },
+      "position": [
+        1350,
+        250
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_TELEGRAMAPI",
+          "name": "Configure telegramApi"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "7ada7315-0647-572f-bf6d-58c5c245b364",
+      "name": "Prepare movie Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Prepare Request').first().json,m=$('Interpret Media Request').first().json.output;return [{json:{context:{source:'telegram',userId:String(p.userId),destinationId:String(p.chatId),messageId:p.messageId,requestedAt:p.requestedAt,text:p.text},mediaType:'movie',title:m.title,year:m.year}}];"
+      },
+      "position": [
+        1620,
+        250
+      ]
+    },
+    {
+      "id": "26a6994a-721a-5bcd-a123-538937eb903f",
+      "name": "Preview movie",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakePreviewMediaV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        0,
+        500
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "13be7b05-bd32-558f-88fa-18613800785d",
+      "name": "Prepare tv Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Prepare Request').first().json,m=$('Interpret Media Request').first().json.output;return [{json:{context:{source:'telegram',userId:String(p.userId),destinationId:String(p.chatId),messageId:p.messageId,requestedAt:p.requestedAt,text:p.text},mediaType:'tv',title:m.title,year:m.year}}];"
+      },
+      "position": [
+        270,
+        500
+      ]
+    },
+    {
+      "id": "b5d7a0bf-8931-5e03-96b0-378fcf865698",
+      "name": "Preview tv",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakePreviewMediaV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        540,
+        500
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "c7562f71-f5fb-50c0-a712-de04cb5931a7",
+      "name": "Deliver Interactive Reply",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeTelegramCardV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        810,
+        500
+      ]
+    },
+    {
+      "id": "685742c6-90dc-55b2-bd77-d3a46064ad26",
+      "name": "Parse Status Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Read-only status projection. Never calculates or changes retention policy.\nfunction command(text){const m=typeof text==='string'&&text.trim().match(/^\\/?status(?:@[A-Za-z0-9_]+)?(?:\\s+(.*))?$/i);return m?(m[1]||'').trim().slice(0,200):null;}\nfunction select(rows,actor){\n if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\\d+$/.test(actor.userId))throw new Error('Invalid status actor');\n const query=String(actor.query||'').toLowerCase();const groups=new Map();\n for(const r of [...rows].sort((a,b)=>Date.parse(b.requestedAt)-Date.parse(a.requestedAt))){\n  if(r.source!==actor.source||r.userId!==actor.userId||r.userId==='1'||r.state!=='registered'||!r.requestKey||!['movie','tv'].includes(r.mediaType)||!/^\\d+$/.test(String(r.mediaId))||!String(r.title).toLowerCase().includes(query))continue;\n  const key=r.mediaType+':'+r.mediaId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);\n }\n const values=[...groups.values()];\n if(!values.length)return [{notice:query?'No requests of yours match that title.':'No requests found for your account on this platform.'}];\n if(query&&values.length>1)return [{notice:'Several matches. Use status with a more specific title:\\n'+values.slice(0,8).map(rs=>'\u2022 '+rs[0].title.slice(0,100)).join('\\n')}];\n return values.slice(0,3).map(requests=>({requests}));\n}\nfunction dateLabel(stamp){return new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(stamp));}\nfunction describe({requests,records,media,episodes,queue,library,now}){\n const r=requests[0],title=String(r.title).replace(/[\\r\\n]/g,' ').slice(0,100),header=(r.mediaType==='movie'?'\ud83c\udfac ':'\ud83d\udcfa ')+title;\n if(!media||media.id!==Number(r.mediaId))return header+'\\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');\n const saved=new Map(records.filter(x=>x.key).map(x=>[x.key,JSON.parse(x.payloadJson)]));\n const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]').map(String)));\n for(const request of requests){const profile=saved.get('request:'+request.requestKey);if(profile)for(const id of profile.episodeIds||[])ids.add(String(id));}\n const items=r.mediaType==='movie'?[{id:r.mediaId,file:media.movieFile,release:media.digitalRelease||media.physicalRelease||media.inCinemas}]:episodes.filter(e=>ids.has(String(e.id))).map(e=>({...e,file:e.episodeFile,release:e.airDateUtc}));\n const paths=new Set(library.filter(x=>x.Id&&x.Path).map(x=>x.Path));\n const counts={available:0,imported:0,downloading:0,queued:0,unreleased:0,waiting:0,removed:0};const files=new Map();\n for(const item of items){\n  if(item.file?.id){files.set(item.file.id,item.file);counts[paths.has('/data'+item.file.path)?'available':'imported']++;continue;}\n  const q=queue.find(q=>r.mediaType==='movie'?q.movieId===Number(r.mediaId):q.seriesId===Number(r.mediaId)&&(q.episodeId===item.id||(!q.episodeId&&q.seasonNumber===item.seasonNumber)));\n  if(q){counts[String(q.status).toLowerCase()==='downloading'?'downloading':'queued']++;continue;}\n  const deleted=r.mediaType==='tv'&&[...saved.entries()].some(([key,v])=>key.startsWith('file:tv:'+r.mediaId+':')&&v.state==='deleted'&&(v.episodeIds||[]).includes(String(item.id)));\n  counts[deleted?'removed':Date.parse(item.release)>now?'unreleased':'waiting']++;\n }\n let status;\n if(r.mediaType==='movie')status=counts.available?'\u2705 Available in Jellyfin':counts.imported?'\ud83d\udce5 Imported; waiting for Jellyfin':counts.downloading?'\u2b07\ufe0f Downloading':counts.queued?'\u23f3 In download queue / awaiting import':counts.unreleased?'\ud83d\udcc5 Awaiting release':'\ud83d\udd0e Waiting for a release';\n else {const labels={available:'available in Jellyfin',imported:'imported; waiting for Jellyfin',downloading:'downloading',queued:'queued / awaiting import',unreleased:'awaiting release',waiting:'waiting for a release',removed:'previously expired'};status=Object.entries(counts).filter(([,v])=>v).map(([k,v])=>v+' '+labels[k]).join(' \u00b7 ')||'Episode metadata pending';}\n let protectedCount=0,pending=0,earliest=null,oldest=Infinity,deferred=0;\n for(const file of files.values()){\n  const v=saved.get(`file:${r.mediaType}:${r.mediaId}:${file.id}`);\n  if(!v||v.state!=='tracked'||v.path!==file.path||Date.parse(v.importedAt)!==Date.parse(file.dateAdded)||!Number.isFinite(Date.parse(v.checkedAt))){pending++;continue;}\n  oldest=Math.min(oldest,Date.parse(v.checkedAt));\n  if(v.identityProtected||!v.expiresAt||v.reason==='protected claim'||v.reason==='unclaimed'||v.reason==='unclaimed episode in shared file'){protectedCount++;continue;}\n  if(!Number.isFinite(Date.parse(v.expiresAt))){pending++;continue;}\n  earliest=Math.min(earliest??Infinity,Date.parse(v.expiresAt));\n  if(v.reason==='currently playing or unresolved active session')deferred++;\n }\n const lines=[header,status];\n if(earliest!==null)lines.push((r.mediaType==='tv'?'Next episode expiry: ':'Expiry: ')+dateLabel(earliest)+(earliest<=now?' (due; cleanup pending)':''));\n if(protectedCount)lines.push(protectedCount+' protected '+(protectedCount===1?'file':'files')+' \u2014 no automatic deletion.');\n if(pending)lines.push('Expiry check pending for '+pending+' '+(pending===1?'file.':'files.'));\n if(!files.size){const days=[...new Set(requests.map(x=>x.retentionDays))];lines.push(days.includes(null)?'Permanent/protected request.':days.length===1?`Expiry starts after import (${days[0]} days${r.mediaType==='tv'?' per episode':''}).`:'Expiry starts after import; multiple retention choices apply.');}\n if(Number.isFinite(oldest))lines.push('Retention checked '+dateLabel(oldest)+(now-oldest>30*60000?' \u2014 stale; dates may change.':'.'));\n if(deferred)lines.push('Cleanup deferred for active playback.');\n if(r.mediaType==='tv'&&requests.some(x=>saved.has('request:'+x.requestKey)))lines.push('Future regular seasons monitored.');\n return lines.join('\\n');\n}\nif(typeof module!=='undefined')module.exports={command,select,describe};\n\nconst p=$('Prepare Request').first().json;return [{json:{...p,statusQuery:command(p.text)}}];"
+      },
+      "position": [
+        1080,
+        500
+      ]
+    },
+    {
+      "id": "b079f874-698d-53b1-98e9-aed589c39f31",
+      "name": "Status Command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ $json.statusQuery!==null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1350,
+        500
+      ]
+    },
+    {
+      "id": "bcb61608-607d-54a7-8892-49b50ca757ac",
+      "name": "Prepare Status Actor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$json;return [{json:{source:'telegram',userId:String(p.userId),query:p.statusQuery}}];"
+      },
+      "position": [
+        1620,
+        500
+      ]
+    },
+    {
+      "id": "94897ce5-f212-5bf1-8208-56f5bcc6c759",
+      "name": "Read Request Status",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeStatusV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        0,
+        750
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "615dcb22-f439-53e3-89ad-241e52c05326",
+      "name": "Parse Retention Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Confirmation and immutable retention amendments. No service calls.\nfunction parseChange(text){\n if(typeof text!=='string')return null;\n const input=text.trim();if(!/^\\/?(?:extend|keep)(?:@[A-Za-z0-9_]+)?(?:\\s|$)/i.test(input))return null;\n let m=input.match(/^\\/?extend(?:@[A-Za-z0-9_]+)?\\s+(.+?)\\s+([0-9]+)\\s+days?$/i);\n if(m&&Number(m[2])>=1&&Number(m[2])<=3650)return {operation:'extend',query:m[1].trim(),days:Number(m[2])};\n m=input.match(/^\\/?keep(?:@[A-Za-z0-9_]+)?\\s+(.+?)\\s+permanently$/i);\n if(m)return {operation:'permanent',query:m[1].trim()};\n return {error:'Use extend <title> 7 days (1\u20133650 whole days), or keep <title> permanently.'};\n}\nfunction prepareChange(actor,rows){\n if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\\d+$/.test(actor.userId))throw Error('Invalid actor');\n const parsed=parseChange(actor.text);if(!parsed||parsed.error)return {notice:parsed?.error||'Not a retention command.'};\n const matches=rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.userId!=='1'&&r.state==='registered'&&r.requestKey&&['movie','tv'].includes(r.mediaType)&&/^\\d+$/.test(String(r.mediaId))&&String(r.title).toLowerCase().includes(parsed.query.toLowerCase()));\n const keys=new Set(matches.map(r=>r.mediaType+':'+r.mediaId));\n if(!matches.length)return {notice:'No requests of yours match that title on this platform.'};\n if(keys.size!==1)return {notice:'Several matches. Please use a more specific title:\\n'+[...new Set(matches.map(r=>r.title))].slice(0,8).map(t=>'\u2022 '+String(t).slice(0,100)).join('\\n')};\n const r=matches[0];return {change:{...parsed,source:actor.source,userId:actor.userId,requestKeys:[...new Set(matches.map(r=>r.requestKey))],mediaType:r.mediaType,mediaId:String(r.mediaId),title:String(r.title).slice(0,150)}};\n}\nfunction planChange(change,requests,decisions,records,{pendingId,now}){\n if(!['extend','permanent'].includes(change.operation)||!Array.isArray(change.requestKeys)||!change.requestKeys.length||!/^\\d+$/.test(String(pendingId))||!Number.isFinite(now))throw Error('Invalid amendment');\n if(change.operation==='extend'&&(!Number.isInteger(change.days)||change.days<1||change.days>3650))throw Error('Invalid duration');\n const selected=change.requestKeys.map(key=>requests.find(r=>r.requestKey===key));\n if(selected.some(r=>!r||r.state!=='registered'||r.mediaType!==change.mediaType||String(r.mediaId)!==change.mediaId||r.source!==change.source||r.userId!==change.userId))throw Error('Request ownership changed');\n const existing=records.filter(r=>r.key==='change:'+pendingId);\n if(existing.length>1)throw Error('Duplicate amendment');\n if(existing.length){const e=JSON.parse(existing[0].payloadJson);if(e.source!==change.source||e.userId!==change.userId||e.operation!==change.operation||e.mediaId!==change.mediaId||e.mediaType!==change.mediaType)throw Error('Amendment collision');return e;}\n const result={version:1,pendingId:String(pendingId),operation:change.operation,source:change.source,userId:change.userId,requestKeys:change.requestKeys,mediaType:change.mediaType,mediaId:change.mediaId,title:change.title,createdAt:new Date(now).toISOString(),files:[]};\n if(change.operation==='permanent')return result;\n const ids=new Set(selected.flatMap(r=>JSON.parse(r.episodeIdsJson||'[]').map(String)));\n for(const row of records)if(selected.some(r=>row.key==='request:'+r.requestKey))for(const id of JSON.parse(row.payloadJson).episodeIds||[])ids.add(String(id));\n for(const d of decisions){\n  if(change.mediaType==='tv'&&!(d.episodeIds||[]).some(id=>ids.has(String(id))))continue;\n  if(d.state!=='tracked'||d.identityProtected||!d.expiresAt||!Number.isFinite(Date.parse(d.expiresAt))||!Number.isFinite(Date.parse(d.importedAt))||!Number.isSafeInteger(d.fileId)||typeof d.path!=='string')continue;\n  const minimumExpiry=new Date(Math.max(now,Date.parse(d.expiresAt))+change.days*86400000).toISOString();\n  result.files.push({fileId:d.fileId,path:d.path,importedAt:d.importedAt,minimumExpiry});\n }\n if(!result.files.length)return {notice:'No imported files with a timed expiry need extending. Files already protected stay protected; upcoming episodes keep their existing retention.'};\n return result;\n}\nfunction changeCard(row){\n if(row.version)return row;\n const c=JSON.parse(row.contextJson).retentionChange;\n if(!c)return null;\n if(row.state==='cancelled')return {version:1,status:'notice',text:'Cancelled. Retention was not changed.'};\n if(row.state!=='preview'||Date.parse(row.expiresAt)<=Date.now())return {version:1,status:'notice',text:'This retention choice expired or was already handled. Send a new command.'};\n const text=(c.mediaType==='tv'?'\ud83d\udcfa ':'\ud83c\udfac ')+c.title+'\\n\\n'+(c.operation==='permanent'?'Keep your requests for this title permanently, including future episodes attached to them?':`Add ${c.days} days to each currently imported eligible file\u2019s effective expiry (or now, if later)?\\nWatching cannot shorten this extension. Upcoming episodes keep their existing retention.`)+'\\n\\nNo media will be re-downloaded.';\n return {version:1,status:'confirmation',text,pendingId:String(row.id),choices:[{label:'Confirm',action:'confirm'},{label:'Cancel',action:'cancel'}]};\n}\nif(typeof module!=='undefined')module.exports={parseChange,prepareChange,planChange,changeCard};\n\nconst p=$('Prepare Request').first().json;return [{json:{...p,retentionCommand:parseChange(p.text)}}];"
+      },
+      "position": [
+        270,
+        750
+      ]
+    },
+    {
+      "id": "3b1bd219-3107-5b3f-8d64-33e883982817",
+      "name": "Retention Command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ $json.retentionCommand!==null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        540,
+        750
+      ]
+    },
+    {
+      "id": "35b1f14b-b869-54b9-b01f-c414a298bbc6",
+      "name": "Prepare Retention Actor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$json;return [{json:{source:'telegram',userId:String(p.userId),destinationId:String(p.channelId||p.chatId),messageId:String(p.messageId),text:p.text}}];"
+      },
+      "position": [
+        810,
+        750
+      ]
+    },
+    {
+      "id": "1fdc8d1a-5e12-53aa-8cdf-307f4fb5bc20",
+      "name": "Preview Retention Change",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeRetentionChangePreviewV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1080,
+        750
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Prepare Request": {
+      "main": [
+        [
+          {
+            "node": "Authorized User?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On message": {
+      "main": [
+        [
+          {
+            "node": "Prepare Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Interpret Media Request",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpret Media Request": {
+      "main": [
+        [
+          {
+            "node": "Route Media Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Media Type": {
+      "main": [
+        [
+          {
+            "node": "Prepare movie Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare tv Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ask for Clarification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorized User?": {
+      "main": [
+        [
+          {
+            "node": "Confirmation Callback?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Access Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Interactive Reply": {
+      "main": [
+        [
+          {
+            "node": "Deliver Interactive Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmation Callback?": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Button",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Status Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Confirmation Action": {
+      "main": [
+        [
+          {
+            "node": "Resolve Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Format Interactive Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledge Button": {
+      "main": [
+        [
+          {
+            "node": "Prepare Confirmation Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare movie Preview": {
+      "main": [
+        [
+          {
+            "node": "Preview movie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview movie": {
+      "main": [
+        [
+          {
+            "node": "Format Interactive Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare tv Preview": {
+      "main": [
+        [
+          {
+            "node": "Preview tv",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview tv": {
+      "main": [
+        [
+          {
+            "node": "Format Interactive Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Status Command": {
+      "main": [
+        [
+          {
+            "node": "Status Command?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Command?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Status Actor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Retention Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Status Actor": {
+      "main": [
+        [
+          {
+            "node": "Read Request Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Request Status": {
+      "main": [
+        [
+          {
+            "node": "Format Interactive Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Retention Command": {
+      "main": [
+        [
+          {
+            "node": "Retention Command?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retention Command?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retention Actor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Interpret Media Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Retention Actor": {
+      "main": [
+        [
+          {
+            "node": "Preview Retention Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview Retention Change": {
+      "main": [
+        [
+          {
+            "node": "Format Interactive Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "versionMetadata": {
+    "name": "Version 34e9939e",
+    "description": ""
+  }
+}

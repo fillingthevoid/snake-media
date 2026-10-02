@@ -1,0 +1,148 @@
+{
+  "id": "snakeNotificationVerifyV1",
+  "name": "Snake Media - Verify Completion Queue",
+  "nodes": [
+    {
+      "id": "f531c04e-38d0-5c9f-893e-00a841cd870a",
+      "name": "Run Queue Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "6b3896f1-f437-5c1d-9ce2-ae121b19489c",
+      "name": "Synthetic Completed File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{request:{requestKey:'discord:1:3',source:'discord',destinationId:'1',userId:'1',messageId:'3'},fileKey:'movie:1',label:'SYNTHETIC TEST - NOT MEDIA',jellyfinPath:'/data/movies/synthetic.mkv',jellyfinItems:[{Path:'/data/movies/synthetic.mkv',Id:'synthetic'}]}}];"
+      },
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "id": "62785b98-ffc7-585a-9117-b953e6d324e7",
+      "name": "Queue Synthetic Notice",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeQueueCandidateV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "id": "788b2c04-8b49-5684-8594-c49f60d6cd90",
+      "name": "Find Synthetic Notice",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_notifications"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "notificationKey",
+              "condition": "eq",
+              "keyValue": "discord:1:3:movie:1"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "id": "a9684ce3-a45b-5b52-9fe2-08ad7550a72f",
+      "name": "Assert Notice Stored",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const rows=$input.all();if(rows.length!==1||rows[0].json.source!=='discord'||JSON.parse(rows[0].json.payloadJson).userId!=='1')throw new Error('Queue storage failed');return [{json:{passed:true}}];"
+      },
+      "position": [
+        800,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Run Queue Test": {
+      "main": [
+        [
+          {
+            "node": "Synthetic Completed File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthetic Completed File": {
+      "main": [
+        [
+          {
+            "node": "Queue Synthetic Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queue Synthetic Notice": {
+      "main": [
+        [
+          {
+            "node": "Find Synthetic Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Synthetic Notice": {
+      "main": [
+        [
+          {
+            "node": "Assert Notice Stored",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 240
+  },
+  "active": false
+}

@@ -1,0 +1,444 @@
+{
+  "id": "snakeRetentionAdminV1",
+  "name": "Snake Media - Retention Administration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "snake-retention-admin",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "54ff08ba-3c44-554a-a2fd-b54fe5a77842",
+      "name": "Retention Admin",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "notesInFlow": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CONFIGURE_HTTPHEADERAUTH",
+          "name": "Configure httpHeaderAuth"
+        }
+      },
+      "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication."
+    },
+    {
+      "id": "7dfcfd2e-18e1-539d-a8f9-8fa9f01349e9",
+      "name": "Validate Admin Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const action=$json.body?.action;if(!['scan','enable','preview','status'].includes(action))throw new Error('Invalid retention action');return [{json:{action}}];"
+      },
+      "position": [
+        270,
+        0
+      ]
+    },
+    {
+      "id": "089b2059-48b5-5358-88f5-e20ed55865e1",
+      "name": "Run Admin Scan?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.action==='scan' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "8a207144-9618-5536-8f16-cf60c589ba7f",
+      "name": "Admin Scan Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{job:'scan'}}];"
+      },
+      "position": [
+        810,
+        0
+      ]
+    },
+    {
+      "id": "bba30abd-4637-52e3-8c36-70d45950fc68",
+      "name": "Run Admin Coordinator",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeRetentionCoordinatorV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1080,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "42e6d9b8-0657-53a3-87c4-4dc7200cdd1b",
+      "name": "Admin Lock Status",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "global"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        1350,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "5596e50e-c47f-59ef-8bb4-b3a880031877",
+      "name": "Validate Mode Change",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const rows=$input.all().filter(x=>x.json.key);if(rows.length!==1)throw new Error('Invalid control state');const action=$('Validate Admin Action').first().json.action;if(action!=='status'&&rows[0].json.owner!=='')throw new Error('Cannot change mode while retention is running');return [{json:{action}}];"
+      },
+      "position": [
+        1620,
+        0
+      ]
+    },
+    {
+      "id": "ea57e9c3-d5c7-5d26-bb9e-71e07fb11468",
+      "name": "Change Retention Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.action!=='status' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "id": "411be958-8487-586b-901c-0027d4cde6ad",
+      "name": "Set Retention Mode",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "mode"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "owner": "={{ $json.action==='enable'?'enabled':'preview' }}"
+          },
+          "schema": [
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        270,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "40223bc4-64f0-5311-993a-3ce81e3e8639",
+      "name": "Read Admin Mode",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "mode"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        540,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "53a34e6c-543c-59c0-858d-4e6a46126dc6",
+      "name": "Admin Mode Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{mode:$json.owner}}];"
+      },
+      "position": [
+        810,
+        240
+      ]
+    },
+    {
+      "id": "b90d1c38-729e-5ac4-886c-f7c16ccc58ba",
+      "name": "Admin Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "position": [
+        1080,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Retention Admin": {
+      "main": [
+        [
+          {
+            "node": "Validate Admin Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Admin Action": {
+      "main": [
+        [
+          {
+            "node": "Run Admin Scan?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Admin Scan?": {
+      "main": [
+        [
+          {
+            "node": "Admin Scan Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Admin Lock Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Scan Job": {
+      "main": [
+        [
+          {
+            "node": "Run Admin Coordinator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Admin Coordinator": {
+      "main": [
+        [
+          {
+            "node": "Admin Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Lock Status": {
+      "main": [
+        [
+          {
+            "node": "Validate Mode Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Mode Change": {
+      "main": [
+        [
+          {
+            "node": "Change Retention Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Change Retention Mode?": {
+      "main": [
+        [
+          {
+            "node": "Set Retention Mode",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Admin Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Retention Mode": {
+      "main": [
+        [
+          {
+            "node": "Read Admin Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Admin Mode": {
+      "main": [
+        [
+          {
+            "node": "Admin Mode Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Mode Result": {
+      "main": [
+        [
+          {
+            "node": "Admin Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 600
+  }
+}

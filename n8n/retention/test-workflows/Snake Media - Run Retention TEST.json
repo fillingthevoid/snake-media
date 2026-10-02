@@ -1,0 +1,282 @@
+{
+  "id": "snakeRetentionRunTest",
+  "name": "Snake Media - Run Retention TEST",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "snake-retention-run-test",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5800b551-0153-5060-a22d-164f2b138904",
+      "name": "Test Run",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "notesInFlow": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CONFIGURE_HTTPHEADERAUTH",
+          "name": "Configure httpHeaderAuth"
+        }
+      },
+      "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication."
+    },
+    {
+      "id": "328783e9-36e4-579c-b261-7392769f33c3",
+      "name": "Validate Test Mode",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const mode=$json.body?.mode;if(!['preview','enabled','probe'].includes(mode))throw new Error('Invalid test mode');return [{json:{mode}}];"
+      },
+      "position": [
+        270,
+        0
+      ]
+    },
+    {
+      "id": "f926d84e-cb70-5be9-8207-076b8268c830",
+      "name": "Probe Only?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.mode==='probe' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "f7e130c8-193f-5466-8ede-d8c898c5471a",
+      "name": "Probe Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{job:'commit'}}];"
+      },
+      "position": [
+        810,
+        0
+      ]
+    },
+    {
+      "id": "adb55872-312e-5aa5-988e-b645108d4c68",
+      "name": "Set Test Mode",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "isolated_retention_retention_control_test"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "mode"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "owner": "={{ $json.mode }}"
+          },
+          "schema": [
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1080,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "981c913b-287d-5683-9a8e-09de00145d3d",
+      "name": "Test Scan Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{job:'scan'}}];"
+      },
+      "position": [
+        1350,
+        0
+      ]
+    },
+    {
+      "id": "54c6a5ea-858f-5136-aa4d-0f3b09c8debe",
+      "name": "Run Test Coordinator",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeRetentionCoordinatorV1Test"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1620,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "8dbdab3c-f05f-551a-806e-258ee85ff0de",
+      "name": "Test Run Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "position": [
+        0,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Test Run": {
+      "main": [
+        [
+          {
+            "node": "Validate Test Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Test Mode": {
+      "main": [
+        [
+          {
+            "node": "Probe Only?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe Only?": {
+      "main": [
+        [
+          {
+            "node": "Probe Job",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Test Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe Job": {
+      "main": [
+        [
+          {
+            "node": "Run Test Coordinator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Test Coordinator": {
+      "main": [
+        [
+          {
+            "node": "Test Run Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Test Mode": {
+      "main": [
+        [
+          {
+            "node": "Test Scan Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Scan Job": {
+      "main": [
+        [
+          {
+            "node": "Run Test Coordinator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 600
+  }
+}

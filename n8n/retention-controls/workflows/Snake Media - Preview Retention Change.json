@@ -1,0 +1,459 @@
+{
+  "id": "snakeRetentionChangePreviewV1",
+  "name": "Snake Media - Preview Retention Change",
+  "nodes": [
+    {
+      "id": "d32ec1b0-e5a7-5651-9f64-44b9328fd5a1",
+      "name": "Change Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "3983c385-dec2-5e10-81ce-39d2ec03edca",
+      "name": "Read Change Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_requests"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f47bdeb5-8c5c-5209-9ed1-05032a4b08ce",
+      "name": "Prepare Retention Change",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Confirmation and immutable retention amendments. No service calls.\nfunction parseChange(text){\n if(typeof text!=='string')return null;\n const input=text.trim();if(!/^\\/?(?:extend|keep)(?:@[A-Za-z0-9_]+)?(?:\\s|$)/i.test(input))return null;\n let m=input.match(/^\\/?extend(?:@[A-Za-z0-9_]+)?\\s+(.+?)\\s+([0-9]+)\\s+days?$/i);\n if(m&&Number(m[2])>=1&&Number(m[2])<=3650)return {operation:'extend',query:m[1].trim(),days:Number(m[2])};\n m=input.match(/^\\/?keep(?:@[A-Za-z0-9_]+)?\\s+(.+?)\\s+permanently$/i);\n if(m)return {operation:'permanent',query:m[1].trim()};\n return {error:'Use extend <title> 7 days (1\u20133650 whole days), or keep <title> permanently.'};\n}\nfunction prepareChange(actor,rows){\n if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\\d+$/.test(actor.userId))throw Error('Invalid actor');\n const parsed=parseChange(actor.text);if(!parsed||parsed.error)return {notice:parsed?.error||'Not a retention command.'};\n const matches=rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.userId!=='1'&&r.state==='registered'&&r.requestKey&&['movie','tv'].includes(r.mediaType)&&/^\\d+$/.test(String(r.mediaId))&&String(r.title).toLowerCase().includes(parsed.query.toLowerCase()));\n const keys=new Set(matches.map(r=>r.mediaType+':'+r.mediaId));\n if(!matches.length)return {notice:'No requests of yours match that title on this platform.'};\n if(keys.size!==1)return {notice:'Several matches. Please use a more specific title:\\n'+[...new Set(matches.map(r=>r.title))].slice(0,8).map(t=>'\u2022 '+String(t).slice(0,100)).join('\\n')};\n const r=matches[0];return {change:{...parsed,source:actor.source,userId:actor.userId,requestKeys:[...new Set(matches.map(r=>r.requestKey))],mediaType:r.mediaType,mediaId:String(r.mediaId),title:String(r.title).slice(0,150)}};\n}\nfunction planChange(change,requests,decisions,records,{pendingId,now}){\n if(!['extend','permanent'].includes(change.operation)||!Array.isArray(change.requestKeys)||!change.requestKeys.length||!/^\\d+$/.test(String(pendingId))||!Number.isFinite(now))throw Error('Invalid amendment');\n if(change.operation==='extend'&&(!Number.isInteger(change.days)||change.days<1||change.days>3650))throw Error('Invalid duration');\n const selected=change.requestKeys.map(key=>requests.find(r=>r.requestKey===key));\n if(selected.some(r=>!r||r.state!=='registered'||r.mediaType!==change.mediaType||String(r.mediaId)!==change.mediaId||r.source!==change.source||r.userId!==change.userId))throw Error('Request ownership changed');\n const existing=records.filter(r=>r.key==='change:'+pendingId);\n if(existing.length>1)throw Error('Duplicate amendment');\n if(existing.length){const e=JSON.parse(existing[0].payloadJson);if(e.source!==change.source||e.userId!==change.userId||e.operation!==change.operation||e.mediaId!==change.mediaId||e.mediaType!==change.mediaType)throw Error('Amendment collision');return e;}\n const result={version:1,pendingId:String(pendingId),operation:change.operation,source:change.source,userId:change.userId,requestKeys:change.requestKeys,mediaType:change.mediaType,mediaId:change.mediaId,title:change.title,createdAt:new Date(now).toISOString(),files:[]};\n if(change.operation==='permanent')return result;\n const ids=new Set(selected.flatMap(r=>JSON.parse(r.episodeIdsJson||'[]').map(String)));\n for(const row of records)if(selected.some(r=>row.key==='request:'+r.requestKey))for(const id of JSON.parse(row.payloadJson).episodeIds||[])ids.add(String(id));\n for(const d of decisions){\n  if(change.mediaType==='tv'&&!(d.episodeIds||[]).some(id=>ids.has(String(id))))continue;\n  if(d.state!=='tracked'||d.identityProtected||!d.expiresAt||!Number.isFinite(Date.parse(d.expiresAt))||!Number.isFinite(Date.parse(d.importedAt))||!Number.isSafeInteger(d.fileId)||typeof d.path!=='string')continue;\n  const minimumExpiry=new Date(Math.max(now,Date.parse(d.expiresAt))+change.days*86400000).toISOString();\n  result.files.push({fileId:d.fileId,path:d.path,importedAt:d.importedAt,minimumExpiry});\n }\n if(!result.files.length)return {notice:'No imported files with a timed expiry need extending. Files already protected stay protected; upcoming episodes keep their existing retention.'};\n return result;\n}\nfunction changeCard(row){\n if(row.version)return row;\n const c=JSON.parse(row.contextJson).retentionChange;\n if(!c)return null;\n if(row.state==='cancelled')return {version:1,status:'notice',text:'Cancelled. Retention was not changed.'};\n if(row.state!=='preview'||Date.parse(row.expiresAt)<=Date.now())return {version:1,status:'notice',text:'This retention choice expired or was already handled. Send a new command.'};\n const text=(c.mediaType==='tv'?'\ud83d\udcfa ':'\ud83c\udfac ')+c.title+'\\n\\n'+(c.operation==='permanent'?'Keep your requests for this title permanently, including future episodes attached to them?':`Add ${c.days} days to each currently imported eligible file\u2019s effective expiry (or now, if later)?\\nWatching cannot shorten this extension. Upcoming episodes keep their existing retention.`)+'\\n\\nNo media will be re-downloaded.';\n return {version:1,status:'confirmation',text,pendingId:String(row.id),choices:[{label:'Confirm',action:'confirm'},{label:'Cancel',action:'cancel'}]};\n}\nif(typeof module!=='undefined')module.exports={parseChange,prepareChange,planChange,changeCard};\n\nconst a=$('Change Input').first().json;const result=prepareChange(a,$input.all().map(x=>x.json));if(result.notice)return [{json:{version:1,status:'notice',text:result.notice}}];const c=result.change;return [{json:{source:a.source,userId:a.userId,destinationId:a.destinationId,requestKey:'retention:'+a.source+':'+a.destinationId+':'+a.messageId,contextJson:JSON.stringify({...a,retentionChange:c}),mediaType:c.mediaType,mediaJson:JSON.stringify({title:c.title}),state:'preview',claimId:'',choice:'',expiresAt:new Date(Date.now()+30*60000).toISOString()}}];"
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "7722d397-6de5-58e1-a339-d99f876d039d",
+      "name": "Change Matches?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ !!$json.requestKey }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        810,
+        0
+      ]
+    },
+    {
+      "id": "8fd7607c-6402-5479-9cc8-ebc45bdfbcb3",
+      "name": "Find Change Preview",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_pending"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requestKey",
+              "condition": "eq",
+              "keyValue": "={{ $json.requestKey }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        1080,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "cebe4429-a2b9-592c-a019-2b2ee29a305c",
+      "name": "Resolve Change Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const rows=$input.all().filter(x=>x.json.id);if(rows.length>1)throw Error('Duplicate pending change');return [{json:{existing:rows.length===1,record:rows[0]?.json||$('Prepare Retention Change').first().json}}];"
+      },
+      "position": [
+        1350,
+        0
+      ]
+    },
+    {
+      "id": "b9e6b50d-d027-551c-8509-6fb214306a10",
+      "name": "Reuse Change Preview?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ $json.existing }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1620,
+        0
+      ]
+    },
+    {
+      "id": "8daa82d5-9d1f-5325-a499-2cc2d233a8b4",
+      "name": "Existing Change Card",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:$json.record}];"
+      },
+      "position": [
+        0,
+        250
+      ]
+    },
+    {
+      "id": "940047a1-7e89-5b4b-8049-2d7945e5bc64",
+      "name": "Store Change Preview",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_pending"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "source": "={{ $json.record.source }}",
+            "userId": "={{ $json.record.userId }}",
+            "destinationId": "={{ $json.record.destinationId }}",
+            "requestKey": "={{ $json.record.requestKey }}",
+            "contextJson": "={{ $json.record.contextJson }}",
+            "mediaType": "={{ $json.record.mediaType }}",
+            "mediaJson": "={{ $json.record.mediaJson }}",
+            "state": "={{ $json.record.state }}",
+            "claimId": "={{ $json.record.claimId }}",
+            "choice": "={{ $json.record.choice }}",
+            "expiresAt": "={{ $json.record.expiresAt }}"
+          },
+          "schema": [
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userId",
+              "displayName": "userId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "destinationId",
+              "displayName": "destinationId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requestKey",
+              "displayName": "requestKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contextJson",
+              "displayName": "contextJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaType",
+              "displayName": "mediaType",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaJson",
+              "displayName": "mediaJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "claimId",
+              "displayName": "claimId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "choice",
+              "displayName": "choice",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expiresAt",
+              "displayName": "expiresAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        270,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "969a6d82-0944-5769-b65c-b52c9fd68ca8",
+      "name": "Render Change Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Confirmation and immutable retention amendments. No service calls.\nfunction parseChange(text){\n if(typeof text!=='string')return null;\n const input=text.trim();if(!/^\\/?(?:extend|keep)(?:@[A-Za-z0-9_]+)?(?:\\s|$)/i.test(input))return null;\n let m=input.match(/^\\/?extend(?:@[A-Za-z0-9_]+)?\\s+(.+?)\\s+([0-9]+)\\s+days?$/i);\n if(m&&Number(m[2])>=1&&Number(m[2])<=3650)return {operation:'extend',query:m[1].trim(),days:Number(m[2])};\n m=input.match(/^\\/?keep(?:@[A-Za-z0-9_]+)?\\s+(.+?)\\s+permanently$/i);\n if(m)return {operation:'permanent',query:m[1].trim()};\n return {error:'Use extend <title> 7 days (1\u20133650 whole days), or keep <title> permanently.'};\n}\nfunction prepareChange(actor,rows){\n if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\\d+$/.test(actor.userId))throw Error('Invalid actor');\n const parsed=parseChange(actor.text);if(!parsed||parsed.error)return {notice:parsed?.error||'Not a retention command.'};\n const matches=rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.userId!=='1'&&r.state==='registered'&&r.requestKey&&['movie','tv'].includes(r.mediaType)&&/^\\d+$/.test(String(r.mediaId))&&String(r.title).toLowerCase().includes(parsed.query.toLowerCase()));\n const keys=new Set(matches.map(r=>r.mediaType+':'+r.mediaId));\n if(!matches.length)return {notice:'No requests of yours match that title on this platform.'};\n if(keys.size!==1)return {notice:'Several matches. Please use a more specific title:\\n'+[...new Set(matches.map(r=>r.title))].slice(0,8).map(t=>'\u2022 '+String(t).slice(0,100)).join('\\n')};\n const r=matches[0];return {change:{...parsed,source:actor.source,userId:actor.userId,requestKeys:[...new Set(matches.map(r=>r.requestKey))],mediaType:r.mediaType,mediaId:String(r.mediaId),title:String(r.title).slice(0,150)}};\n}\nfunction planChange(change,requests,decisions,records,{pendingId,now}){\n if(!['extend','permanent'].includes(change.operation)||!Array.isArray(change.requestKeys)||!change.requestKeys.length||!/^\\d+$/.test(String(pendingId))||!Number.isFinite(now))throw Error('Invalid amendment');\n if(change.operation==='extend'&&(!Number.isInteger(change.days)||change.days<1||change.days>3650))throw Error('Invalid duration');\n const selected=change.requestKeys.map(key=>requests.find(r=>r.requestKey===key));\n if(selected.some(r=>!r||r.state!=='registered'||r.mediaType!==change.mediaType||String(r.mediaId)!==change.mediaId||r.source!==change.source||r.userId!==change.userId))throw Error('Request ownership changed');\n const existing=records.filter(r=>r.key==='change:'+pendingId);\n if(existing.length>1)throw Error('Duplicate amendment');\n if(existing.length){const e=JSON.parse(existing[0].payloadJson);if(e.source!==change.source||e.userId!==change.userId||e.operation!==change.operation||e.mediaId!==change.mediaId||e.mediaType!==change.mediaType)throw Error('Amendment collision');return e;}\n const result={version:1,pendingId:String(pendingId),operation:change.operation,source:change.source,userId:change.userId,requestKeys:change.requestKeys,mediaType:change.mediaType,mediaId:change.mediaId,title:change.title,createdAt:new Date(now).toISOString(),files:[]};\n if(change.operation==='permanent')return result;\n const ids=new Set(selected.flatMap(r=>JSON.parse(r.episodeIdsJson||'[]').map(String)));\n for(const row of records)if(selected.some(r=>row.key==='request:'+r.requestKey))for(const id of JSON.parse(row.payloadJson).episodeIds||[])ids.add(String(id));\n for(const d of decisions){\n  if(change.mediaType==='tv'&&!(d.episodeIds||[]).some(id=>ids.has(String(id))))continue;\n  if(d.state!=='tracked'||d.identityProtected||!d.expiresAt||!Number.isFinite(Date.parse(d.expiresAt))||!Number.isFinite(Date.parse(d.importedAt))||!Number.isSafeInteger(d.fileId)||typeof d.path!=='string')continue;\n  const minimumExpiry=new Date(Math.max(now,Date.parse(d.expiresAt))+change.days*86400000).toISOString();\n  result.files.push({fileId:d.fileId,path:d.path,importedAt:d.importedAt,minimumExpiry});\n }\n if(!result.files.length)return {notice:'No imported files with a timed expiry need extending. Files already protected stay protected; upcoming episodes keep their existing retention.'};\n return result;\n}\nfunction changeCard(row){\n if(row.version)return row;\n const c=JSON.parse(row.contextJson).retentionChange;\n if(!c)return null;\n if(row.state==='cancelled')return {version:1,status:'notice',text:'Cancelled. Retention was not changed.'};\n if(row.state!=='preview'||Date.parse(row.expiresAt)<=Date.now())return {version:1,status:'notice',text:'This retention choice expired or was already handled. Send a new command.'};\n const text=(c.mediaType==='tv'?'\ud83d\udcfa ':'\ud83c\udfac ')+c.title+'\\n\\n'+(c.operation==='permanent'?'Keep your requests for this title permanently, including future episodes attached to them?':`Add ${c.days} days to each currently imported eligible file\u2019s effective expiry (or now, if later)?\\nWatching cannot shorten this extension. Upcoming episodes keep their existing retention.`)+'\\n\\nNo media will be re-downloaded.';\n return {version:1,status:'confirmation',text,pendingId:String(row.id),choices:[{label:'Confirm',action:'confirm'},{label:'Cancel',action:'cancel'}]};\n}\nif(typeof module!=='undefined')module.exports={parseChange,prepareChange,planChange,changeCard};\n\nreturn [{json:changeCard($json)}];"
+      },
+      "position": [
+        540,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Change Input": {
+      "main": [
+        [
+          {
+            "node": "Read Change Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Change Requests": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retention Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Retention Change": {
+      "main": [
+        [
+          {
+            "node": "Change Matches?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Change Matches?": {
+      "main": [
+        [
+          {
+            "node": "Find Change Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Render Change Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Change Preview": {
+      "main": [
+        [
+          {
+            "node": "Resolve Change Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Change Preview": {
+      "main": [
+        [
+          {
+            "node": "Reuse Change Preview?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reuse Change Preview?": {
+      "main": [
+        [
+          {
+            "node": "Existing Change Card",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Store Change Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existing Change Card": {
+      "main": [
+        [
+          {
+            "node": "Render Change Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Change Preview": {
+      "main": [
+        [
+          {
+            "node": "Render Change Preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  },
+  "active": false
+}

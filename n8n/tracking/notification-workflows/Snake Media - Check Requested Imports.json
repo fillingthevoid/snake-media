@@ -1,0 +1,239 @@
+{
+  "id": "snakeCompletionScanV1",
+  "name": "Snake Media - Check Requested Imports",
+  "nodes": [
+    {
+      "id": "b2e6309d-3ed8-57ff-ae6d-be36411dcf90",
+      "name": "Every Five Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "319309b4-0308-5388-a4e1-53b32813a2c7",
+      "name": "Tracked Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_requests"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "id": "bd72ab3b-d32b-54da-ad1f-40683afee34d",
+      "name": "One Library Read",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      },
+      "position": [
+        250,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8096/Items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "Recursive",
+              "value": "true"
+            },
+            {
+              "name": "IncludeItemTypes",
+              "value": "Movie,Episode"
+            },
+            {
+              "name": "Fields",
+              "value": "Path"
+            },
+            {
+              "name": "Limit",
+              "value": "500"
+            },
+            {
+              "name": "EnableImages",
+              "value": "false"
+            },
+            {
+              "name": "EnableUserData",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "StartIndex",
+                    "value": "={{ $pageCount * 500 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.Items.length < 500 }}",
+              "limitPagesFetched": true,
+              "maxRequests": 100
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        300,
+        0
+      ],
+      "id": "e05b4b8c-b299-544b-8cf0-5725daae275f",
+      "name": "Read Jellyfin Library",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "08dc6cf4-543c-541b-a3b5-d984eedf6164",
+      "name": "Real Requests Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const library=$input.all().flatMap(x=>x.json.Items || []).filter(x=>x.Path&&x.Id).map(x=>({Path:x.Path,Id:x.Id}));return $('Tracked Requests').all().filter(x=>x.json.baselineCaptured&&x.json.userId!=='1'&&x.json.state==='registered').map(x=>({json:{...x.json,jellyfinLibrary:library}}));"
+      },
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "id": "5c8a094d-77e9-5bd1-b95c-03ddbda7657f",
+      "name": "Inspect Each Request",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeInspectRequestV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "mode": "each"
+      },
+      "position": [
+        600,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every Five Minutes": {
+      "main": [
+        [
+          {
+            "node": "Tracked Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tracked Requests": {
+      "main": [
+        [
+          {
+            "node": "One Library Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Library Read": {
+      "main": [
+        [
+          {
+            "node": "Read Jellyfin Library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Jellyfin Library": {
+      "main": [
+        [
+          {
+            "node": "Real Requests Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Real Requests Only": {
+      "main": [
+        [
+          {
+            "node": "Inspect Each Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 240
+  },
+  "active": false
+}

@@ -1,0 +1,964 @@
+{
+  "id": "snakeAmendRunTest",
+  "name": "Snake Media - Amendment Check TEST",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "snake-retention-controls-check",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c31cb56c-d81d-4080-a8ee-429f561f0c41",
+      "name": "Amend Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "notesInFlow": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CONFIGURE_HTTPHEADERAUTH",
+          "name": "Configure httpHeaderAuth"
+        }
+      },
+      "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication."
+    },
+    {
+      "id": "233b6aa2-497e-5c57-9b5b-a7dec79b88aa",
+      "name": "Create amendcheck_requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "amendcheck_requests",
+        "columns": {
+          "column": [
+            {
+              "name": "requestKey",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "userId",
+              "type": "string"
+            },
+            {
+              "name": "destinationId",
+              "type": "string"
+            },
+            {
+              "name": "messageId",
+              "type": "string"
+            },
+            {
+              "name": "text",
+              "type": "string"
+            },
+            {
+              "name": "mediaType",
+              "type": "string"
+            },
+            {
+              "name": "mediaId",
+              "type": "string"
+            },
+            {
+              "name": "externalId",
+              "type": "string"
+            },
+            {
+              "name": "title",
+              "type": "string"
+            },
+            {
+              "name": "episodeIdsJson",
+              "type": "string"
+            },
+            {
+              "name": "preexistingFileIdsJson",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": "string"
+            },
+            {
+              "name": "requestedAt",
+              "type": "date"
+            },
+            {
+              "name": "retentionDays",
+              "type": "number"
+            },
+            {
+              "name": "baselineCaptured",
+              "type": "boolean"
+            },
+            {
+              "name": "deletionEligible",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        270,
+        0
+      ]
+    },
+    {
+      "id": "ef7eae12-5ca6-59c9-82be-667ef5d651cb",
+      "name": "Create amendcheck_pending",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "amendcheck_pending",
+        "columns": {
+          "column": [
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "userId",
+              "type": "string"
+            },
+            {
+              "name": "destinationId",
+              "type": "string"
+            },
+            {
+              "name": "requestKey",
+              "type": "string"
+            },
+            {
+              "name": "contextJson",
+              "type": "string"
+            },
+            {
+              "name": "mediaType",
+              "type": "string"
+            },
+            {
+              "name": "mediaJson",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": "string"
+            },
+            {
+              "name": "claimId",
+              "type": "string"
+            },
+            {
+              "name": "choice",
+              "type": "string"
+            },
+            {
+              "name": "expiresAt",
+              "type": "date"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "11d6509b-3169-5294-84eb-f559ea780c67",
+      "name": "Create amendcheck_records",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "amendcheck_records",
+        "columns": {
+          "column": [
+            {
+              "name": "key",
+              "type": "string"
+            },
+            {
+              "name": "kind",
+              "type": "string"
+            },
+            {
+              "name": "payloadJson",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        810,
+        0
+      ]
+    },
+    {
+      "id": "c4c96675-4970-5cd4-b8dc-447269e415dc",
+      "name": "Create amendcheck_control",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "amendcheck_control",
+        "columns": {
+          "column": [
+            {
+              "name": "key",
+              "type": "string"
+            },
+            {
+              "name": "owner",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        1080,
+        0
+      ]
+    },
+    {
+      "id": "8dbc2553-c9e9-5db8-891c-adc1e42bf0fb",
+      "name": "Test Global Lock",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "amendcheck_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "global"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "global",
+            "owner": ""
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1350,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "cff43d41-1941-5140-9f0b-1ebac002e588",
+      "name": "Test Fixture",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const b=$('Amend Test Webhook').first().json.body;if(!['extend','permanent'].includes(b.operation)||!/^case[0-9]+$/.test(b.nonce))throw Error('Invalid test');const stamp='2026-10-01T12:00:00.000Z';return [{json:{requestKey:'discord:2:3',source:'discord',userId:'2',destinationId:'2',messageId:'3',text:'SYNTHETIC',mediaType:'movie',mediaId:'9001',externalId:'9001',title:'SYNTHETIC',episodeIdsJson:'[]',preexistingFileIdsJson:'[]',state:'registered',requestedAt:stamp,retentionDays:7,baselineCaptured:true,deletionEligible:true}}];"
+      },
+      "position": [
+        1620,
+        0
+      ]
+    },
+    {
+      "id": "f6036dfd-5871-54d7-b982-6802862612b9",
+      "name": "Seed Test Request",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "amendcheck_requests"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requestKey",
+              "condition": "eq",
+              "keyValue": "discord:2:3"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestKey": "={{ $json.requestKey }}",
+            "source": "={{ $json.source }}",
+            "userId": "={{ $json.userId }}",
+            "destinationId": "={{ $json.destinationId }}",
+            "messageId": "={{ $json.messageId }}",
+            "text": "={{ $json.text }}",
+            "mediaType": "={{ $json.mediaType }}",
+            "mediaId": "={{ $json.mediaId }}",
+            "externalId": "={{ $json.externalId }}",
+            "title": "={{ $json.title }}",
+            "episodeIdsJson": "={{ $json.episodeIdsJson }}",
+            "preexistingFileIdsJson": "={{ $json.preexistingFileIdsJson }}",
+            "state": "={{ $json.state }}",
+            "requestedAt": "={{ $json.requestedAt }}",
+            "retentionDays": "={{ $json.retentionDays }}",
+            "baselineCaptured": "={{ $json.baselineCaptured }}",
+            "deletionEligible": "={{ $json.deletionEligible }}"
+          },
+          "schema": [
+            {
+              "id": "requestKey",
+              "displayName": "requestKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userId",
+              "displayName": "userId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "destinationId",
+              "displayName": "destinationId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "messageId",
+              "displayName": "messageId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaType",
+              "displayName": "mediaType",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaId",
+              "displayName": "mediaId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "externalId",
+              "displayName": "externalId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "episodeIdsJson",
+              "displayName": "episodeIdsJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "preexistingFileIdsJson",
+              "displayName": "preexistingFileIdsJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requestedAt",
+              "displayName": "requestedAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "retentionDays",
+              "displayName": "retentionDays",
+              "type": "number",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "baselineCaptured",
+              "displayName": "baselineCaptured",
+              "type": "boolean",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deletionEligible",
+              "displayName": "deletionEligible",
+              "type": "boolean",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "50d82140-8308-5d27-8263-2b2be67180d6",
+      "name": "Seed Test Profile",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "amendcheck_records"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "request:discord:2:3"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "request:discord:2:3",
+            "kind": "subscription",
+            "payloadJson": "{\"requestKey\": \"discord:2:3\", \"mediaType\": \"movie\", \"mediaId\": \"9001\", \"episodeIds\": [], \"protectedFileIds\": []}"
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payloadJson",
+              "displayName": "payloadJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        270,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "e12c18aa-8b2f-5fa9-a768-c997de2f2b25",
+      "name": "Test Pending Fixture",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const b=$('Amend Test Webhook').first().json.body;const retentionChange={operation:b.operation,days:7,requestKeys:['discord:2:3'],source:'discord',userId:'2',mediaType:'movie',mediaId:'9001',title:'SYNTHETIC'};return [{json:{source:'discord',userId:'2',destinationId:'2',requestKey:b.nonce,contextJson:JSON.stringify({retentionChange}),mediaType:'movie',mediaJson:'{}',state:'processing',claimId:'native-test',choice:'confirm',expiresAt:new Date(Date.now()+600000).toISOString()}}];"
+      },
+      "position": [
+        540,
+        250
+      ]
+    },
+    {
+      "id": "ff52868c-8c6d-59f6-8075-2fcfdc5d5583",
+      "name": "Seed Test Pending",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "amendcheck_pending"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requestKey",
+              "condition": "eq",
+              "keyValue": "={{ $json.requestKey }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "source": "={{ $json.source }}",
+            "userId": "={{ $json.userId }}",
+            "destinationId": "={{ $json.destinationId }}",
+            "requestKey": "={{ $json.requestKey }}",
+            "contextJson": "={{ $json.contextJson }}",
+            "mediaType": "={{ $json.mediaType }}",
+            "mediaJson": "={{ $json.mediaJson }}",
+            "state": "={{ $json.state }}",
+            "claimId": "={{ $json.claimId }}",
+            "choice": "={{ $json.choice }}",
+            "expiresAt": "={{ $json.expiresAt }}"
+          },
+          "schema": [
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userId",
+              "displayName": "userId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "destinationId",
+              "displayName": "destinationId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requestKey",
+              "displayName": "requestKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "contextJson",
+              "displayName": "contextJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaType",
+              "displayName": "mediaType",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaJson",
+              "displayName": "mediaJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "claimId",
+              "displayName": "claimId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "choice",
+              "displayName": "choice",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "expiresAt",
+              "displayName": "expiresAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        810,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "c3685830-8e98-5618-b0e1-8de56f0622b4",
+      "name": "Test Amend Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{...$json,job:'amend'}}];"
+      },
+      "position": [
+        1080,
+        250
+      ]
+    },
+    {
+      "id": "e48394fe-6aac-5271-8b6f-4b54c80d0446",
+      "name": "Execute Native Amendment",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeAmendCoordinatorTest"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1350,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "45b547a6-1792-4b2e-90c1-2a1909ad7470",
+      "name": "Amend Test Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1620,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Amend Test Webhook": {
+      "main": [
+        [
+          {
+            "node": "Create amendcheck_requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create amendcheck_requests": {
+      "main": [
+        [
+          {
+            "node": "Create amendcheck_pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create amendcheck_pending": {
+      "main": [
+        [
+          {
+            "node": "Create amendcheck_records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create amendcheck_records": {
+      "main": [
+        [
+          {
+            "node": "Create amendcheck_control",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create amendcheck_control": {
+      "main": [
+        [
+          {
+            "node": "Test Global Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Global Lock": {
+      "main": [
+        [
+          {
+            "node": "Test Fixture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Fixture": {
+      "main": [
+        [
+          {
+            "node": "Seed Test Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed Test Request": {
+      "main": [
+        [
+          {
+            "node": "Seed Test Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed Test Profile": {
+      "main": [
+        [
+          {
+            "node": "Test Pending Fixture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Pending Fixture": {
+      "main": [
+        [
+          {
+            "node": "Seed Test Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed Test Pending": {
+      "main": [
+        [
+          {
+            "node": "Test Amend Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Amend Job": {
+      "main": [
+        [
+          {
+            "node": "Execute Native Amendment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Native Amendment": {
+      "main": [
+        [
+          {
+            "node": "Amend Test Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  },
+  "active": false
+}

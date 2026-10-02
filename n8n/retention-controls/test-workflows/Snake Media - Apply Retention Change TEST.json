@@ -1,0 +1,535 @@
+{
+  "id": "snakeAmendApplyTest",
+  "name": "Snake Media - Apply Retention Change TEST",
+  "nodes": [
+    {
+      "id": "de3dfa51-bce7-5421-a8a2-9d104e12900f",
+      "name": "Amend Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "39c94c34-f0bd-58e5-a2b5-237ff91fb5cb",
+      "name": "Read Claimed Change",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "amendcheck_pending"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ Number($('Amend Input').first().json.id) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f71f7914-0cce-53e4-9be9-65bd9251561f",
+      "name": "Validate Claimed Change",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const i=$('Amend Input').first().json;const r=$json;if(!i.owner||r.state!=='processing'||r.claimId!==i.claimId)throw Error('Unclaimed retention change');const c=JSON.parse(r.contextJson).retentionChange;if(!c||c.source!==r.source||c.userId!==r.userId)throw Error('Invalid retention owner');return [{json:{...r,owner:i.owner,change:c,mediaId:c.mediaId,mediaType:c.mediaType}}];"
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "c879fdaa-795e-5d5b-90ee-05aa43ff1cef",
+      "name": "Fresh Change Snapshot",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeAmendSnapshotTest"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        810,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "5e328632-ee98-57bd-84ad-f2897d776e35",
+      "name": "Read Amend Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "amendcheck_requests"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {}
+      },
+      "position": [
+        1080,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "74335b4a-91c0-5ea6-83c2-208b8d703e0d",
+      "name": "One Amend Record Read",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      },
+      "position": [
+        1350,
+        0
+      ]
+    },
+    {
+      "id": "3d5786b4-098b-5746-9a42-e2e87e1a577c",
+      "name": "Read Amend Records",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "amendcheck_records"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {}
+      },
+      "position": [
+        1620,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "0a3e1902-8f9c-55b8-a4bd-e73cbc1105c0",
+      "name": "Plan Retention Amendment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Confirmation and immutable retention amendments. No service calls.\nfunction parseChange(text){\n if(typeof text!=='string')return null;\n const input=text.trim();if(!/^\\/?(?:extend|keep)(?:@[A-Za-z0-9_]+)?(?:\\s|$)/i.test(input))return null;\n let m=input.match(/^\\/?extend(?:@[A-Za-z0-9_]+)?\\s+(.+?)\\s+([0-9]+)\\s+days?$/i);\n if(m&&Number(m[2])>=1&&Number(m[2])<=3650)return {operation:'extend',query:m[1].trim(),days:Number(m[2])};\n m=input.match(/^\\/?keep(?:@[A-Za-z0-9_]+)?\\s+(.+?)\\s+permanently$/i);\n if(m)return {operation:'permanent',query:m[1].trim()};\n return {error:'Use extend <title> 7 days (1\u20133650 whole days), or keep <title> permanently.'};\n}\nfunction prepareChange(actor,rows){\n if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\\d+$/.test(actor.userId))throw Error('Invalid actor');\n const parsed=parseChange(actor.text);if(!parsed||parsed.error)return {notice:parsed?.error||'Not a retention command.'};\n const matches=rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.userId!=='1'&&r.state==='registered'&&r.requestKey&&['movie','tv'].includes(r.mediaType)&&/^\\d+$/.test(String(r.mediaId))&&String(r.title).toLowerCase().includes(parsed.query.toLowerCase()));\n const keys=new Set(matches.map(r=>r.mediaType+':'+r.mediaId));\n if(!matches.length)return {notice:'No requests of yours match that title on this platform.'};\n if(keys.size!==1)return {notice:'Several matches. Please use a more specific title:\\n'+[...new Set(matches.map(r=>r.title))].slice(0,8).map(t=>'\u2022 '+String(t).slice(0,100)).join('\\n')};\n const r=matches[0];return {change:{...parsed,source:actor.source,userId:actor.userId,requestKeys:[...new Set(matches.map(r=>r.requestKey))],mediaType:r.mediaType,mediaId:String(r.mediaId),title:String(r.title).slice(0,150)}};\n}\nfunction planChange(change,requests,decisions,records,{pendingId,now}){\n if(!['extend','permanent'].includes(change.operation)||!Array.isArray(change.requestKeys)||!change.requestKeys.length||!/^\\d+$/.test(String(pendingId))||!Number.isFinite(now))throw Error('Invalid amendment');\n if(change.operation==='extend'&&(!Number.isInteger(change.days)||change.days<1||change.days>3650))throw Error('Invalid duration');\n const selected=change.requestKeys.map(key=>requests.find(r=>r.requestKey===key));\n if(selected.some(r=>!r||r.state!=='registered'||r.mediaType!==change.mediaType||String(r.mediaId)!==change.mediaId||r.source!==change.source||r.userId!==change.userId))throw Error('Request ownership changed');\n const existing=records.filter(r=>r.key==='change:'+pendingId);\n if(existing.length>1)throw Error('Duplicate amendment');\n if(existing.length){const e=JSON.parse(existing[0].payloadJson);if(e.source!==change.source||e.userId!==change.userId||e.operation!==change.operation||e.mediaId!==change.mediaId||e.mediaType!==change.mediaType)throw Error('Amendment collision');return e;}\n const result={version:1,pendingId:String(pendingId),operation:change.operation,source:change.source,userId:change.userId,requestKeys:change.requestKeys,mediaType:change.mediaType,mediaId:change.mediaId,title:change.title,createdAt:new Date(now).toISOString(),files:[]};\n if(change.operation==='permanent')return result;\n const ids=new Set(selected.flatMap(r=>JSON.parse(r.episodeIdsJson||'[]').map(String)));\n for(const row of records)if(selected.some(r=>row.key==='request:'+r.requestKey))for(const id of JSON.parse(row.payloadJson).episodeIds||[])ids.add(String(id));\n for(const d of decisions){\n  if(change.mediaType==='tv'&&!(d.episodeIds||[]).some(id=>ids.has(String(id))))continue;\n  if(d.state!=='tracked'||d.identityProtected||!d.expiresAt||!Number.isFinite(Date.parse(d.expiresAt))||!Number.isFinite(Date.parse(d.importedAt))||!Number.isSafeInteger(d.fileId)||typeof d.path!=='string')continue;\n  const minimumExpiry=new Date(Math.max(now,Date.parse(d.expiresAt))+change.days*86400000).toISOString();\n  result.files.push({fileId:d.fileId,path:d.path,importedAt:d.importedAt,minimumExpiry});\n }\n if(!result.files.length)return {notice:'No imported files with a timed expiry need extending. Files already protected stay protected; upcoming episodes keep their existing retention.'};\n return result;\n}\nfunction changeCard(row){\n if(row.version)return row;\n const c=JSON.parse(row.contextJson).retentionChange;\n if(!c)return null;\n if(row.state==='cancelled')return {version:1,status:'notice',text:'Cancelled. Retention was not changed.'};\n if(row.state!=='preview'||Date.parse(row.expiresAt)<=Date.now())return {version:1,status:'notice',text:'This retention choice expired or was already handled. Send a new command.'};\n const text=(c.mediaType==='tv'?'\ud83d\udcfa ':'\ud83c\udfac ')+c.title+'\\n\\n'+(c.operation==='permanent'?'Keep your requests for this title permanently, including future episodes attached to them?':`Add ${c.days} days to each currently imported eligible file\u2019s effective expiry (or now, if later)?\\nWatching cannot shorten this extension. Upcoming episodes keep their existing retention.`)+'\\n\\nNo media will be re-downloaded.';\n return {version:1,status:'confirmation',text,pendingId:String(row.id),choices:[{label:'Confirm',action:'confirm'},{label:'Cancel',action:'cancel'}]};\n}\nif(typeof module!=='undefined')module.exports={parseChange,prepareChange,planChange,changeCard};\n\nconst i=$('Validate Claimed Change').first().json;const records=$input.all().map(x=>x.json).filter(x=>x.key);const decisions=($('Fresh Change Snapshot').first().json.groups||[]).flatMap(g=>g.decisions||[]);const event=planChange(i.change,$('Read Amend Requests').all().map(x=>x.json),decisions,records,{pendingId:String(i.id),now:Date.now()});if(event.notice)return [{json:{version:1,status:'notice',text:event.notice}}];return [{json:{owner:i.owner,key:'change:'+i.id,kind:'amendment',payloadJson:JSON.stringify(event)}}];"
+      },
+      "position": [
+        0,
+        250
+      ]
+    },
+    {
+      "id": "32bf3a41-2616-52c3-a183-16798d8ffb6d",
+      "name": "Amendment Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ !!$json.key }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        250
+      ]
+    },
+    {
+      "id": "d5f4cfb6-c2e4-54e9-a400-ac6995a9b00a",
+      "name": "Store Retention Amendment",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeAmendStoreTest"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        540,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "94d4e160-03a1-5415-8b6d-f7a1dd752cdf",
+      "name": "Refresh Changed Retention",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:$('Validate Claimed Change').first().json}];"
+      },
+      "position": [
+        810,
+        250
+      ]
+    },
+    {
+      "id": "fb446735-275c-53e0-9a41-87b9140bd79c",
+      "name": "Refresh Change Decisions",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeAmendSnapshotTest"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1080,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f5f79ecf-aada-572a-a65c-3611dc9efe2a",
+      "name": "Retention Change Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Plan Retention Amendment').first().json;if(p.version)return [{json:p}];const e=JSON.parse(p.payloadJson);const dates=e.files.map(f=>Date.parse(f.minimumExpiry));const date=n=>new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(n);const text=e.operation==='permanent'?'\ud83d\uddc3\ufe0f '+e.title+'\\nYour requests are now kept permanently, including future subscribed episodes.':'\u2705 '+e.title+'\\nExtended '+e.files.length+' imported '+(e.files.length===1?'file':'files')+'.\\nEarliest new minimum expiry: '+date(Math.min(...dates))+'.\\nUpcoming episodes keep their existing retention.';return [{json:{version:1,status:'notice',text}}];"
+      },
+      "position": [
+        1350,
+        250
+      ]
+    },
+    {
+      "id": "29375675-a422-593d-b401-314203c589e8",
+      "name": "Save Retention Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{reply:$json}}];"
+      },
+      "position": [
+        1620,
+        250
+      ]
+    },
+    {
+      "id": "15337aa3-209d-5a8a-a2c3-8cd2a2d94881",
+      "name": "Complete Retention Choice",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "amendcheck_pending"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Amend Input').first().json.id }}"
+            },
+            {
+              "keyName": "claimId",
+              "condition": "eq",
+              "keyValue": "={{ $('Amend Input').first().json.claimId }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "state": "done"
+          },
+          "schema": [
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        500
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "cd1a1dc8-98a2-5edc-b380-2c4fb878f82b",
+      "name": "Return Retention Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "if($json.state!=='done')throw Error('Pending completion failed');return [{json:$('Save Retention Reply').first().json.reply}];"
+      },
+      "position": [
+        270,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "Amend Input": {
+      "main": [
+        [
+          {
+            "node": "Read Claimed Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Claimed Change": {
+      "main": [
+        [
+          {
+            "node": "Validate Claimed Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Claimed Change": {
+      "main": [
+        [
+          {
+            "node": "Fresh Change Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fresh Change Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Read Amend Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Amend Requests": {
+      "main": [
+        [
+          {
+            "node": "One Amend Record Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Amend Record Read": {
+      "main": [
+        [
+          {
+            "node": "Read Amend Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Amend Records": {
+      "main": [
+        [
+          {
+            "node": "Plan Retention Amendment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Retention Amendment": {
+      "main": [
+        [
+          {
+            "node": "Amendment Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amendment Needed?": {
+      "main": [
+        [
+          {
+            "node": "Store Retention Amendment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retention Change Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Retention Amendment": {
+      "main": [
+        [
+          {
+            "node": "Refresh Changed Retention",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refresh Changed Retention": {
+      "main": [
+        [
+          {
+            "node": "Refresh Change Decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refresh Change Decisions": {
+      "main": [
+        [
+          {
+            "node": "Retention Change Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retention Change Result": {
+      "main": [
+        [
+          {
+            "node": "Save Retention Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Retention Reply": {
+      "main": [
+        [
+          {
+            "node": "Complete Retention Choice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Retention Choice": {
+      "main": [
+        [
+          {
+            "node": "Return Retention Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  },
+  "active": false
+}

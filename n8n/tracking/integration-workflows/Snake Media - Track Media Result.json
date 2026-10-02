@@ -1,0 +1,454 @@
+{
+  "id": "snakeIntegrateRequestV1",
+  "name": "Snake Media - Track Media Result",
+  "nodes": [
+    {
+      "id": "de0cd8e1-cd1d-506d-a224-f9a512c92882",
+      "name": "Integration Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "a75fe4c5-d067-54f5-896b-90fed27be0ee",
+      "name": "Unwrap Media Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:$input.first().json.result || {}}];"
+      },
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "id": "e55dfc0b-0c24-53ae-9af3-61071533f96d",
+      "name": "Normalize Media Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const input = $('Integration Input').first().json;\nconst data = $input.first().json;\nconst fail = status => [{json:{version:1,status}}];\nif (!data || data.error) return fail('error');\nif (!Object.keys(data).length) return fail('not_found');\nconst mediaType = input.mediaType;\nif (!['movie','tv'].includes(mediaType)) return fail('error');\nconst external = mediaType === 'movie' ? data.tmdbId : data.tvdbId;\nif (!Number.isSafeInteger(data.id) || data.id < 1 || !Number.isSafeInteger(external) || external < 1 || typeof data.title !== 'string' || !data.title.trim()) return fail('error');\nconst result = {version:1,status:data.status === 'already_added' ? 'already_added':'added',mediaType,title:data.title.trim(),mediaId:String(data.id),externalId:String(external),searchStarted:data.status !== 'already_added',context:input.context,raw:data};\nconst poster = (data.images || []).find(x=>x.coverType === 'poster');\nconst url = poster?.remoteUrl || poster?.url;\n// Only public metadata artwork; never send LAN URLs or credential-bearing URLs.\nif (typeof url === 'string' && /^https:\\/\\/(image\\.tmdb\\.org|artworks\\.thetvdb\\.com)\\/[A-Za-z0-9_./%~-]+$/.test(url) && url.length <= 2048) result.posterUrl=url;\nreturn [{json:result}];\n"
+      },
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "id": "cdd7c9b8-c2f8-5903-82fc-9d6af1a9e963",
+      "name": "Resolved Media?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ ['added','already_added'].includes($json.status) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "id": "3e63d9fe-38b5-58de-bff7-f0cc80277459",
+      "name": "TV Scope?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.mediaType === 'tv' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://192.168.1.10:8989/api/v3/episode",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "seriesId",
+              "value": "={{ $('Normalize Media Metadata').first().json.mediaId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1000,
+        -100
+      ],
+      "id": "d6aa75fd-97a8-4ff9-b292-dbe54d2f4e2e",
+      "name": "Get Requested Episodes",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "2ecf221b-662e-5111-901e-c881f973ff76",
+      "name": "Build Tracking Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r = $('Normalize Media Metadata').first().json;\nconst c = r.context;\nif (!c) throw new Error('Missing original request context');\nlet episodeIds = [], preexistingFileIds = [];\nif (r.mediaType === 'tv') {\n const episodes = $input.all().map(x=>x.json).filter(x=>Number.isSafeInteger(x.id) && x.id>0);\n if (!episodes.length) throw new Error('No resolved episode scope; registration deferred');\n episodeIds = episodes.map(x=>String(x.id));\n if (r.status === 'already_added') preexistingFileIds = episodes.filter(x=>Number.isSafeInteger(x.episodeFileId) && x.episodeFileId>0).map(x=>String(x.episodeFileId));\n} else if (r.status === 'already_added' && r.raw.movieFile?.id) {\n preexistingFileIds = [String(r.raw.movieFile.id)];\n}\nreturn [{json:{...c,mediaType:r.mediaType,mediaId:r.mediaId,externalId:r.externalId,title:r.title,episodeIds,preexistingFileIds,baselineCaptured:true,retentionDays:null}}];\n"
+      },
+      "position": [
+        1200,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "cc9f881c-ed6c-5284-9402-3ed142c95053",
+      "name": "Tracking Input Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ !$json.error && !!$json.messageId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1400,
+        0
+      ]
+    },
+    {
+      "id": "86be8e8e-45cf-5035-bc8b-d2e8748f821b",
+      "name": "Register Original Request",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeTrackRequestV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1600,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "033c6caf-b240-5fa0-b643-bda7f2196e71",
+      "name": "Return Media Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$('Normalize Media Metadata').first().json; const t=$input.first().json; const {raw,context,...result}=r; return [{json:{...result,trackingRegistered:!!t.requestKey}}];"
+      },
+      "position": [
+        1800,
+        0
+      ]
+    },
+    {
+      "id": "31be72c0-5201-5f0d-ba71-53df4454d838",
+      "name": "Return Unresolved Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return $input.all();"
+      },
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "id": "2986bef8-fc16-567f-bfec-5a1495d3a5ea",
+      "name": "Episode Metadata Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ !!$json.id || !!$json.error || $runIndex >= 4 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1100,
+        -100
+      ]
+    },
+    {
+      "id": "4e785fae-f807-5aef-82db-187e53ddbc9a",
+      "name": "Wait For Episode Metadata",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "position": [
+        1100,
+        -300
+      ]
+    }
+  ],
+  "connections": {
+    "Integration Input": {
+      "main": [
+        [
+          {
+            "node": "Unwrap Media Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unwrap Media Result": {
+      "main": [
+        [
+          {
+            "node": "Normalize Media Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Media Metadata": {
+      "main": [
+        [
+          {
+            "node": "Resolved Media?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolved Media?": {
+      "main": [
+        [
+          {
+            "node": "TV Scope?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Unresolved Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TV Scope?": {
+      "main": [
+        [
+          {
+            "node": "Get Requested Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Tracking Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Requested Episodes": {
+      "main": [
+        [
+          {
+            "node": "Episode Metadata Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Tracking Input": {
+      "main": [
+        [
+          {
+            "node": "Tracking Input Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tracking Input Valid?": {
+      "main": [
+        [
+          {
+            "node": "Register Original Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Media Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register Original Request": {
+      "main": [
+        [
+          {
+            "node": "Return Media Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Episode Metadata Ready?": {
+      "main": [
+        [
+          {
+            "node": "Build Tracking Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait For Episode Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For Episode Metadata": {
+      "main": [
+        [
+          {
+            "node": "Get Requested Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 40
+  },
+  "active": false
+}

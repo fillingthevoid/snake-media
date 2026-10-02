@@ -1,0 +1,929 @@
+{
+  "id": "snakeRetentionMediaV1",
+  "name": "Snake Media - Reconcile Media Retention",
+  "nodes": [
+    {
+      "id": "c5cbee89-d9ba-5ea8-b3e0-aa584b750b26",
+      "name": "Media Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "3daea5f8-fea2-5b49-8350-fba58aa9bf41",
+      "name": "Retention Movie?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.requests[0].mediaType==='movie' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        0
+      ]
+    },
+    {
+      "id": "06576136-0cec-558f-82bf-d364cbfa5bb3",
+      "name": "Read Retention Movie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://192.168.1.10:7878/api/v3/' + ('movie/'+$json.requests[0].mediaId) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "position": [
+        540,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "cd2409db-4ab1-55f0-8e0b-823541df9d7f",
+      "name": "Movie Snapshot Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Pure policy functions embedded into native n8n Code nodes.\nconst DAY_MS=86400000;\nfunction parseRetention(text,type) {\n if(typeof text!=='string'||!['movie','tv'].includes(type))throw new Error('Invalid retention input');\n const permanent=/\\b(?:keep\\s+(?:permanently|forever)|never\\s+delete|do\\s+not\\s+delete|don't\\s+delete|no\\s+expiry)\\b/gi;\n const timed=/\\b(?:keep\\s+(?:for\\s+)?|retain\\s+(?:for\\s+)?|delete\\s+after\\s+|remove\\s+after\\s+|expire\\s+(?:after|in)\\s+)([0-9]+)\\s+days?\\b/gi;\n const forever=[...text.matchAll(permanent)], durations=[...text.matchAll(timed)];\n if(forever.length+durations.length>1)throw new Error('Use one retention instruction');\n let remainder=text.replace(permanent,'').replace(timed,'');\n if(/\\b(?:keep\\s+for|retain|delete|remove\\s+after|expir\\w*|keep\\s+(?:permanently|forever|[-\\d]))\\b/i.test(remainder))throw new Error('Use keep for N days or keep permanently');\n const days=forever.length?null:durations.length?Number(durations[0][1]):type==='movie'?7:30;\n if(days!==null&&(!Number.isInteger(days)||days<1||days>3650))throw new Error('Retention must be 1 to 3650 days');\n return {version:2,days,explicit:!!(forever.length||durations.length)};\n}\nfunction retentionText(policy,type) {\n if(policy.days===null)return '\ud83d\uddc3\ufe0f Keep permanently. No automatic deletion.';\n return `\ud83d\uddd3\ufe0f Auto-delete ${policy.days} days after ${type==='tv'?'each episode imports':'import'}. Watching may shorten this to 7 days after watching; it never extends the deadline.`;\n}\nfunction effectiveExpiry(importedAt,days,watchedAt,previousDeadline,minimumExpiry) {\n if(days===null)return null;\n const imported=Date.parse(importedAt);\n if(!Number.isFinite(imported)||!Number.isInteger(days)||days<1||days>3650)throw new Error('Invalid expiry inputs');\n let deadline=imported+days*DAY_MS;\n if(watchedAt!==null&&watchedAt!==undefined){\n  const watched=Date.parse(watchedAt);if(!Number.isFinite(watched))throw new Error('Invalid watch timestamp');\n  deadline=Math.min(deadline,Math.max(imported,watched)+7*DAY_MS);\n }\n if(previousDeadline){const previous=Date.parse(previousDeadline);if(!Number.isFinite(previous))throw new Error('Invalid saved deadline');deadline=Math.min(deadline,previous);}\n if(minimumExpiry){const floor=Date.parse(minimumExpiry);if(!Number.isFinite(floor))throw new Error('Invalid explicit extension');deadline=Math.max(deadline,floor);}\n return new Date(deadline).toISOString();\n}\nfunction subscription(episodes,choice,now) {\n const regular=episodes.filter(e=>Number.isSafeInteger(e.id)&&e.id>0&&Number.isInteger(e.seasonNumber)&&e.seasonNumber>0);\n const historicalSeasons=[...new Set(regular.filter(e=>Number.isFinite(Date.parse(e.airDateUtc))&&Date.parse(e.airDateUtc)<=now).map(e=>e.seasonNumber))].sort((a,b)=>a-b);\n let selectedSeasons;\n if(choice==='all')selectedSeasons=[...new Set(regular.map(e=>e.seasonNumber))];\n else if(choice==='latest')selectedSeasons=[historicalSeasons.at(-1)||Math.min(...regular.map(e=>e.seasonNumber))];\n else if(/^season_[1-9][0-9]{0,3}$/.test(choice))selectedSeasons=[Number(choice.slice(7))];\n else throw new Error('Invalid subscription choice');\n if(!selectedSeasons.length||selectedSeasons.some(s=>!Number.isFinite(s)))throw new Error('No season metadata yet');\n const result={historicalSeasons,selectedSeasons,episodeIds:[]};\n result.episodeIds=regular.filter(e=>belongsToSubscription(e,result)).map(e=>String(e.id));\n return result;\n}\nfunction belongsToSubscription(e,s) {\n return Number.isSafeInteger(e.id)&&e.id>0&&Number.isInteger(e.seasonNumber)&&e.seasonNumber>0&&\n  (s.selectedSeasons.includes(e.seasonNumber)||!s.historicalSeasons.includes(e.seasonNumber));\n}\nfunction fileDecision(claims,coveredIds,now) {\n if(!claims.length)return {due:false,reason:'unclaimed',expiresAt:null};\n const covered=new Set(claims.flatMap(c=>c.episodeIds||[]));\n if(coveredIds.some(id=>!covered.has(String(id))))return {due:false,reason:'unclaimed episode in shared file',expiresAt:null};\n let latest=0;\n for(const c of claims){\n  if(!c.baselineCaptured||c.preexisting||c.days===null)return {due:false,reason:'protected claim',expiresAt:null};\n  const expiry=effectiveExpiry(c.importedAt,c.days,c.watchedAt,c.previousDeadline,c.minimumExpiry);\n  latest=Math.max(latest,Date.parse(expiry));\n }\n return {due:latest<=now,reason:latest<=now?'expired':'retained',expiresAt:new Date(latest).toISOString()};\n}\nfunction mediaSnapshot(response) {\n if(response.statusCode===404)return null;\n if(response.statusCode!==200||!Number.isSafeInteger(response.body?.id)||response.body.id<1)throw new Error('Media snapshot unavailable');\n return response.body;\n}\nif(typeof module!=='undefined')module.exports={parseRetention,retentionText,effectiveExpiry,subscription,belongsToSubscription,fileDecision,mediaSnapshot};\n\nreturn [{json:mediaSnapshot($json)||{gone:true}}];"
+      },
+      "position": [
+        810,
+        0
+      ]
+    },
+    {
+      "id": "0ea51161-3141-57db-9614-fb4d44b9573a",
+      "name": "Movie Still Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ !$json.gone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1080,
+        0
+      ]
+    },
+    {
+      "id": "40555f97-a348-5ff4-aae7-ff0eae78c3ea",
+      "name": "Read Retention Series",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://192.168.1.10:8989/api/v3/' + ('series/'+$json.requests[0].mediaId) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "position": [
+        1350,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "ce2e7817-80f3-5aef-8c63-567c7fa30f93",
+      "name": "Series Snapshot Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Pure policy functions embedded into native n8n Code nodes.\nconst DAY_MS=86400000;\nfunction parseRetention(text,type) {\n if(typeof text!=='string'||!['movie','tv'].includes(type))throw new Error('Invalid retention input');\n const permanent=/\\b(?:keep\\s+(?:permanently|forever)|never\\s+delete|do\\s+not\\s+delete|don't\\s+delete|no\\s+expiry)\\b/gi;\n const timed=/\\b(?:keep\\s+(?:for\\s+)?|retain\\s+(?:for\\s+)?|delete\\s+after\\s+|remove\\s+after\\s+|expire\\s+(?:after|in)\\s+)([0-9]+)\\s+days?\\b/gi;\n const forever=[...text.matchAll(permanent)], durations=[...text.matchAll(timed)];\n if(forever.length+durations.length>1)throw new Error('Use one retention instruction');\n let remainder=text.replace(permanent,'').replace(timed,'');\n if(/\\b(?:keep\\s+for|retain|delete|remove\\s+after|expir\\w*|keep\\s+(?:permanently|forever|[-\\d]))\\b/i.test(remainder))throw new Error('Use keep for N days or keep permanently');\n const days=forever.length?null:durations.length?Number(durations[0][1]):type==='movie'?7:30;\n if(days!==null&&(!Number.isInteger(days)||days<1||days>3650))throw new Error('Retention must be 1 to 3650 days');\n return {version:2,days,explicit:!!(forever.length||durations.length)};\n}\nfunction retentionText(policy,type) {\n if(policy.days===null)return '\ud83d\uddc3\ufe0f Keep permanently. No automatic deletion.';\n return `\ud83d\uddd3\ufe0f Auto-delete ${policy.days} days after ${type==='tv'?'each episode imports':'import'}. Watching may shorten this to 7 days after watching; it never extends the deadline.`;\n}\nfunction effectiveExpiry(importedAt,days,watchedAt,previousDeadline,minimumExpiry) {\n if(days===null)return null;\n const imported=Date.parse(importedAt);\n if(!Number.isFinite(imported)||!Number.isInteger(days)||days<1||days>3650)throw new Error('Invalid expiry inputs');\n let deadline=imported+days*DAY_MS;\n if(watchedAt!==null&&watchedAt!==undefined){\n  const watched=Date.parse(watchedAt);if(!Number.isFinite(watched))throw new Error('Invalid watch timestamp');\n  deadline=Math.min(deadline,Math.max(imported,watched)+7*DAY_MS);\n }\n if(previousDeadline){const previous=Date.parse(previousDeadline);if(!Number.isFinite(previous))throw new Error('Invalid saved deadline');deadline=Math.min(deadline,previous);}\n if(minimumExpiry){const floor=Date.parse(minimumExpiry);if(!Number.isFinite(floor))throw new Error('Invalid explicit extension');deadline=Math.max(deadline,floor);}\n return new Date(deadline).toISOString();\n}\nfunction subscription(episodes,choice,now) {\n const regular=episodes.filter(e=>Number.isSafeInteger(e.id)&&e.id>0&&Number.isInteger(e.seasonNumber)&&e.seasonNumber>0);\n const historicalSeasons=[...new Set(regular.filter(e=>Number.isFinite(Date.parse(e.airDateUtc))&&Date.parse(e.airDateUtc)<=now).map(e=>e.seasonNumber))].sort((a,b)=>a-b);\n let selectedSeasons;\n if(choice==='all')selectedSeasons=[...new Set(regular.map(e=>e.seasonNumber))];\n else if(choice==='latest')selectedSeasons=[historicalSeasons.at(-1)||Math.min(...regular.map(e=>e.seasonNumber))];\n else if(/^season_[1-9][0-9]{0,3}$/.test(choice))selectedSeasons=[Number(choice.slice(7))];\n else throw new Error('Invalid subscription choice');\n if(!selectedSeasons.length||selectedSeasons.some(s=>!Number.isFinite(s)))throw new Error('No season metadata yet');\n const result={historicalSeasons,selectedSeasons,episodeIds:[]};\n result.episodeIds=regular.filter(e=>belongsToSubscription(e,result)).map(e=>String(e.id));\n return result;\n}\nfunction belongsToSubscription(e,s) {\n return Number.isSafeInteger(e.id)&&e.id>0&&Number.isInteger(e.seasonNumber)&&e.seasonNumber>0&&\n  (s.selectedSeasons.includes(e.seasonNumber)||!s.historicalSeasons.includes(e.seasonNumber));\n}\nfunction fileDecision(claims,coveredIds,now) {\n if(!claims.length)return {due:false,reason:'unclaimed',expiresAt:null};\n const covered=new Set(claims.flatMap(c=>c.episodeIds||[]));\n if(coveredIds.some(id=>!covered.has(String(id))))return {due:false,reason:'unclaimed episode in shared file',expiresAt:null};\n let latest=0;\n for(const c of claims){\n  if(!c.baselineCaptured||c.preexisting||c.days===null)return {due:false,reason:'protected claim',expiresAt:null};\n  const expiry=effectiveExpiry(c.importedAt,c.days,c.watchedAt,c.previousDeadline,c.minimumExpiry);\n  latest=Math.max(latest,Date.parse(expiry));\n }\n return {due:latest<=now,reason:latest<=now?'expired':'retained',expiresAt:new Date(latest).toISOString()};\n}\nfunction mediaSnapshot(response) {\n if(response.statusCode===404)return null;\n if(response.statusCode!==200||!Number.isSafeInteger(response.body?.id)||response.body.id<1)throw new Error('Media snapshot unavailable');\n return response.body;\n}\nif(typeof module!=='undefined')module.exports={parseRetention,retentionText,effectiveExpiry,subscription,belongsToSubscription,fileDecision,mediaSnapshot};\n\nreturn [{json:mediaSnapshot($json)||{gone:true}}];"
+      },
+      "position": [
+        1620,
+        0
+      ]
+    },
+    {
+      "id": "69fed009-c0f1-5c40-b07c-12a99a01365d",
+      "name": "Series Still Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ !$json.gone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "id": "8b1267f3-774a-5f69-87d7-8630d44883d9",
+      "name": "Read Retention Episodes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8989/api/v3/episode",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "seriesId",
+              "value": "={{ $('Media Input').first().json.requests[0].mediaId }}"
+            },
+            {
+              "name": "includeEpisodeFile",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "position": [
+        270,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "0632d629-ef48-5b86-b8e6-6a8391ac3545",
+      "name": "Plan Retention",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Pure policy functions embedded into native n8n Code nodes.\nconst DAY_MS=86400000;\nfunction parseRetention(text,type) {\n if(typeof text!=='string'||!['movie','tv'].includes(type))throw new Error('Invalid retention input');\n const permanent=/\\b(?:keep\\s+(?:permanently|forever)|never\\s+delete|do\\s+not\\s+delete|don't\\s+delete|no\\s+expiry)\\b/gi;\n const timed=/\\b(?:keep\\s+(?:for\\s+)?|retain\\s+(?:for\\s+)?|delete\\s+after\\s+|remove\\s+after\\s+|expire\\s+(?:after|in)\\s+)([0-9]+)\\s+days?\\b/gi;\n const forever=[...text.matchAll(permanent)], durations=[...text.matchAll(timed)];\n if(forever.length+durations.length>1)throw new Error('Use one retention instruction');\n let remainder=text.replace(permanent,'').replace(timed,'');\n if(/\\b(?:keep\\s+for|retain|delete|remove\\s+after|expir\\w*|keep\\s+(?:permanently|forever|[-\\d]))\\b/i.test(remainder))throw new Error('Use keep for N days or keep permanently');\n const days=forever.length?null:durations.length?Number(durations[0][1]):type==='movie'?7:30;\n if(days!==null&&(!Number.isInteger(days)||days<1||days>3650))throw new Error('Retention must be 1 to 3650 days');\n return {version:2,days,explicit:!!(forever.length||durations.length)};\n}\nfunction retentionText(policy,type) {\n if(policy.days===null)return '\ud83d\uddc3\ufe0f Keep permanently. No automatic deletion.';\n return `\ud83d\uddd3\ufe0f Auto-delete ${policy.days} days after ${type==='tv'?'each episode imports':'import'}. Watching may shorten this to 7 days after watching; it never extends the deadline.`;\n}\nfunction effectiveExpiry(importedAt,days,watchedAt,previousDeadline,minimumExpiry) {\n if(days===null)return null;\n const imported=Date.parse(importedAt);\n if(!Number.isFinite(imported)||!Number.isInteger(days)||days<1||days>3650)throw new Error('Invalid expiry inputs');\n let deadline=imported+days*DAY_MS;\n if(watchedAt!==null&&watchedAt!==undefined){\n  const watched=Date.parse(watchedAt);if(!Number.isFinite(watched))throw new Error('Invalid watch timestamp');\n  deadline=Math.min(deadline,Math.max(imported,watched)+7*DAY_MS);\n }\n if(previousDeadline){const previous=Date.parse(previousDeadline);if(!Number.isFinite(previous))throw new Error('Invalid saved deadline');deadline=Math.min(deadline,previous);}\n if(minimumExpiry){const floor=Date.parse(minimumExpiry);if(!Number.isFinite(floor))throw new Error('Invalid explicit extension');deadline=Math.max(deadline,floor);}\n return new Date(deadline).toISOString();\n}\nfunction subscription(episodes,choice,now) {\n const regular=episodes.filter(e=>Number.isSafeInteger(e.id)&&e.id>0&&Number.isInteger(e.seasonNumber)&&e.seasonNumber>0);\n const historicalSeasons=[...new Set(regular.filter(e=>Number.isFinite(Date.parse(e.airDateUtc))&&Date.parse(e.airDateUtc)<=now).map(e=>e.seasonNumber))].sort((a,b)=>a-b);\n let selectedSeasons;\n if(choice==='all')selectedSeasons=[...new Set(regular.map(e=>e.seasonNumber))];\n else if(choice==='latest')selectedSeasons=[historicalSeasons.at(-1)||Math.min(...regular.map(e=>e.seasonNumber))];\n else if(/^season_[1-9][0-9]{0,3}$/.test(choice))selectedSeasons=[Number(choice.slice(7))];\n else throw new Error('Invalid subscription choice');\n if(!selectedSeasons.length||selectedSeasons.some(s=>!Number.isFinite(s)))throw new Error('No season metadata yet');\n const result={historicalSeasons,selectedSeasons,episodeIds:[]};\n result.episodeIds=regular.filter(e=>belongsToSubscription(e,result)).map(e=>String(e.id));\n return result;\n}\nfunction belongsToSubscription(e,s) {\n return Number.isSafeInteger(e.id)&&e.id>0&&Number.isInteger(e.seasonNumber)&&e.seasonNumber>0&&\n  (s.selectedSeasons.includes(e.seasonNumber)||!s.historicalSeasons.includes(e.seasonNumber));\n}\nfunction fileDecision(claims,coveredIds,now) {\n if(!claims.length)return {due:false,reason:'unclaimed',expiresAt:null};\n const covered=new Set(claims.flatMap(c=>c.episodeIds||[]));\n if(coveredIds.some(id=>!covered.has(String(id))))return {due:false,reason:'unclaimed episode in shared file',expiresAt:null};\n let latest=0;\n for(const c of claims){\n  if(!c.baselineCaptured||c.preexisting||c.days===null)return {due:false,reason:'protected claim',expiresAt:null};\n  const expiry=effectiveExpiry(c.importedAt,c.days,c.watchedAt,c.previousDeadline,c.minimumExpiry);\n  latest=Math.max(latest,Date.parse(expiry));\n }\n return {due:latest<=now,reason:latest<=now?'expired':'retained',expiresAt:new Date(latest).toISOString()};\n}\nfunction mediaSnapshot(response) {\n if(response.statusCode===404)return null;\n if(response.statusCode!==200||!Number.isSafeInteger(response.body?.id)||response.body.id<1)throw new Error('Media snapshot unavailable');\n return response.body;\n}\nif(typeof module!=='undefined')module.exports={parseRetention,retentionText,effectiveExpiry,subscription,belongsToSubscription,fileDecision,mediaSnapshot};\n\n// Snapshot planner: no I/O. Native n8n nodes persist the plan before API changes.\nfunction planMedia(input) {\n const {requests,records,media,episodes,watched,sessions,now}=input;\n if(!requests.length||!Number.isFinite(now)||!media?.id||!Array.isArray(watched)||!Array.isArray(sessions))throw new Error('Incomplete retention snapshot');\n if(new Set(requests.map(r=>r.requestKey)).size!==requests.length)throw new Error('Duplicate request claims');\n if(requests.some(r=>!Number.isFinite(Date.parse(r.requestedAt))||typeof r.baselineCaptured!=='boolean'||(r.retentionDays!==null&&(!Number.isInteger(r.retentionDays)||r.retentionDays<1||r.retentionDays>3650))))throw new Error('Invalid request claim');\n const saved=new Map();\n for(const row of records){if(!row.key)continue;if(saved.has(row.key))throw new Error('Duplicate retention records');saved.set(row.key,JSON.parse(row.payloadJson));}\n const type=requests[0].mediaType,mediaId=String(media.id),updates=[],monitor=new Set(),search=new Set();\n if(requests.some(r=>r.mediaType!==type||String(r.mediaId)!==mediaId))throw new Error('Media identity mismatch');\n const expired=new Map();\n for(const [key,v] of saved)if(key.startsWith(`file:${type}:${mediaId}:`)&&v.state==='deleted')for(const id of v.episodeIds||[])expired.set(String(id),Math.max(expired.get(String(id))||0,Date.parse(v.deletedAt)));\n const scopes=new Map(),protections=new Map(),managed=new Set();\n for(const r of requests){\n  const key='request:'+r.requestKey,profile=saved.get(key);\n  const ids=new Set(JSON.parse(r.episodeIdsJson));const before=new Set(JSON.parse(r.preexistingFileIdsJson));\n  if(profile){\n   if(profile.requestKey!==r.requestKey||profile.mediaType!==type||String(profile.mediaId)!==mediaId)throw new Error('Subscription identity mismatch');\n   managed.add(r.requestKey);\n   for(const id of profile.episodeIds||[])ids.add(String(id));\n   for(const id of profile.protectedFileIds||[])before.add(String(id));\n   if(type==='tv')for(const e of episodes){\n    if(!belongsToSubscription(e,profile))continue;\n    const id=String(e.id);\n    if(!ids.has(id)){\n     ids.add(id);\n     // An already present file discovered by reconciliation stays protected.\n     if(e.episodeFileId>0)before.add(String(e.episodeFileId));\n     else if(Number.isFinite(Date.parse(e.airDateUtc))&&Date.parse(e.airDateUtc)<=now)search.add(e.id);\n    }\n    if(!(expired.get(id)>=Date.parse(r.requestedAt)))monitor.add(e.id);\n   }\n   updates.push({key,kind:'subscription',payloadJson:JSON.stringify({...profile,episodeIds:[...ids],protectedFileIds:[...before]})});\n  }\n  scopes.set(r.requestKey,ids);protections.set(r.requestKey,before);\n }\n const files=new Map();\n if(type==='movie'){\n  if(media.movieFile?.id)files.set(media.movieFile.id,{file:media.movieFile,episodes:[]});\n }else for(const e of episodes){\n  if(!Number.isSafeInteger(e.id)||!Number.isInteger(e.seasonNumber)||!Number.isInteger(e.episodeNumber))throw new Error('Incomplete episode metadata');\n  if(e.episodeFileId>0&&!e.episodeFile?.id)throw new Error('Missing episode file metadata');\n  if(e.episodeFile?.id){const f=e.episodeFile;if(!files.has(f.id))files.set(f.id,{file:f,episodes:[]});files.get(f.id).episodes.push(e);}\n }\n const deletions=[],decisions=[];\n for(const [fileId,group] of files){\n  const f=group.file,key=`file:${type}:${mediaId}:${fileId}`,previous=saved.get(key)||{};\n  if(!Number.isSafeInteger(fileId)||typeof f.path!=='string'||!f.path.startsWith(type==='movie'?'/movies/':'/tv/')||f.path.includes('/../')||!Number.isFinite(Date.parse(f.dateAdded)))throw new Error('Invalid file identity');\n  if(previous.state==='deleted')continue;\n  const jellyfinPath='/data'+f.path,covered=group.episodes.map(e=>String(e.id)),claims=[],deadlines={};\n  for(const r of requests){\n   const edits=[...saved.entries()].filter(([k,e])=>k.startsWith('change:')&&e.version===1&&e.mediaType===type&&e.mediaId===mediaId&&e.requestKeys?.includes(r.requestKey)).map(([,e])=>e);\n   const permanent=edits.some(e=>e.operation==='permanent');\n   const floors=edits.filter(e=>e.operation==='extend').flatMap(e=>e.files||[]).filter(x=>x.fileId===fileId&&x.path===f.path&&Date.parse(x.importedAt)===Date.parse(f.dateAdded)).map(x=>Date.parse(x.minimumExpiry));\n   if(floors.some(x=>!Number.isFinite(x)))throw new Error('Invalid saved amendment');\n   const minimumExpiry=floors.length?new Date(Math.max(...floors)).toISOString():null;\n   const selected=type==='movie'?[null]:group.episodes.filter(e=>scopes.get(r.requestKey).has(String(e.id)));\n   for(const episode of selected){\n    const claimKey=r.requestKey+':'+(episode?.id||'movie');\n    const played=watched.filter(x=>x.Id&&x.Path===jellyfinPath&&x.UserData?.Played===true&&(!episode||\n     (x.ParentIndexNumber===episode.seasonNumber&&Number.isInteger(x.IndexNumber)&&episode.episodeNumber>=x.IndexNumber&&episode.episodeNumber<=(x.IndexNumberEnd||x.IndexNumber))));\n    let watchedAt=null;\n    for(const x of played){const stamp=Date.parse(x.UserData.LastPlayedDate);const t=Number.isFinite(stamp)&&stamp<=now?stamp:now;watchedAt=Math.min(watchedAt??Infinity,t);}\n    const c={baselineCaptured:r.baselineCaptured===true&&managed.has(r.requestKey),\n     preexisting:protections.get(r.requestKey).has(String(fileId))||Date.parse(f.dateAdded)<Date.parse(r.requestedAt),\n     days:permanent?null:r.retentionDays,minimumExpiry,importedAt:f.dateAdded,watchedAt:watchedAt===null?null:new Date(watchedAt).toISOString(),\n     previousDeadline:previous.deadlines?.[claimKey],episodeIds:episode?[String(episode.id)]:[]};\n    claims.push(c);\n    if(c.days!==null)deadlines[claimKey]=effectiveExpiry(c.importedAt,c.days,c.watchedAt,c.previousDeadline,c.minimumExpiry);\n   }\n  }\n  let decision=fileDecision(claims,covered,now);\n  const identityProtected=previous.identityProtected===true||!!(previous.path&&(previous.path!==f.path||Date.parse(previous.importedAt)!==Date.parse(f.dateAdded)));\n  if(identityProtected)decision={...decision,due:false,reason:'file identity changed; manual review required'};\n  const itemIds=new Set(watched.filter(x=>x.Path===jellyfinPath).map(x=>x.Id));\n  if(sessions.some(s=>s.NowPlayingItem&&(!s.NowPlayingItem.Path||s.NowPlayingItem.Path===jellyfinPath||itemIds.has(s.NowPlayingItem.Id))))decision={...decision,due:false,reason:'currently playing or unresolved active session'};\n  const payload={...decision,state:'tracked',mediaType:type,mediaId,fileId,path:f.path,importedAt:f.dateAdded,episodeIds:covered,deadlines,identityProtected,checkedAt:new Date(now).toISOString()};\n  updates.push({key,kind:'file',payloadJson:JSON.stringify(payload)});decisions.push(payload);\n  if(decision.due)deletions.push({...payload,key});\n }\n return {records:updates,monitorIds:[...monitor],searchIds:[...search].filter(id=>monitor.has(id)),deletions,decisions};\n}\nif(typeof module!=='undefined')module.exports={...module.exports,planMedia};\n\nconst i=$('Media Input').first().json;const movie=i.requests[0].mediaType==='movie';const media=movie?$input.first().json:$('Series Snapshot Response').first().json;const episodes=movie?[]:$input.all().map(x=>x.json);return [{json:{...planMedia({...i,media,episodes,now:Date.now()}),owner:i.owner,mode:i.mode,mediaType:i.requests[0].mediaType,mediaId:i.requests[0].mediaId,media}}];"
+      },
+      "position": [
+        540,
+        240
+      ]
+    },
+    {
+      "id": "49eee393-4939-533c-865d-908c6a2d447e",
+      "name": "Records To Persist",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$json;const records=p.mode==='enabled'?p.records:p.records.filter(r=>r.kind==='file');return records.length?records.map(r=>({json:{...r,owner:p.owner}})):[{json:{skip:true}}];"
+      },
+      "position": [
+        810,
+        240
+      ]
+    },
+    {
+      "id": "4d47ca2f-05f7-5f37-a9c8-5bddebcda25d",
+      "name": "Has Retention Record?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ !!$json.key }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1080,
+        240
+      ]
+    },
+    {
+      "id": "4edc5835-b7a1-56ae-9162-a45a45fe8e46",
+      "name": "Persist Retention Records",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeRetentionStoreV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1350,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "d2086f1a-1173-50b0-b15a-d053fa8dc647",
+      "name": "Monitoring Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:$('Plan Retention').first().json}];"
+      },
+      "position": [
+        1620,
+        240
+      ]
+    },
+    {
+      "id": "282159a7-450f-502f-9f62-3471447a6a81",
+      "name": "Enable Episode Monitoring?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.mode==='enabled'&&$json.mediaType==='tv'&&$json.monitorIds.length>0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        0,
+        480
+      ]
+    },
+    {
+      "id": "1fb90a66-ba78-53b8-ab36-2cd1ce28f832",
+      "name": "Enable Reconciled Series",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'http://192.168.1.10:8989/api/v3/' + ('series/'+$json.mediaId) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {...$json.media,monitored:true,monitorNewItems:\"none\"} }}"
+      },
+      "position": [
+        270,
+        480
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a7ba2e86-e250-5021-adeb-c72eea51f783",
+      "name": "Enable Reconciled Episodes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "PUT",
+        "url": "http://192.168.1.10:8989/api/v3/episode/monitor",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {episodeIds:$('Plan Retention').first().json.monitorIds,monitored:true} }}"
+      },
+      "position": [
+        540,
+        480
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "81e98df6-0440-5812-85f8-883e63d85c6e",
+      "name": "New Episode Search Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:$('Plan Retention').first().json}];"
+      },
+      "position": [
+        810,
+        480
+      ]
+    },
+    {
+      "id": "72189acf-f52b-54ec-9c4f-dd780a66ffd7",
+      "name": "New Aired Episodes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.mode==='enabled'&&$json.searchIds.length>0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1080,
+        480
+      ]
+    },
+    {
+      "id": "8f26ae08-bb33-58fa-9cff-fee78ae72344",
+      "name": "Search New Aired Episodes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.10:8989/api/v3/command",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {name:\"EpisodeSearch\",episodeIds:$json.searchIds} }}"
+      },
+      "position": [
+        1350,
+        480
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "485eab6a-f48b-5721-b164-8f9198f1d902",
+      "name": "Due File Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Plan Retention').first().json;return p.mode==='enabled'&&p.deletions.length?p.deletions.map(d=>({json:{...d,owner:p.owner}})):[{json:{skip:true}}];"
+      },
+      "position": [
+        1620,
+        480
+      ]
+    },
+    {
+      "id": "348ecd6a-b6d7-5188-a9b6-0e7624a8adcc",
+      "name": "Has Due File?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ !!$json.fileId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        0,
+        720
+      ]
+    },
+    {
+      "id": "48866498-a888-56da-9ef9-bd2eb7ca4c53",
+      "name": "Delete Each Due File",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeRetentionDeleteV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        270,
+        720
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "64c8d1d1-031f-572f-bfee-95e4592edfd7",
+      "name": "Media Retention Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Plan Retention').first().json;return [{json:{mediaType:p.mediaType,mediaId:p.mediaId,mode:p.mode,decisions:p.decisions,plannedMonitorIds:p.monitorIds,plannedSearchIds:p.searchIds}}];"
+      },
+      "position": [
+        540,
+        720
+      ]
+    },
+    {
+      "id": "646d05fe-e408-5576-83d9-0ecdd8bcbc99",
+      "name": "Media Already Removed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const i=$('Media Input').first().json;return [{json:{mediaType:i.requests[0].mediaType,mediaId:i.requests[0].mediaId,mode:i.mode,decisions:[],alreadyRemoved:true}}];"
+      },
+      "position": [
+        810,
+        720
+      ]
+    }
+  ],
+  "connections": {
+    "Media Input": {
+      "main": [
+        [
+          {
+            "node": "Retention Movie?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retention Movie?": {
+      "main": [
+        [
+          {
+            "node": "Read Retention Movie",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Retention Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Retention Movie": {
+      "main": [
+        [
+          {
+            "node": "Movie Snapshot Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Movie Snapshot Response": {
+      "main": [
+        [
+          {
+            "node": "Movie Still Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Movie Still Exists?": {
+      "main": [
+        [
+          {
+            "node": "Plan Retention",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Media Already Removed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Retention": {
+      "main": [
+        [
+          {
+            "node": "Records To Persist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Records To Persist": {
+      "main": [
+        [
+          {
+            "node": "Has Retention Record?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Retention Record?": {
+      "main": [
+        [
+          {
+            "node": "Persist Retention Records",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Monitoring Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist Retention Records": {
+      "main": [
+        [
+          {
+            "node": "Monitoring Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monitoring Plan": {
+      "main": [
+        [
+          {
+            "node": "Enable Episode Monitoring?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enable Episode Monitoring?": {
+      "main": [
+        [
+          {
+            "node": "Enable Reconciled Series",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "New Episode Search Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enable Reconciled Series": {
+      "main": [
+        [
+          {
+            "node": "Enable Reconciled Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enable Reconciled Episodes": {
+      "main": [
+        [
+          {
+            "node": "New Episode Search Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Episode Search Plan": {
+      "main": [
+        [
+          {
+            "node": "New Aired Episodes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Aired Episodes?": {
+      "main": [
+        [
+          {
+            "node": "Search New Aired Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Due File Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search New Aired Episodes": {
+      "main": [
+        [
+          {
+            "node": "Due File Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Due File Plan": {
+      "main": [
+        [
+          {
+            "node": "Has Due File?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Due File?": {
+      "main": [
+        [
+          {
+            "node": "Delete Each Due File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Media Retention Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Each Due File": {
+      "main": [
+        [
+          {
+            "node": "Media Retention Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Retention Series": {
+      "main": [
+        [
+          {
+            "node": "Series Snapshot Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Series Snapshot Response": {
+      "main": [
+        [
+          {
+            "node": "Series Still Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Series Still Exists?": {
+      "main": [
+        [
+          {
+            "node": "Read Retention Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Media Already Removed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Retention Episodes": {
+      "main": [
+        [
+          {
+            "node": "Plan Retention",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 600
+  }
+}

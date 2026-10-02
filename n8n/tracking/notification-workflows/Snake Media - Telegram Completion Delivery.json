@@ -1,0 +1,140 @@
+{
+  "id": "snakeTelegramNoticesV1",
+  "name": "Snake Media - Telegram Completion Delivery",
+  "nodes": [
+    {
+      "id": "b330c8b2-072b-5c42-a10b-a9c376ac75bd",
+      "name": "Every Two Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 2
+            }
+          ]
+        }
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "e1f3ed6a-1e0c-5702-9a1f-68c5d6218808",
+      "name": "Pending Telegram Notices",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_notifications"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source",
+              "condition": "eq",
+              "keyValue": "telegram"
+            },
+            {
+              "keyName": "state",
+              "condition": "eq",
+              "keyValue": "pending"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "id": "159f4231-e00e-5f84-89b1-397e906e01b4",
+      "name": "Unique Telegram Notices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const seen=new Set();\nreturn $input.all().filter(({json:r})=>{\n if(!r.notificationKey||/:tv:\\d+:episode:\\d+$/.test(r.notificationKey)||seen.has(r.notificationKey))return false;\n seen.add(r.notificationKey);return true;\n}).slice(0,10);\n"
+      },
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "id": "f97aca5b-fcae-56d5-ba97-2a6cfb63c817",
+      "name": "Deliver Each Telegram Notice",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeTelegramNoticeSendV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "mode": "each"
+      },
+      "position": [
+        600,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Every Two Minutes": {
+      "main": [
+        [
+          {
+            "node": "Pending Telegram Notices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pending Telegram Notices": {
+      "main": [
+        [
+          {
+            "node": "Unique Telegram Notices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unique Telegram Notices": {
+      "main": [
+        [
+          {
+            "node": "Deliver Each Telegram Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 90
+  },
+  "active": false
+}

@@ -1,0 +1,139 @@
+{
+  "id": "snakeRetentionPlayedV1",
+  "name": "Snake Media - Read Watched Items",
+  "nodes": [
+    {
+      "id": "3ae48200-badd-5169-bd57-bb482d0e52b7",
+      "name": "User Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "10046515-44ec-5fdd-9399-977c13f2c210",
+      "name": "Read User Played Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://192.168.1.10:8096/' + ('Users/'+$json.Id+'/Items') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "StartIndex",
+                    "value": "={{ $pageCount * 500 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.Items.length < 500 }}",
+              "limitPagesFetched": true,
+              "maxRequests": 100
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "Recursive",
+              "value": "true"
+            },
+            {
+              "name": "IncludeItemTypes",
+              "value": "Movie,Episode"
+            },
+            {
+              "name": "Fields",
+              "value": "Path"
+            },
+            {
+              "name": "Filters",
+              "value": "IsPlayed"
+            },
+            {
+              "name": "Limit",
+              "value": "500"
+            },
+            {
+              "name": "EnableImages",
+              "value": "false"
+            },
+            {
+              "name": "EnableUserData",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "position": [
+        270,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "76e01473-e68b-58e1-a63b-f77daa3117db",
+      "name": "Watched Page Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const pages=$input.all().map(x=>x.json);if(pages.some(p=>!Array.isArray(p.Items)||!Number.isInteger(p.TotalRecordCount)))throw new Error('Incomplete played response');const items=pages.flatMap(p=>p.Items);if(pages[0].TotalRecordCount>items.length)throw new Error('Incomplete played pagination');return [{json:{Items:items}}];"
+      },
+      "position": [
+        540,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "User Input": {
+      "main": [
+        [
+          {
+            "node": "Read User Played Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read User Played Items": {
+      "main": [
+        [
+          {
+            "node": "Watched Page Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 600
+  }
+}

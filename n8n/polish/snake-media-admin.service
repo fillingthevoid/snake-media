@@ -1,0 +1,28 @@
+[Unit]
+Description=Snake Media owner authorization bridge
+After=network-online.target docker.service
+RequiresMountsFor=/mnt/media/appdata/discord-bot
+
+[Service]
+Type=simple
+User=media
+WorkingDirectory=/mnt/media/appdata/discord-bot
+Environment=PYTHONPATH=/mnt/media/appdata/discord-bot/src
+Environment=ADMIN_ENV_PATH=/mnt/media/appdata/discord-bot/.env
+Environment=ADMIN_STATE_PATH=/mnt/media/appdata/discord-bot/admin-config/users.json
+Environment=ADMIN_SOCKET_PATH=/run/snake-media-admin/authorization.sock
+Environment=ADMIN_PEER_UID=10001
+RuntimeDirectory=snake-media-admin
+RuntimeDirectoryMode=0755
+ExecStart=/usr/bin/python3 -m snake_media.host_authorization
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/mnt/media/appdata/discord-bot
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

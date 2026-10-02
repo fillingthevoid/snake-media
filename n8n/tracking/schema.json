@@ -1,0 +1,57 @@
+{
+  "snake_media_requests": {
+    "requestKey": "string",
+    "source": "string",
+    "userId": "string",
+    "destinationId": "string",
+    "messageId": "string",
+    "text": "string",
+    "mediaType": "string",
+    "mediaId": "string",
+    "externalId": "string",
+    "title": "string",
+    "episodeIdsJson": "string",
+    "preexistingFileIdsJson": "string",
+    "state": "string",
+    "requestedAt": "date",
+    "retentionDays": "number",
+    "baselineCaptured": "boolean",
+    "deletionEligible": "boolean"
+  },
+  "snake_media_request_files": {
+    "requestKey": "string",
+    "fileKey": "string",
+    "mediaType": "string",
+    "mediaId": "string",
+    "fileId": "string",
+    "episodeIdsJson": "string",
+    "state": "string",
+    "importedAt": "date",
+    "expiresAt": "date",
+    "protected": "boolean"
+  },
+  "snake_media_import_events": {
+    "eventKey": "string",
+    "mediaType": "string",
+    "mediaId": "string",
+    "fileId": "string",
+    "episodeIdsJson": "string",
+    "state": "string",
+    "payloadJson": "string",
+    "importedAt": "date",
+    "receivedAt": "date"
+  },
+  "snake_media_notifications": {
+    "notificationKey": "string",
+    "requestKey": "string",
+    "fileKey": "string",
+    "source": "string",
+    "destinationId": "string",
+    "payloadJson": "string",
+    "state": "string",
+    "deliveredMessageId": "string",
+    "attempts": "number",
+    "nextAttemptAt": "date",
+    "deliveredAt": "date"
+  }
+}

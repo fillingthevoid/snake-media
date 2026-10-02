@@ -1,0 +1,293 @@
+{
+  "id": "snakeQueueCandidateV1",
+  "name": "Snake Media - Queue Verified Completion",
+  "nodes": [
+    {
+      "id": "6cfd5028-9e65-5fff-8ee9-b6c0f30a9c1e",
+      "name": "Candidate Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "11182613-3a0c-588f-8db8-22e44d2faf72",
+      "name": "Find Existing Notice",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_notifications"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requestKey",
+              "condition": "eq",
+              "keyValue": "={{ $json.request.requestKey }}"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        200,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "c12c8fd2-d08c-5c8f-862e-133c4d7c366e",
+      "name": "No Existing Notice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const c=$('Candidate Input').first().json;\nconst key=c.request.requestKey+':'+(c.mediaType==='tv'?'tv-ready':c.fileKey);\nconst exists=$input.all().some(({json:r})=>r.notificationKey===key ||\n (c.mediaType==='tv'&&r.requestKey===c.request.requestKey&&r.state==='delivered'));\nreturn exists?[]:[{json:c}];\n"
+      },
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "id": "1612d0f5-0795-548d-aacf-291e78569f8e",
+      "name": "Confirm Jellyfin File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{Items:$('Candidate Input').first().json.jellyfinItems || []}}];"
+      },
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "id": "d37a0628-119b-5f88-878e-9aa241ca27a3",
+      "name": "Build Completion Notice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const c=$('Candidate Input').first().json;\nconst data=$input.first().json;\nif(!Array.isArray(data.Items) || !data.Items.some(x=>x.Path===c.jellyfinPath && x.Id))return [];\nconst r=c.request;\nconst suffix=c.mediaType==='tv'&&c.downloadCount>1 ? (c.remainingCount>0 ? '\\nThe remaining episodes you requested will be available soon.' : '\\nAll requested episodes are available in Jellyfin.') : '';\nconst key=c.mediaType==='tv'?'tv-ready':c.fileKey;\nreturn [{json:{notificationKey:`${r.requestKey}:${key}`,requestKey:r.requestKey,fileKey:c.fileKey,source:r.source,destinationId:r.destinationId,payloadJson:JSON.stringify({text:`\u2705 ${c.label}\\n\\nDownload complete and available in Jellyfin.${suffix}`,userId:r.userId,messageId:r.messageId}),state:'pending',attempts:0,nextAttemptAt:new Date().toISOString(),deliveredAt:null,deliveredMessageId:''}}];\n"
+      },
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "id": "46c5e114-8a8c-5a15-aef6-9258124cd3fc",
+      "name": "Store Completion Notice",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_notifications"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "notificationKey": "={{ $json.notificationKey }}",
+            "requestKey": "={{ $json.requestKey }}",
+            "fileKey": "={{ $json.fileKey }}",
+            "source": "={{ $json.source }}",
+            "destinationId": "={{ $json.destinationId }}",
+            "payloadJson": "={{ $json.payloadJson }}",
+            "state": "={{ $json.state }}",
+            "deliveredMessageId": "={{ $json.deliveredMessageId }}",
+            "attempts": "={{ $json.attempts }}",
+            "nextAttemptAt": "={{ $json.nextAttemptAt }}",
+            "deliveredAt": "={{ $json.deliveredAt }}"
+          },
+          "schema": [
+            {
+              "id": "notificationKey",
+              "displayName": "notificationKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requestKey",
+              "displayName": "requestKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fileKey",
+              "displayName": "fileKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "destinationId",
+              "displayName": "destinationId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payloadJson",
+              "displayName": "payloadJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deliveredMessageId",
+              "displayName": "deliveredMessageId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "attempts",
+              "displayName": "attempts",
+              "type": "number",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nextAttemptAt",
+              "displayName": "nextAttemptAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deliveredAt",
+              "displayName": "deliveredAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1000,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Candidate Input": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Notice": {
+      "main": [
+        [
+          {
+            "node": "No Existing Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Existing Notice": {
+      "main": [
+        [
+          {
+            "node": "Confirm Jellyfin File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Jellyfin File": {
+      "main": [
+        [
+          {
+            "node": "Build Completion Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Completion Notice": {
+      "main": [
+        [
+          {
+            "node": "Store Completion Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 240
+  },
+  "active": false
+}

@@ -1,0 +1,511 @@
+{
+  "id": "snakeRetentionScanV1",
+  "name": "Snake Media - Scan Retention Under Lock",
+  "nodes": [
+    {
+      "id": "d09ebbc5-7c70-5091-9b44-9c08b050e345",
+      "name": "Scan Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "57a7a15a-ce0f-5700-991e-25b3ed6830e5",
+      "name": "Read Retention Mode",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "mode"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        270,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "7b84948b-40d4-5f0c-bf4b-c2c5b41d3684",
+      "name": "Validate Scan Mode",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "if(!['preview','enabled'].includes($json.owner))throw new Error('Invalid retention mode');return [{json:{mode:$json.owner}}];"
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "19fffdec-1d3b-5681-9b3e-bd97df37b6c9",
+      "name": "Read All Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_requests"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        810,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "85fcb938-9aea-58fd-855b-999b5ff2b63b",
+      "name": "One Retention Read",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      },
+      "position": [
+        1080,
+        0
+      ]
+    },
+    {
+      "id": "9ee2342c-1441-5f39-be87-4b410e7471eb",
+      "name": "Read All Retention Records",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_records"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        1350,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "94aa42a5-ad4c-5db0-8253-50276d217273",
+      "name": "One User Read",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      },
+      "position": [
+        1620,
+        0
+      ]
+    },
+    {
+      "id": "dece9bb5-d94f-5b94-acc6-e93339d6d273",
+      "name": "Read Jellyfin Users",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8096/Users",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "position": [
+        0,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f228b9ea-b791-55ae-a2fe-aa3deaf1ffc0",
+      "name": "Validate Jellyfin Users",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const rows=$input.all();if(!rows.length||rows.some(x=>typeof x.json.Id!=='string'))throw new Error('Cannot enumerate Jellyfin users');return rows;"
+      },
+      "position": [
+        270,
+        240
+      ]
+    },
+    {
+      "id": "0305dcfb-3dd9-5cc1-8c4d-0bc2d689492f",
+      "name": "Read Each User Played Items",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeRetentionPlayedV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        540,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "57c0e865-61c1-524a-af72-7ecd491ba218",
+      "name": "Watched Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{watched:$input.all().flatMap(x=>{if(!Array.isArray(x.json.Items))throw new Error('Incomplete watched snapshot');return x.json.Items;})}}];"
+      },
+      "position": [
+        810,
+        240
+      ]
+    },
+    {
+      "id": "f137b845-63be-55d8-86c5-3e658e077428",
+      "name": "Read Active Playback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8096/Sessions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "position": [
+        1080,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "489eb577-b939-5e4f-a630-93af76d0bcb2",
+      "name": "Group Retention Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const requests=$('Read All Requests').all().map(x=>x.json).filter(r=>r.requestKey&&r.userId!=='1'&&r.state==='registered');const records=$('Read All Retention Records').all().map(x=>x.json).filter(r=>r.key);const groups=new Map();for(const r of requests){const k=r.mediaType+':'+r.mediaId;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r);}const result=[...groups.values()].map(rs=>({json:{owner:$('Scan Input').first().json.owner,mode:$('Validate Scan Mode').first().json.mode,requests:rs,records,watched:$('Watched Snapshot').first().json.watched,sessions:$input.all().map(x=>x.json)}}));return result.length?result:[{json:{skip:true}}];"
+      },
+      "position": [
+        1350,
+        240
+      ]
+    },
+    {
+      "id": "127b1938-aabf-5a23-ba67-b05eeb3d3bf6",
+      "name": "Has Request Group?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ !!$json.requests }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1620,
+        240
+      ]
+    },
+    {
+      "id": "87045f9a-b1d4-5f72-ac94-987e35681832",
+      "name": "Process Each Retention Group",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeRetentionMediaV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        0,
+        480
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "50653d62-e295-50b6-a264-55ce00d9b81e",
+      "name": "Scan Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const results=$input.all().map(x=>x.json);return [{json:{scanned:results.length,groups:results}}];"
+      },
+      "position": [
+        270,
+        480
+      ]
+    }
+  ],
+  "connections": {
+    "Scan Input": {
+      "main": [
+        [
+          {
+            "node": "Read Retention Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Retention Mode": {
+      "main": [
+        [
+          {
+            "node": "Validate Scan Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Scan Mode": {
+      "main": [
+        [
+          {
+            "node": "Read All Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read All Requests": {
+      "main": [
+        [
+          {
+            "node": "One Retention Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Retention Read": {
+      "main": [
+        [
+          {
+            "node": "Read All Retention Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read All Retention Records": {
+      "main": [
+        [
+          {
+            "node": "One User Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One User Read": {
+      "main": [
+        [
+          {
+            "node": "Read Jellyfin Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Jellyfin Users": {
+      "main": [
+        [
+          {
+            "node": "Validate Jellyfin Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Jellyfin Users": {
+      "main": [
+        [
+          {
+            "node": "Read Each User Played Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Each User Played Items": {
+      "main": [
+        [
+          {
+            "node": "Watched Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Watched Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Read Active Playback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Active Playback": {
+      "main": [
+        [
+          {
+            "node": "Group Retention Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group Retention Requests": {
+      "main": [
+        [
+          {
+            "node": "Has Request Group?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Request Group?": {
+      "main": [
+        [
+          {
+            "node": "Process Each Retention Group",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scan Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Each Retention Group": {
+      "main": [
+        [
+          {
+            "node": "Scan Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 600
+  }
+}

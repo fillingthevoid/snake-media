@@ -1,0 +1,494 @@
+{
+  "id": "snakeLockRecoveryV1",
+  "name": "Snake Media - Recover Stopped Lock",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "snake-lock-recovery",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c31cb56c-d81d-4080-a8ee-429f561f0c41",
+      "name": "Recovery Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "notesInFlow": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CONFIGURE_HTTPHEADERAUTH",
+          "name": "Configure httpHeaderAuth"
+        }
+      },
+      "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication."
+    },
+    {
+      "id": "781742cd-7a58-5d1b-b077-3304e22bfd85",
+      "name": "Validate Recovery Proof",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "function validateProof(p,now){\n if(!p||!Number.isFinite(now)||!['snakeRetentionCoordinatorV1','snakeLockRecoveryV1'].includes(p.workflowId)||!['success','error','canceled','crashed'].includes(p.status)||typeof p.owner!=='string'||! /^[1-9][0-9]{0,15}$/.test(p.owner)||p.activeExecutions!==0)throw Error('Invalid recovery proof');\n const checked=Date.parse(p.checkedAt),stopped=Date.parse(p.stoppedAt);\n if(!Number.isFinite(checked)||!Number.isFinite(stopped)||checked>now+5000||now-checked>30000||checked-stopped<120000)throw Error('Recovery evidence is stale or incomplete');\n return {owner:p.owner,workflowId:p.workflowId,status:p.status,stoppedAt:p.stoppedAt,checkedAt:p.checkedAt};\n}\nif(typeof module!=='undefined')module.exports={validateProof};\n\nreturn [{json:validateProof($json.body,Date.now())}];"
+      },
+      "position": [
+        270,
+        0
+      ]
+    },
+    {
+      "id": "e5149ebf-b207-51d5-a0e4-145d0681c6f9",
+      "name": "Claim Abandoned Lock",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "global"
+            },
+            {
+              "keyName": "owner",
+              "condition": "eq",
+              "keyValue": "={{ $json.owner }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "owner": "={{ String($execution.id) }}"
+          },
+          "schema": [
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        540,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f135d7f7-7694-540c-b382-c6ca9313ec36",
+      "name": "Recovery Owns Lock?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ $json.owner===String($execution.id) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        810,
+        0
+      ]
+    },
+    {
+      "id": "ae038df1-63a8-5c00-97b8-5c8c7407dd1f",
+      "name": "Pause Cleanup Before Release",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "mode"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "owner": "preview"
+          },
+          "schema": [
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1080,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "916e7d2c-edd6-5199-886f-834a6f5f33c5",
+      "name": "Verify Cleanup Paused",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "if($json.key!=='mode'||$json.owner!=='preview')throw Error('Cleanup pause failed');return [{json:{}}];"
+      },
+      "position": [
+        1350,
+        0
+      ]
+    },
+    {
+      "id": "0ffe7663-3d3f-575d-ab3d-c376b031671c",
+      "name": "Record Recovery",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "recovery"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "recovery",
+            "owner": "={{ JSON.stringify({...$('Validate Recovery Proof').first().json,recoveredAt:new Date().toISOString(),cleanupPaused:true}) }}"
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1620,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "ad861cc7-0f62-56ec-8bfc-69e473e7c03b",
+      "name": "Verify Recovery Recorded",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "if($json.key!=='recovery'||JSON.parse($json.owner).owner!==$('Validate Recovery Proof').first().json.owner)throw Error('Recovery audit failed');return [{json:{}}];"
+      },
+      "position": [
+        0,
+        250
+      ]
+    },
+    {
+      "id": "59dc7ab4-14e9-5e84-a642-71121b862474",
+      "name": "Release Recovered Lock",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "global"
+            },
+            {
+              "keyName": "owner",
+              "condition": "eq",
+              "keyValue": "={{ String($execution.id) }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "owner": ""
+          },
+          "schema": [
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        270,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a152f8ff-baa9-52c2-a757-a138070dbffe",
+      "name": "Recovery Completed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "if($json.key!=='global'||$json.owner!=='')throw Error('Recovery release failed');return [{json:{recovered:true,cleanupPaused:true}}];"
+      },
+      "position": [
+        540,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "45b547a6-1792-4b2e-90c1-2a1909ad7470",
+      "name": "Recovery Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        810,
+        250
+      ]
+    },
+    {
+      "id": "2c1aec99-6a77-50af-8387-df40077f9706",
+      "name": "Owner Changed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{recovered:false,reason:'owner_changed'}}];"
+      },
+      "position": [
+        1080,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Recovery Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Recovery Proof",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Recovery Proof": {
+      "main": [
+        [
+          {
+            "node": "Claim Abandoned Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim Abandoned Lock": {
+      "main": [
+        [
+          {
+            "node": "Recovery Owns Lock?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recovery Owns Lock?": {
+      "main": [
+        [
+          {
+            "node": "Pause Cleanup Before Release",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Owner Changed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause Cleanup Before Release": {
+      "main": [
+        [
+          {
+            "node": "Verify Cleanup Paused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Cleanup Paused": {
+      "main": [
+        [
+          {
+            "node": "Record Recovery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Recovery": {
+      "main": [
+        [
+          {
+            "node": "Verify Recovery Recorded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Recovery Recorded": {
+      "main": [
+        [
+          {
+            "node": "Release Recovered Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Release Recovered Lock": {
+      "main": [
+        [
+          {
+            "node": "Recovery Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recovery Completed": {
+      "main": [
+        [
+          {
+            "node": "Recovery Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Owner Changed": {
+      "main": [
+        [
+          {
+            "node": "Recovery Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  },
+  "active": false
+}

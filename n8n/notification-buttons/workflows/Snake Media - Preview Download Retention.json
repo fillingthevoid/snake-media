@@ -1,0 +1,266 @@
+{
+  "id": "snakeNoticeRetentionPreviewV1",
+  "name": "Snake Media - Preview Download Retention",
+  "nodes": [
+    {
+      "id": "dc1a9c7b-4d04-5508-a3af-5b2b3b7b2473",
+      "name": "Notice Action",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "882813bb-bb97-558c-af1f-0c386c098b33",
+      "name": "Read Notice Ownership",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_notifications"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ Number($('Notice Action').first().json.pendingId) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f08a0b09-5020-5203-a9d5-d105331d7afd",
+      "name": "One Notice Request Read",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "b1abd15c-4f95-5090-8395-7415bfde4334",
+      "name": "Read Notice Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_requests"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {}
+      },
+      "position": [
+        810,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "98229c54-84a9-5890-8921-9001a4b86505",
+      "name": "Resolve Notice Owner",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Resolve notification controls from stored ownership, never from a client title.\nfunction noticeActor(actor,notices,requests,executionId){\n const denied={version:1,status:'notice',text:'This download notice is unavailable or belongs to another requester. Use an extend or keep command for your own requests.'};\n if(!['notice_7','notice_30','notice_keep'].includes(actor.action)||!/^\\d+$/.test(String(actor.pendingId)))return denied;\n const matches=notices.filter(r=>String(r.id)===String(actor.pendingId));\n if(matches.length!==1)return denied;\n const n=matches[0];let payload;try{payload=JSON.parse(n.payloadJson);}catch{return denied;}\n if(!payload||actor.userId==='1'||n.source!==actor.source||String(n.destinationId)!==actor.destinationId||payload.userId!==actor.userId)return denied;\n const rows=requests.filter(r=>r.requestKey===n.requestKey&&r.source===actor.source&&r.userId===actor.userId&&r.state==='registered');\n if(rows.length!==1||typeof rows[0].title!=='string'||!rows[0].title.trim())return denied;\n const title=rows[0].title.replace(/\\s+/g,' ').trim();\n const text=actor.action==='notice_keep'?`keep ${title} permanently`:`extend ${title} ${actor.action==='notice_7'?7:30} days`;\n return {source:actor.source,userId:actor.userId,destinationId:actor.destinationId,\n  requestKey:n.requestKey,messageId:`notice:${n.id}:${actor.action}:${executionId}`,text};\n}\nif(typeof module!=='undefined')module.exports={noticeActor};\n\nreturn [{json:noticeActor($('Notice Action').first().json,$('Read Notice Ownership').all().map(x=>x.json),$input.all().map(x=>x.json),String($execution.id))}];"
+      },
+      "position": [
+        1080,
+        0
+      ]
+    },
+    {
+      "id": "0438238c-9ec3-5169-976c-17db3bd716f8",
+      "name": "Notice Owned?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ !!$json.requestKey }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1350,
+        0
+      ]
+    },
+    {
+      "id": "5558f82a-7c00-53b4-82c6-5e1aa0105b3c",
+      "name": "Preview Notice Retention",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeRetentionChangePreviewV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1620,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f4928ae1-0d06-5ede-884b-9b4626c6b606",
+      "name": "Notice Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:$json}];"
+      },
+      "position": [
+        0,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Notice Action": {
+      "main": [
+        [
+          {
+            "node": "Read Notice Ownership",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Notice Ownership": {
+      "main": [
+        [
+          {
+            "node": "One Notice Request Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Notice Request Read": {
+      "main": [
+        [
+          {
+            "node": "Read Notice Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Notice Requests": {
+      "main": [
+        [
+          {
+            "node": "Resolve Notice Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Notice Owner": {
+      "main": [
+        [
+          {
+            "node": "Notice Owned?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notice Owned?": {
+      "main": [
+        [
+          {
+            "node": "Preview Notice Retention",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notice Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview Notice Retention": {
+      "main": [
+        [
+          {
+            "node": "Notice Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  },
+  "active": false
+}

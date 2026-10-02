@@ -1,0 +1,322 @@
+{
+  "id": "snakeNotificationQueueV1",
+  "name": "Snake Media - Discord Notification Queue",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "snake-media-notifications",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f558fe1d-7c76-525d-88a2-565850be0767",
+      "name": "Discord Queue",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "notesInFlow": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CONFIGURE_HTTPHEADERAUTH",
+          "name": "Configure httpHeaderAuth"
+        }
+      },
+      "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication."
+    },
+    {
+      "id": "d2da8c95-0a74-5998-8223-5ef4112f52dd",
+      "name": "Validate Queue Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body; if(b?.action==='poll')return [{json:{action:'poll'}}]; if(b?.action==='ack' && typeof b.notificationKey==='string' && b.notificationKey.startsWith('discord:') && b.notificationKey.length<=300 && typeof b.messageId==='string' && /^[1-9][0-9]{0,19}$/.test(b.messageId))return [{json:b}]; throw new Error('Invalid queue action');"
+      },
+      "position": [
+        270,
+        0
+      ]
+    },
+    {
+      "id": "9518f5e2-e0c8-5bdb-a69d-9d07b01eb4f4",
+      "name": "Poll Queue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.action==='poll' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "0a0c5c82-6ca1-5438-8a75-482d8e47bc49",
+      "name": "Pending Discord Notices",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_notifications"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source",
+              "condition": "eq",
+              "keyValue": "discord"
+            },
+            {
+              "keyName": "state",
+              "condition": "eq",
+              "keyValue": "pending"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        810,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "7777b54c-68b4-5d69-98c1-4c244f58a108",
+      "name": "Queue Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const seen=new Set(); const notifications=[];\nfor(const {json:r} of $input.all()) {\n if(!r.notificationKey || /:tv:\\d+:episode:\\d+$/.test(r.notificationKey) || seen.has(r.notificationKey))continue;\n seen.add(r.notificationKey);\n try{notifications.push({id:String(r.id),notificationKey:r.notificationKey,destinationId:r.destinationId,payload:JSON.parse(r.payloadJson)});}catch{}\n if(notifications.length===10)break;\n}\nreturn [{json:{version:1,notifications}}];\n"
+      },
+      "position": [
+        1080,
+        0
+      ]
+    },
+    {
+      "id": "d521b9b9-975a-51bb-8c62-809a96d817e8",
+      "name": "Acknowledge Discord Notice",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_notifications"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "source",
+              "condition": "eq",
+              "keyValue": "discord"
+            },
+            {
+              "keyName": "notificationKey",
+              "condition": "eq",
+              "keyValue": "={{ $json.notificationKey }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "state": "delivered",
+            "deliveredAt": "={{ $now.toISO() }}",
+            "deliveredMessageId": "={{ $json.messageId }}"
+          },
+          "schema": [
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deliveredAt",
+              "displayName": "deliveredAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deliveredMessageId",
+              "displayName": "deliveredMessageId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1350,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "93fee8f6-90b5-5ef3-93a6-2be433a21e9c",
+      "name": "Acknowledgement Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{version:1,acknowledged:true}}];"
+      },
+      "position": [
+        1620,
+        0
+      ]
+    },
+    {
+      "id": "859174c0-8356-5fb2-b589-60ae2c0dfa23",
+      "name": "Queue Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "position": [
+        0,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Discord Queue": {
+      "main": [
+        [
+          {
+            "node": "Validate Queue Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Queue Action": {
+      "main": [
+        [
+          {
+            "node": "Poll Queue?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Queue?": {
+      "main": [
+        [
+          {
+            "node": "Pending Discord Notices",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Acknowledge Discord Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pending Discord Notices": {
+      "main": [
+        [
+          {
+            "node": "Queue Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queue Batch": {
+      "main": [
+        [
+          {
+            "node": "Queue Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledge Discord Notice": {
+      "main": [
+        [
+          {
+            "node": "Acknowledgement Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acknowledgement Result": {
+      "main": [
+        [
+          {
+            "node": "Queue Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 240
+  },
+  "active": false
+}

@@ -1,0 +1,300 @@
+{
+  "id": "xWK1b9ugbjMKhGeC",
+  "name": "Add TV Show - Sonarr",
+  "description": null,
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const r=$('Check If Series Exists').first().json; return [{json:{...r,status:'already_added',movie:r.title}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        448
+      ],
+      "id": "6ddc1405-00a6-4b88-bec6-b8e63eb00656",
+      "name": "Already Added"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e7c4ecfe-671c-4773-bcc3-7c885d03e7b5",
+              "leftValue": "={{ $json.year }}",
+              "rightValue": "={{ $('TV Request Input').first().json.year || $json.year }}",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -112,
+        -32
+      ],
+      "id": "5cc22d28-a54c-493a-be2c-4e9b9a66ff48",
+      "name": "Match Requested Year"
+    },
+    {
+      "parameters": {
+        "url": "http://192.168.1.10:8989/api/v3/series/lookup",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "term",
+              "value": "={{ $('TV Request Input').first().json.show }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -112,
+        -224
+      ],
+      "id": "df87b4b4-d023-4d55-923a-426ec53a69be",
+      "name": "Series Search"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        160
+      ],
+      "id": "8648db9a-ec2a-4e61-af24-0aa380743c5e",
+      "name": "Select Correct Series"
+    },
+    {
+      "parameters": {
+        "url": "http://192.168.1.10:8989/api/v3/series",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "tvdbId",
+              "value": "={{ $('Select Correct Series').first().json.tvdbId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -112,
+        352
+      ],
+      "id": "0d0c2bad-2751-48b8-b352-481e70ea84e4",
+      "name": "Check If Series Exists",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "48b3b3e0-af53-4599-8019-a6d978903c0f",
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -112,
+        544
+      ],
+      "id": "dd69ff33-4277-4038-a668-aa987a0684f9",
+      "name": "Already in Sonarr?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.10:8989/api/v3/series",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    \"title\": $('Select Correct Series').first().json.title,\n    \"tvdbId\": $('Select Correct Series').first().json.tvdbId,\n    \"titleSlug\": $('Select Correct Series').first().json.titleSlug,\n    \"qualityProfileId\": 4,\n    \"rootFolderPath\": \"/tv\",\n    \"monitored\": true,\n    \"seasonFolder\": true,\n    \"seriesType\": $('Select Correct Series').first().json.seriesType || \"standard\",\n    \"addOptions\": {\n      \"searchForMissingEpisodes\": true\n    }\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        192,
+        624
+      ],
+      "id": "bdddbff1-0018-4f78-a80e-859226afdf22",
+      "name": "Add Series"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "show"
+            },
+            {
+              "name": "year",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -400,
+        -224
+      ],
+      "id": "5392e6a2-9cf0-458f-946e-3465a13430d3",
+      "name": "TV Request Input"
+    }
+  ],
+  "connections": {
+    "Match Requested Year": {
+      "main": [
+        [
+          {
+            "node": "Select Correct Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Series Search": {
+      "main": [
+        [
+          {
+            "node": "Match Requested Year",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Correct Series": {
+      "main": [
+        [
+          {
+            "node": "Check If Series Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Series Exists": {
+      "main": [
+        [
+          {
+            "node": "Already in Sonarr?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already in Sonarr?": {
+      "main": [
+        [
+          {
+            "node": "Already Added",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TV Request Input": {
+      "main": [
+        [
+          {
+            "node": "Series Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "versionMetadata": {
+    "name": "Sonarr V1",
+    "description": ""
+  }
+}

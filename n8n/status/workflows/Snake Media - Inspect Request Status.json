@@ -1,0 +1,531 @@
+{
+  "id": "snakeStatusInspectV1",
+  "name": "Snake Media - Inspect Request Status",
+  "nodes": [
+    {
+      "id": "b3985f95-e0ec-5620-b848-09fa9d784ec3",
+      "name": "Inspect Status Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "0f4f3ccc-f708-5971-bdbf-1c4daf7c14b4",
+      "name": "Status Movie?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ $json.requests[0].mediaType==='movie' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        0
+      ]
+    },
+    {
+      "id": "16855917-a65b-564f-a245-95e0d869967b",
+      "name": "Read Status Movie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://192.168.1.10:7878/api/v3/' + ('movie/'+$json.requests[0].mediaId) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 12000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "position": [
+        540,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "bb3b0f0c-9116-558a-be3c-f34bb4e8886d",
+      "name": "Read Status Series",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://192.168.1.10:8989/api/v3/' + ('series/'+$json.requests[0].mediaId) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 12000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "position": [
+        810,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "723c7c3a-c188-5907-bb1d-82357a785b25",
+      "name": "Status Media Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$json;if(r.statusCode!==404&&(r.statusCode!==200||!r.body?.id))throw new Error('Media status unavailable');return [{json:{media:r.statusCode===404?null:r.body}}];"
+      },
+      "position": [
+        1080,
+        0
+      ]
+    },
+    {
+      "id": "b888c9f2-cac9-5e27-ba14-75e4caffbaae",
+      "name": "Status Needs Episodes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ !!$json.media&&$('Inspect Status Input').first().json.requests[0].mediaType==='tv' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1350,
+        0
+      ]
+    },
+    {
+      "id": "047cf0e8-801c-588a-853d-62942f8f59d5",
+      "name": "Read Status Episodes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8989/api/v3/episode",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 12000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "seriesId",
+              "value": "={{ $('Inspect Status Input').first().json.requests[0].mediaId }}"
+            },
+            {
+              "name": "includeEpisodeFile",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "position": [
+        1620,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "0db61ab6-90cc-5627-b779-36337c5c10e4",
+      "name": "Status Episode Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const movie=$('Inspect Status Input').first().json.requests[0].mediaType==='movie';const rows=$input.all().map(x=>x.json);return [{json:{episodes:movie||!$('Status Media Snapshot').first().json.media?[]:rows.filter(x=>x.id)}}];"
+      },
+      "position": [
+        0,
+        250
+      ]
+    },
+    {
+      "id": "dda03c75-d0bf-5577-a55c-0ce7d36752ef",
+      "name": "Status Movie Queue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ $('Inspect Status Input').first().json.requests[0].mediaType==='movie' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        250
+      ]
+    },
+    {
+      "id": "36478506-5b1a-5b49-81a2-df8f422ebe9c",
+      "name": "Read Status Movie Queue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:7878/api/v3/queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 12000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "page",
+                    "value": "={{ $pageCount + 1 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ ($pageCount + 1) * 500 >= $response.body.totalRecords }}",
+              "limitPagesFetched": true,
+              "maxRequests": 20
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "pageSize",
+              "value": "500"
+            },
+            {
+              "name": "includeUnknownMovieItems",
+              "value": "false"
+            }
+          ]
+        }
+      },
+      "position": [
+        540,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "8f9a0858-1eee-5771-ba19-d02af3c50952",
+      "name": "Read Status TV Queue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8989/api/v3/queue",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 12000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "page",
+                    "value": "={{ $pageCount + 1 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ ($pageCount + 1) * 500 >= $response.body.totalRecords }}",
+              "limitPagesFetched": true,
+              "maxRequests": 20
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "pageSize",
+              "value": "500"
+            },
+            {
+              "name": "includeUnknownSeriesItems",
+              "value": "false"
+            }
+          ]
+        }
+      },
+      "position": [
+        810,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "41b86ef0-432f-5e1e-bf7b-2e967a16399b",
+      "name": "Describe Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Read-only status projection. Never calculates or changes retention policy.\nfunction command(text){const m=typeof text==='string'&&text.trim().match(/^\\/?status(?:@[A-Za-z0-9_]+)?(?:\\s+(.*))?$/i);return m?(m[1]||'').trim().slice(0,200):null;}\nfunction select(rows,actor){\n if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\\d+$/.test(actor.userId))throw new Error('Invalid status actor');\n const query=String(actor.query||'').toLowerCase();const groups=new Map();\n for(const r of [...rows].sort((a,b)=>Date.parse(b.requestedAt)-Date.parse(a.requestedAt))){\n  if(r.source!==actor.source||r.userId!==actor.userId||r.userId==='1'||r.state!=='registered'||!r.requestKey||!['movie','tv'].includes(r.mediaType)||!/^\\d+$/.test(String(r.mediaId))||!String(r.title).toLowerCase().includes(query))continue;\n  const key=r.mediaType+':'+r.mediaId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);\n }\n const values=[...groups.values()];\n if(!values.length)return [{notice:query?'No requests of yours match that title.':'No requests found for your account on this platform.'}];\n if(query&&values.length>1)return [{notice:'Several matches. Use status with a more specific title:\\n'+values.slice(0,8).map(rs=>'\u2022 '+rs[0].title.slice(0,100)).join('\\n')}];\n return values.slice(0,3).map(requests=>({requests}));\n}\nfunction dateLabel(stamp){return new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(stamp));}\nfunction describe({requests,records,media,episodes,queue,library,now}){\n const r=requests[0],title=String(r.title).replace(/[\\r\\n]/g,' ').slice(0,100),header=(r.mediaType==='movie'?'\ud83c\udfac ':'\ud83d\udcfa ')+title;\n if(!media||media.id!==Number(r.mediaId))return header+'\\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');\n const saved=new Map(records.filter(x=>x.key).map(x=>[x.key,JSON.parse(x.payloadJson)]));\n const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]').map(String)));\n for(const request of requests){const profile=saved.get('request:'+request.requestKey);if(profile)for(const id of profile.episodeIds||[])ids.add(String(id));}\n const items=r.mediaType==='movie'?[{id:r.mediaId,file:media.movieFile,release:media.digitalRelease||media.physicalRelease||media.inCinemas}]:episodes.filter(e=>ids.has(String(e.id))).map(e=>({...e,file:e.episodeFile,release:e.airDateUtc}));\n const paths=new Set(library.filter(x=>x.Id&&x.Path).map(x=>x.Path));\n const counts={available:0,imported:0,downloading:0,queued:0,unreleased:0,waiting:0,removed:0};const files=new Map();\n for(const item of items){\n  if(item.file?.id){files.set(item.file.id,item.file);counts[paths.has('/data'+item.file.path)?'available':'imported']++;continue;}\n  const q=queue.find(q=>r.mediaType==='movie'?q.movieId===Number(r.mediaId):q.seriesId===Number(r.mediaId)&&(q.episodeId===item.id||(!q.episodeId&&q.seasonNumber===item.seasonNumber)));\n  if(q){counts[String(q.status).toLowerCase()==='downloading'?'downloading':'queued']++;continue;}\n  const deleted=r.mediaType==='tv'&&[...saved.entries()].some(([key,v])=>key.startsWith('file:tv:'+r.mediaId+':')&&v.state==='deleted'&&(v.episodeIds||[]).includes(String(item.id)));\n  counts[deleted?'removed':Date.parse(item.release)>now?'unreleased':'waiting']++;\n }\n let status;\n if(r.mediaType==='movie')status=counts.available?'\u2705 Available in Jellyfin':counts.imported?'\ud83d\udce5 Imported; waiting for Jellyfin':counts.downloading?'\u2b07\ufe0f Downloading':counts.queued?'\u23f3 In download queue / awaiting import':counts.unreleased?'\ud83d\udcc5 Awaiting release':'\ud83d\udd0e Waiting for a release';\n else {const labels={available:'available in Jellyfin',imported:'imported; waiting for Jellyfin',downloading:'downloading',queued:'queued / awaiting import',unreleased:'awaiting release',waiting:'waiting for a release',removed:'previously expired'};status=Object.entries(counts).filter(([,v])=>v).map(([k,v])=>v+' '+labels[k]).join(' \u00b7 ')||'Episode metadata pending';}\n let protectedCount=0,pending=0,earliest=null,oldest=Infinity,deferred=0;\n for(const file of files.values()){\n  const v=saved.get(`file:${r.mediaType}:${r.mediaId}:${file.id}`);\n  if(!v||v.state!=='tracked'||v.path!==file.path||Date.parse(v.importedAt)!==Date.parse(file.dateAdded)||!Number.isFinite(Date.parse(v.checkedAt))){pending++;continue;}\n  oldest=Math.min(oldest,Date.parse(v.checkedAt));\n  if(v.identityProtected||!v.expiresAt||v.reason==='protected claim'||v.reason==='unclaimed'||v.reason==='unclaimed episode in shared file'){protectedCount++;continue;}\n  if(!Number.isFinite(Date.parse(v.expiresAt))){pending++;continue;}\n  earliest=Math.min(earliest??Infinity,Date.parse(v.expiresAt));\n  if(v.reason==='currently playing or unresolved active session')deferred++;\n }\n const lines=[header,status];\n if(earliest!==null)lines.push((r.mediaType==='tv'?'Next episode expiry: ':'Expiry: ')+dateLabel(earliest)+(earliest<=now?' (due; cleanup pending)':''));\n if(protectedCount)lines.push(protectedCount+' protected '+(protectedCount===1?'file':'files')+' \u2014 no automatic deletion.');\n if(pending)lines.push('Expiry check pending for '+pending+' '+(pending===1?'file.':'files.'));\n if(!files.size){const days=[...new Set(requests.map(x=>x.retentionDays))];lines.push(days.includes(null)?'Permanent/protected request.':days.length===1?`Expiry starts after import (${days[0]} days${r.mediaType==='tv'?' per episode':''}).`:'Expiry starts after import; multiple retention choices apply.');}\n if(Number.isFinite(oldest))lines.push('Retention checked '+dateLabel(oldest)+(now-oldest>30*60000?' \u2014 stale; dates may change.':'.'));\n if(deferred)lines.push('Cleanup deferred for active playback.');\n if(r.mediaType==='tv'&&requests.some(x=>saved.has('request:'+x.requestKey)))lines.push('Future regular seasons monitored.');\n return lines.join('\\n');\n}\nif(typeof module!=='undefined')module.exports={command,select,describe};\n\nconst pages=$input.all().map(x=>x.json);if(pages.some(p=>!Array.isArray(p.records)||!Number.isInteger(p.totalRecords))||pages.reduce((n,p)=>n+p.records.length,0)<pages[0].totalRecords)throw new Error('Incomplete queue status');const i=$('Inspect Status Input').first().json;return [{json:{text:describe({...i,media:$('Status Media Snapshot').first().json.media,episodes:$('Status Episode Snapshot').first().json.episodes,queue:pages.flatMap(p=>p.records),now:Date.now()})}}];"
+      },
+      "position": [
+        1080,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Inspect Status Input": {
+      "main": [
+        [
+          {
+            "node": "Status Movie?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Movie?": {
+      "main": [
+        [
+          {
+            "node": "Read Status Movie",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Status Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Status Movie": {
+      "main": [
+        [
+          {
+            "node": "Status Media Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Media Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Status Needs Episodes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Needs Episodes?": {
+      "main": [
+        [
+          {
+            "node": "Read Status Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status Episode Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Status Episodes": {
+      "main": [
+        [
+          {
+            "node": "Status Episode Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Episode Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Status Movie Queue?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Movie Queue?": {
+      "main": [
+        [
+          {
+            "node": "Read Status Movie Queue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Status TV Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Status Movie Queue": {
+      "main": [
+        [
+          {
+            "node": "Describe Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Status Series": {
+      "main": [
+        [
+          {
+            "node": "Status Media Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Status TV Queue": {
+      "main": [
+        [
+          {
+            "node": "Describe Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  },
+  "active": false
+}

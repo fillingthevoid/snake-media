@@ -1,0 +1,148 @@
+{
+  "id": "snakeAmendSnapshotTest",
+  "name": "Snake Media - Amendment Snapshot TEST",
+  "nodes": [
+    {
+      "id": "592292ff-4dfc-5914-877e-40c0639ecfc7",
+      "name": "Scan Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "3449d114-9a49-587e-99db-a50dd66bc649",
+      "name": "Test Snapshot Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "amendcheck_requests"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "ec3b891b-5ba4-5eb5-b188-b7e71c999c55",
+      "name": "One Test Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "36535194-f9fa-5927-9415-e84840df574d",
+      "name": "Test Snapshot Records",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "amendcheck_records"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {}
+      },
+      "position": [
+        810,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "405657e6-ad90-5764-a7c9-aa8791f5f029",
+      "name": "Fake Media Decisions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Pure policy functions embedded into native n8n Code nodes.\nconst DAY_MS=86400000;\nfunction parseRetention(text,type) {\n if(typeof text!=='string'||!['movie','tv'].includes(type))throw new Error('Invalid retention input');\n const permanent=/\\b(?:keep\\s+(?:permanently|forever)|never\\s+delete|do\\s+not\\s+delete|don't\\s+delete|no\\s+expiry)\\b/gi;\n const timed=/\\b(?:keep\\s+(?:for\\s+)?|retain\\s+(?:for\\s+)?|delete\\s+after\\s+|remove\\s+after\\s+|expire\\s+(?:after|in)\\s+)([0-9]+)\\s+days?\\b/gi;\n const forever=[...text.matchAll(permanent)], durations=[...text.matchAll(timed)];\n if(forever.length+durations.length>1)throw new Error('Use one retention instruction');\n let remainder=text.replace(permanent,'').replace(timed,'');\n if(/\\b(?:keep\\s+for|retain|delete|remove\\s+after|expir\\w*|keep\\s+(?:permanently|forever|[-\\d]))\\b/i.test(remainder))throw new Error('Use keep for N days or keep permanently');\n const days=forever.length?null:durations.length?Number(durations[0][1]):type==='movie'?7:30;\n if(days!==null&&(!Number.isInteger(days)||days<1||days>3650))throw new Error('Retention must be 1 to 3650 days');\n return {version:2,days,explicit:!!(forever.length||durations.length)};\n}\nfunction retentionText(policy,type) {\n if(policy.days===null)return '\ud83d\uddc3\ufe0f Keep permanently. No automatic deletion.';\n return `\ud83d\uddd3\ufe0f Auto-delete ${policy.days} days after ${type==='tv'?'each episode imports':'import'}. Watching may shorten this to 7 days after watching; it never extends the deadline.`;\n}\nfunction effectiveExpiry(importedAt,days,watchedAt,previousDeadline,minimumExpiry) {\n if(days===null)return null;\n const imported=Date.parse(importedAt);\n if(!Number.isFinite(imported)||!Number.isInteger(days)||days<1||days>3650)throw new Error('Invalid expiry inputs');\n let deadline=imported+days*DAY_MS;\n if(watchedAt!==null&&watchedAt!==undefined){\n  const watched=Date.parse(watchedAt);if(!Number.isFinite(watched))throw new Error('Invalid watch timestamp');\n  deadline=Math.min(deadline,Math.max(imported,watched)+7*DAY_MS);\n }\n if(previousDeadline){const previous=Date.parse(previousDeadline);if(!Number.isFinite(previous))throw new Error('Invalid saved deadline');deadline=Math.min(deadline,previous);}\n if(minimumExpiry){const floor=Date.parse(minimumExpiry);if(!Number.isFinite(floor))throw new Error('Invalid explicit extension');deadline=Math.max(deadline,floor);}\n return new Date(deadline).toISOString();\n}\nfunction subscription(episodes,choice,now) {\n const regular=episodes.filter(e=>Number.isSafeInteger(e.id)&&e.id>0&&Number.isInteger(e.seasonNumber)&&e.seasonNumber>0);\n const historicalSeasons=[...new Set(regular.filter(e=>Number.isFinite(Date.parse(e.airDateUtc))&&Date.parse(e.airDateUtc)<=now).map(e=>e.seasonNumber))].sort((a,b)=>a-b);\n let selectedSeasons;\n if(choice==='all')selectedSeasons=[...new Set(regular.map(e=>e.seasonNumber))];\n else if(choice==='latest')selectedSeasons=[historicalSeasons.at(-1)||Math.min(...regular.map(e=>e.seasonNumber))];\n else if(/^season_[1-9][0-9]{0,3}$/.test(choice))selectedSeasons=[Number(choice.slice(7))];\n else throw new Error('Invalid subscription choice');\n if(!selectedSeasons.length||selectedSeasons.some(s=>!Number.isFinite(s)))throw new Error('No season metadata yet');\n const result={historicalSeasons,selectedSeasons,episodeIds:[]};\n result.episodeIds=regular.filter(e=>belongsToSubscription(e,result)).map(e=>String(e.id));\n return result;\n}\nfunction belongsToSubscription(e,s) {\n return Number.isSafeInteger(e.id)&&e.id>0&&Number.isInteger(e.seasonNumber)&&e.seasonNumber>0&&\n  (s.selectedSeasons.includes(e.seasonNumber)||!s.historicalSeasons.includes(e.seasonNumber));\n}\nfunction fileDecision(claims,coveredIds,now) {\n if(!claims.length)return {due:false,reason:'unclaimed',expiresAt:null};\n const covered=new Set(claims.flatMap(c=>c.episodeIds||[]));\n if(coveredIds.some(id=>!covered.has(String(id))))return {due:false,reason:'unclaimed episode in shared file',expiresAt:null};\n let latest=0;\n for(const c of claims){\n  if(!c.baselineCaptured||c.preexisting||c.days===null)return {due:false,reason:'protected claim',expiresAt:null};\n  const expiry=effectiveExpiry(c.importedAt,c.days,c.watchedAt,c.previousDeadline,c.minimumExpiry);\n  latest=Math.max(latest,Date.parse(expiry));\n }\n return {due:latest<=now,reason:latest<=now?'expired':'retained',expiresAt:new Date(latest).toISOString()};\n}\nfunction mediaSnapshot(response) {\n if(response.statusCode===404)return null;\n if(response.statusCode!==200||!Number.isSafeInteger(response.body?.id)||response.body.id<1)throw new Error('Media snapshot unavailable');\n return response.body;\n}\nif(typeof module!=='undefined')module.exports={parseRetention,retentionText,effectiveExpiry,subscription,belongsToSubscription,fileDecision,mediaSnapshot};\n\n// Snapshot planner: no I/O. Native n8n nodes persist the plan before API changes.\nfunction planMedia(input) {\n const {requests,records,media,episodes,watched,sessions,now}=input;\n if(!requests.length||!Number.isFinite(now)||!media?.id||!Array.isArray(watched)||!Array.isArray(sessions))throw new Error('Incomplete retention snapshot');\n if(new Set(requests.map(r=>r.requestKey)).size!==requests.length)throw new Error('Duplicate request claims');\n if(requests.some(r=>!Number.isFinite(Date.parse(r.requestedAt))||typeof r.baselineCaptured!=='boolean'||(r.retentionDays!==null&&(!Number.isInteger(r.retentionDays)||r.retentionDays<1||r.retentionDays>3650))))throw new Error('Invalid request claim');\n const saved=new Map();\n for(const row of records){if(!row.key)continue;if(saved.has(row.key))throw new Error('Duplicate retention records');saved.set(row.key,JSON.parse(row.payloadJson));}\n const type=requests[0].mediaType,mediaId=String(media.id),updates=[],monitor=new Set(),search=new Set();\n if(requests.some(r=>r.mediaType!==type||String(r.mediaId)!==mediaId))throw new Error('Media identity mismatch');\n const expired=new Map();\n for(const [key,v] of saved)if(key.startsWith(`file:${type}:${mediaId}:`)&&v.state==='deleted')for(const id of v.episodeIds||[])expired.set(String(id),Math.max(expired.get(String(id))||0,Date.parse(v.deletedAt)));\n const scopes=new Map(),protections=new Map(),managed=new Set();\n for(const r of requests){\n  const key='request:'+r.requestKey,profile=saved.get(key);\n  const ids=new Set(JSON.parse(r.episodeIdsJson));const before=new Set(JSON.parse(r.preexistingFileIdsJson));\n  if(profile){\n   if(profile.requestKey!==r.requestKey||profile.mediaType!==type||String(profile.mediaId)!==mediaId)throw new Error('Subscription identity mismatch');\n   managed.add(r.requestKey);\n   for(const id of profile.episodeIds||[])ids.add(String(id));\n   for(const id of profile.protectedFileIds||[])before.add(String(id));\n   if(type==='tv')for(const e of episodes){\n    if(!belongsToSubscription(e,profile))continue;\n    const id=String(e.id);\n    if(!ids.has(id)){\n     ids.add(id);\n     // An already present file discovered by reconciliation stays protected.\n     if(e.episodeFileId>0)before.add(String(e.episodeFileId));\n     else if(Number.isFinite(Date.parse(e.airDateUtc))&&Date.parse(e.airDateUtc)<=now)search.add(e.id);\n    }\n    if(!(expired.get(id)>=Date.parse(r.requestedAt)))monitor.add(e.id);\n   }\n   updates.push({key,kind:'subscription',payloadJson:JSON.stringify({...profile,episodeIds:[...ids],protectedFileIds:[...before]})});\n  }\n  scopes.set(r.requestKey,ids);protections.set(r.requestKey,before);\n }\n const files=new Map();\n if(type==='movie'){\n  if(media.movieFile?.id)files.set(media.movieFile.id,{file:media.movieFile,episodes:[]});\n }else for(const e of episodes){\n  if(!Number.isSafeInteger(e.id)||!Number.isInteger(e.seasonNumber)||!Number.isInteger(e.episodeNumber))throw new Error('Incomplete episode metadata');\n  if(e.episodeFileId>0&&!e.episodeFile?.id)throw new Error('Missing episode file metadata');\n  if(e.episodeFile?.id){const f=e.episodeFile;if(!files.has(f.id))files.set(f.id,{file:f,episodes:[]});files.get(f.id).episodes.push(e);}\n }\n const deletions=[],decisions=[];\n for(const [fileId,group] of files){\n  const f=group.file,key=`file:${type}:${mediaId}:${fileId}`,previous=saved.get(key)||{};\n  if(!Number.isSafeInteger(fileId)||typeof f.path!=='string'||!f.path.startsWith(type==='movie'?'/movies/':'/tv/')||f.path.includes('/../')||!Number.isFinite(Date.parse(f.dateAdded)))throw new Error('Invalid file identity');\n  if(previous.state==='deleted')continue;\n  const jellyfinPath='/data'+f.path,covered=group.episodes.map(e=>String(e.id)),claims=[],deadlines={};\n  for(const r of requests){\n   const edits=[...saved.entries()].filter(([k,e])=>k.startsWith('change:')&&e.version===1&&e.mediaType===type&&e.mediaId===mediaId&&e.requestKeys?.includes(r.requestKey)).map(([,e])=>e);\n   const permanent=edits.some(e=>e.operation==='permanent');\n   const floors=edits.filter(e=>e.operation==='extend').flatMap(e=>e.files||[]).filter(x=>x.fileId===fileId&&x.path===f.path&&Date.parse(x.importedAt)===Date.parse(f.dateAdded)).map(x=>Date.parse(x.minimumExpiry));\n   if(floors.some(x=>!Number.isFinite(x)))throw new Error('Invalid saved amendment');\n   const minimumExpiry=floors.length?new Date(Math.max(...floors)).toISOString():null;\n   const selected=type==='movie'?[null]:group.episodes.filter(e=>scopes.get(r.requestKey).has(String(e.id)));\n   for(const episode of selected){\n    const claimKey=r.requestKey+':'+(episode?.id||'movie');\n    const played=watched.filter(x=>x.Id&&x.Path===jellyfinPath&&x.UserData?.Played===true&&(!episode||\n     (x.ParentIndexNumber===episode.seasonNumber&&Number.isInteger(x.IndexNumber)&&episode.episodeNumber>=x.IndexNumber&&episode.episodeNumber<=(x.IndexNumberEnd||x.IndexNumber))));\n    let watchedAt=null;\n    for(const x of played){const stamp=Date.parse(x.UserData.LastPlayedDate);const t=Number.isFinite(stamp)&&stamp<=now?stamp:now;watchedAt=Math.min(watchedAt??Infinity,t);}\n    const c={baselineCaptured:r.baselineCaptured===true&&managed.has(r.requestKey),\n     preexisting:protections.get(r.requestKey).has(String(fileId))||Date.parse(f.dateAdded)<Date.parse(r.requestedAt),\n     days:permanent?null:r.retentionDays,minimumExpiry,importedAt:f.dateAdded,watchedAt:watchedAt===null?null:new Date(watchedAt).toISOString(),\n     previousDeadline:previous.deadlines?.[claimKey],episodeIds:episode?[String(episode.id)]:[]};\n    claims.push(c);\n    if(c.days!==null)deadlines[claimKey]=effectiveExpiry(c.importedAt,c.days,c.watchedAt,c.previousDeadline,c.minimumExpiry);\n   }\n  }\n  let decision=fileDecision(claims,covered,now);\n  const identityProtected=previous.identityProtected===true||!!(previous.path&&(previous.path!==f.path||Date.parse(previous.importedAt)!==Date.parse(f.dateAdded)));\n  if(identityProtected)decision={...decision,due:false,reason:'file identity changed; manual review required'};\n  const itemIds=new Set(watched.filter(x=>x.Path===jellyfinPath).map(x=>x.Id));\n  if(sessions.some(s=>s.NowPlayingItem&&(!s.NowPlayingItem.Path||s.NowPlayingItem.Path===jellyfinPath||itemIds.has(s.NowPlayingItem.Id))))decision={...decision,due:false,reason:'currently playing or unresolved active session'};\n  const payload={...decision,state:'tracked',mediaType:type,mediaId,fileId,path:f.path,importedAt:f.dateAdded,episodeIds:covered,deadlines,identityProtected,checkedAt:new Date(now).toISOString()};\n  updates.push({key,kind:'file',payloadJson:JSON.stringify(payload)});decisions.push(payload);\n  if(decision.due)deletions.push({...payload,key});\n }\n return {records:updates,monitorIds:[...monitor],searchIds:[...search].filter(id=>monitor.has(id)),deletions,decisions};\n}\nif(typeof module!=='undefined')module.exports={...module.exports,planMedia};\n\nconst input=$('Scan Input').first().json;const req=$('Test Snapshot Requests').all().map(x=>x.json).filter(r=>r.requestKey);const now=Date.now();const out=planMedia({requests:req,records:$input.all().map(x=>x.json).filter(x=>x.key),media:{id:9001,movieFile:{id:400,path:'/movies/Synthetic/test.mkv',dateAdded:req[0].requestedAt}},episodes:[],watched:[],sessions:[],now});return [{json:{groups:[{decisions:out.decisions}]}}];"
+      },
+      "position": [
+        1080,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Scan Input": {
+      "main": [
+        [
+          {
+            "node": "Test Snapshot Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Snapshot Requests": {
+      "main": [
+        [
+          {
+            "node": "One Test Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Test Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Test Snapshot Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Snapshot Records": {
+      "main": [
+        [
+          {
+            "node": "Fake Media Decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  },
+  "active": false
+}

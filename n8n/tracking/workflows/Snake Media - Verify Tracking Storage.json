@@ -1,0 +1,276 @@
+{
+  "id": "snakeTrackingVerifyV1",
+  "name": "Snake Media - Verify Tracking Storage",
+  "nodes": [
+    {
+      "id": "216f9c80-5432-5ecd-b1db-4cdd9be11e4c",
+      "name": "Run Storage Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "1de9bfb3-2eee-5af1-b6a7-bfa1b25b4323",
+      "name": "Synthetic Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{\"source\": \"discord\", \"userId\": \"1\", \"destinationId\": \"1\", \"messageId\": \"1\", \"requestedAt\": \"2026-09-29T00:00:00.000Z\", \"text\": \"synthetic storage test only\", \"mediaType\": \"movie\", \"mediaId\": \"1\", \"externalId\": \"1\", \"title\": \"SYNTHETIC TEST - NOT MEDIA\", \"episodeIds\": [], \"preexistingFileIds\": [], \"baselineCaptured\": false}}];"
+      },
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "id": "811f9554-d59b-5919-9c09-e2be46aa2513",
+      "name": "Register Test 1",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeTrackRequestV1"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        }
+      },
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "id": "3ce48b9f-7dfb-54ed-957b-20669e87c5b6",
+      "name": "Repeat Original Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:$('Synthetic Input').first().json}];"
+      },
+      "position": [
+        840,
+        0
+      ]
+    },
+    {
+      "id": "5f967755-ac89-5769-8f4c-0a1bb4a2ed88",
+      "name": "Register Test 2",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeTrackRequestV1"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        }
+      },
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "id": "850ed1a0-1b96-544b-a535-af321b5327b1",
+      "name": "Check Stored Rows",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_requests"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requestKey",
+              "condition": "eq",
+              "keyValue": "discord:1:1"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "position": [
+        1440,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a5dbb978-c10a-5f82-b3c7-104f749f52fd",
+      "name": "Verify Exactly One Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const rows=$input.all(); if(rows.length!==1 || rows[0].json.requestKey!=='discord:1:1' || rows[0].json.retentionDays!==null || rows[0].json.deletionEligible!==false) throw new Error('Storage verification failed'); return rows;"
+      },
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "id": "f41a146e-6270-5503-b26f-b8ca8795483d",
+      "name": "Remove Synthetic Row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_requests"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requestKey",
+              "condition": "eq",
+              "keyValue": "discord:1:1"
+            },
+            {
+              "keyName": "title",
+              "condition": "eq",
+              "keyValue": "SYNTHETIC TEST - NOT MEDIA"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        1920,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "81dbd9ef-b682-55e1-9c24-132862a969a4",
+      "name": "Storage Test Passed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{test:'shared-request-registration',passed:true,duplicateRetry:'one row',cleanup:'synthetic row removed'}}];"
+      },
+      "position": [
+        2160,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Run Storage Test": {
+      "main": [
+        [
+          {
+            "node": "Synthetic Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthetic Input": {
+      "main": [
+        [
+          {
+            "node": "Register Test 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register Test 1": {
+      "main": [
+        [
+          {
+            "node": "Repeat Original Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Repeat Original Input": {
+      "main": [
+        [
+          {
+            "node": "Register Test 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register Test 2": {
+      "main": [
+        [
+          {
+            "node": "Check Stored Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Stored Rows": {
+      "main": [
+        [
+          {
+            "node": "Verify Exactly One Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Exactly One Row": {
+      "main": [
+        [
+          {
+            "node": "Remove Synthetic Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Synthetic Row": {
+      "main": [
+        [
+          {
+            "node": "Storage Test Passed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

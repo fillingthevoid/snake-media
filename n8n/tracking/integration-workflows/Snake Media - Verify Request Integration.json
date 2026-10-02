@@ -1,0 +1,187 @@
+{
+  "id": "snakeIntegrationVerifyV1",
+  "name": "Snake Media - Verify Request Integration",
+  "nodes": [
+    {
+      "id": "a03af29a-9bac-5c7f-b3ae-9e4c9e88f52c",
+      "name": "Run Integration Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "6dad9caf-5a56-5faa-bdfa-5435444662a0",
+      "name": "Synthetic discord",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{\"context\": {\"source\": \"discord\", \"userId\": \"1\", \"destinationId\": \"1\", \"messageId\": \"2\", \"requestedAt\": \"2026-09-29T00:00:00.000Z\", \"text\": \"synthetic integration test\"}, \"mediaType\": \"movie\", \"result\": {\"id\": 1, \"tmdbId\": 1, \"title\": \"SYNTHETIC TEST - NOT MEDIA\", \"status\": \"already_added\", \"movieFile\": {\"id\": 1}, \"images\": [{\"coverType\": \"poster\", \"remoteUrl\": \"https://image.tmdb.org/t/p/w500/test.jpg\"}]}}}];"
+      },
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "id": "fa01dfc3-bd92-5d8e-9b00-0921aac2e48f",
+      "name": "Integrate discord",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeIntegrateRequestV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "id": "ae229e9e-65c1-52cc-966a-1c3571537081",
+      "name": "Assert discord",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$input.first().json; if(!r.trackingRegistered || r.status!=='already_added' || !r.posterUrl || r.mediaId!=='1') throw new Error('Integration assertion failed'); return [{json:{platform:'discord',passed:true}}];"
+      },
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "id": "70f7c59c-db39-5157-95bd-f1b32ebcbd90",
+      "name": "Synthetic telegram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{\"context\": {\"source\": \"telegram\", \"userId\": \"1\", \"destinationId\": \"1\", \"messageId\": \"2\", \"requestedAt\": \"2026-09-29T00:00:00.000Z\", \"text\": \"synthetic integration test\"}, \"mediaType\": \"movie\", \"result\": {\"id\": 1, \"tmdbId\": 1, \"title\": \"SYNTHETIC TEST - NOT MEDIA\", \"status\": \"already_added\", \"movieFile\": {\"id\": 1}, \"images\": [{\"coverType\": \"poster\", \"remoteUrl\": \"https://image.tmdb.org/t/p/w500/test.jpg\"}]}}}];"
+      },
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "id": "2bd4b9db-089d-594f-8898-8e8450728514",
+      "name": "Integrate telegram",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeIntegrateRequestV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1000,
+        0
+      ]
+    },
+    {
+      "id": "89ce594c-5a75-56ea-a385-8900dafa838a",
+      "name": "Assert telegram",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$input.first().json; if(!r.trackingRegistered || r.status!=='already_added' || !r.posterUrl || r.mediaId!=='1') throw new Error('Integration assertion failed'); return [{json:{platform:'telegram',passed:true}}];"
+      },
+      "position": [
+        1200,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Run Integration Test": {
+      "main": [
+        [
+          {
+            "node": "Synthetic discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthetic discord": {
+      "main": [
+        [
+          {
+            "node": "Integrate discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Integrate discord": {
+      "main": [
+        [
+          {
+            "node": "Assert discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert discord": {
+      "main": [
+        [
+          {
+            "node": "Synthetic telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthetic telegram": {
+      "main": [
+        [
+          {
+            "node": "Integrate telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Integrate telegram": {
+      "main": [
+        [
+          {
+            "node": "Assert telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

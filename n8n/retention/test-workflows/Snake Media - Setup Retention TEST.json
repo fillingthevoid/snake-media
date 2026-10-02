@@ -1,0 +1,995 @@
+{
+  "id": "snakeRetentionSetupV1Test",
+  "name": "Snake Media - Setup Retention TEST",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "snake-retention-setup-test",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "5800b551-0153-5060-a22d-164f2b138904",
+      "name": "Retention Setup",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "notesInFlow": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CONFIGURE_HTTPHEADERAUTH",
+          "name": "Configure httpHeaderAuth"
+        }
+      },
+      "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication."
+    },
+    {
+      "id": "58097c9f-66a8-5b7e-a46b-a87401ac3ea8",
+      "name": "Create snake_media_retention_records",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "isolated_retention_retention_records_test",
+        "columns": {
+          "column": [
+            {
+              "name": "key",
+              "type": "string"
+            },
+            {
+              "name": "kind",
+              "type": "string"
+            },
+            {
+              "name": "payloadJson",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        270,
+        0
+      ]
+    },
+    {
+      "id": "523f7742-6f26-59ad-8ece-16ddce6a947c",
+      "name": "Create snake_media_retention_control",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "isolated_retention_retention_control_test",
+        "columns": {
+          "column": [
+            {
+              "name": "key",
+              "type": "string"
+            },
+            {
+              "name": "owner",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "537aa89c-a674-5a50-93d8-c9aec1ce0638",
+      "name": "Find Global Lock",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "isolated_retention_retention_control_test"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "global"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        810,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "3bf2ac60-5ca1-5efd-9935-e123dbcff01d",
+      "name": "Check Setup Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const rows=$input.all().filter(x=>x.json.key);if(rows.length>1)throw new Error('Duplicate global lock');return [{json:{exists:rows.length===1}}];"
+      },
+      "position": [
+        1080,
+        0
+      ]
+    },
+    {
+      "id": "b9ca2754-fb24-588f-af34-9697595369bf",
+      "name": "Lock Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1350,
+        0
+      ]
+    },
+    {
+      "id": "5c175138-ee68-51c4-9237-9c0e1eb3c34c",
+      "name": "Insert Global Lock",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "isolated_retention_retention_control_test"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "global",
+            "owner": ""
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1620,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "dbca10a8-0445-515d-a8eb-232c1bf7aa74",
+      "name": "Find Configuration",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "isolated_retention_retention_control_test"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "mode"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        0,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "5b21d1cc-08e2-5bda-a674-fbe95c4d63db",
+      "name": "Configuration Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.key==='mode' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        240
+      ]
+    },
+    {
+      "id": "da2a6e3f-e237-567e-bd11-1bb97452aba0",
+      "name": "Insert Preview Configuration",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "isolated_retention_retention_control_test"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "mode",
+            "owner": "preview"
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        540,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "4e4ed7ed-fdbb-5230-995b-b4ed80d7bd29",
+      "name": "Setup Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {ready:true} }}"
+      },
+      "position": [
+        810,
+        240
+      ]
+    },
+    {
+      "id": "6dd9ed59-15b0-5a3b-b451-21250988d7cc",
+      "name": "Create Test Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "isolated_retention_requests_test",
+        "columns": {
+          "column": [
+            {
+              "name": "requestKey",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "userId",
+              "type": "string"
+            },
+            {
+              "name": "destinationId",
+              "type": "string"
+            },
+            {
+              "name": "messageId",
+              "type": "string"
+            },
+            {
+              "name": "text",
+              "type": "string"
+            },
+            {
+              "name": "mediaType",
+              "type": "string"
+            },
+            {
+              "name": "mediaId",
+              "type": "string"
+            },
+            {
+              "name": "externalId",
+              "type": "string"
+            },
+            {
+              "name": "title",
+              "type": "string"
+            },
+            {
+              "name": "episodeIdsJson",
+              "type": "string"
+            },
+            {
+              "name": "preexistingFileIdsJson",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": "string"
+            },
+            {
+              "name": "requestedAt",
+              "type": "date"
+            },
+            {
+              "name": "retentionDays",
+              "type": "number"
+            },
+            {
+              "name": "baselineCaptured",
+              "type": "boolean"
+            },
+            {
+              "name": "deletionEligible",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        1080,
+        240
+      ]
+    },
+    {
+      "id": "da14ca86-2543-5f96-89f3-3b56d2098dc7",
+      "name": "Test Request Fixtures",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{\"json\": {\"requestKey\": \"discord:2:9001\", \"source\": \"discord\", \"userId\": \"2\", \"destinationId\": \"2\", \"messageId\": \"9001\", \"text\": \"ISOLATED RETENTION TEST\", \"mediaType\": \"movie\", \"mediaId\": \"9001\", \"externalId\": \"9001\", \"title\": \"SYNTHETIC 9001\", \"episodeIdsJson\": \"[]\", \"preexistingFileIdsJson\": \"[]\", \"state\": \"registered\", \"requestedAt\": \"2026-08-21T01:24:09.727Z\", \"retentionDays\": 7, \"baselineCaptured\": true, \"deletionEligible\": true}}, {\"json\": {\"requestKey\": \"discord:2:9002\", \"source\": \"discord\", \"userId\": \"2\", \"destinationId\": \"2\", \"messageId\": \"9002\", \"text\": \"ISOLATED RETENTION TEST\", \"mediaType\": \"tv\", \"mediaId\": \"9002\", \"externalId\": \"9002\", \"title\": \"SYNTHETIC 9002\", \"episodeIdsJson\": \"[\\\"10\\\", \\\"11\\\"]\", \"preexistingFileIdsJson\": \"[]\", \"state\": \"registered\", \"requestedAt\": \"2026-08-21T01:24:09.727Z\", \"retentionDays\": 30, \"baselineCaptured\": true, \"deletionEligible\": true}}, {\"json\": {\"requestKey\": \"discord:2:9003\", \"source\": \"discord\", \"userId\": \"2\", \"destinationId\": \"2\", \"messageId\": \"9003\", \"text\": \"ISOLATED RETENTION TEST\", \"mediaType\": \"movie\", \"mediaId\": \"9003\", \"externalId\": \"9003\", \"title\": \"SYNTHETIC 9003\", \"episodeIdsJson\": \"[]\", \"preexistingFileIdsJson\": \"[]\", \"state\": \"registered\", \"requestedAt\": \"2026-08-21T01:24:09.727Z\", \"retentionDays\": null, \"baselineCaptured\": true, \"deletionEligible\": false}}];"
+      },
+      "position": [
+        1350,
+        240
+      ]
+    },
+    {
+      "id": "9d3b5588-827d-5f47-a2ea-fb3c1efb2d57",
+      "name": "Seed Test Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "isolated_retention_requests_test"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requestKey",
+              "condition": "eq",
+              "keyValue": "={{ $json.requestKey }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestKey": "={{ $json.requestKey }}",
+            "source": "={{ $json.source }}",
+            "userId": "={{ $json.userId }}",
+            "destinationId": "={{ $json.destinationId }}",
+            "messageId": "={{ $json.messageId }}",
+            "text": "={{ $json.text }}",
+            "mediaType": "={{ $json.mediaType }}",
+            "mediaId": "={{ $json.mediaId }}",
+            "externalId": "={{ $json.externalId }}",
+            "title": "={{ $json.title }}",
+            "episodeIdsJson": "={{ $json.episodeIdsJson }}",
+            "preexistingFileIdsJson": "={{ $json.preexistingFileIdsJson }}",
+            "state": "={{ $json.state }}",
+            "requestedAt": "={{ $json.requestedAt }}",
+            "retentionDays": "={{ $json.retentionDays }}",
+            "baselineCaptured": "={{ $json.baselineCaptured }}",
+            "deletionEligible": "={{ $json.deletionEligible }}"
+          },
+          "schema": [
+            {
+              "id": "requestKey",
+              "displayName": "requestKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userId",
+              "displayName": "userId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "destinationId",
+              "displayName": "destinationId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "messageId",
+              "displayName": "messageId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaType",
+              "displayName": "mediaType",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaId",
+              "displayName": "mediaId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "externalId",
+              "displayName": "externalId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "episodeIdsJson",
+              "displayName": "episodeIdsJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "preexistingFileIdsJson",
+              "displayName": "preexistingFileIdsJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requestedAt",
+              "displayName": "requestedAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "retentionDays",
+              "displayName": "retentionDays",
+              "type": "number",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "baselineCaptured",
+              "displayName": "baselineCaptured",
+              "type": "boolean",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deletionEligible",
+              "displayName": "deletionEligible",
+              "type": "boolean",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1620,
+        240
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "5bf61f44-d4c2-5d08-8b93-e72c712c13af",
+      "name": "Test Profile Fixtures",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{\"json\": {\"key\": \"request:discord:2:9001\", \"kind\": \"subscription\", \"payloadJson\": \"{\\\"requestKey\\\": \\\"discord:2:9001\\\", \\\"mediaType\\\": \\\"movie\\\", \\\"mediaId\\\": \\\"9001\\\", \\\"episodeIds\\\": [], \\\"protectedFileIds\\\": [], \\\"historicalSeasons\\\": [1, 2], \\\"selectedSeasons\\\": [1]}\"}}, {\"json\": {\"key\": \"request:discord:2:9002\", \"kind\": \"subscription\", \"payloadJson\": \"{\\\"requestKey\\\": \\\"discord:2:9002\\\", \\\"mediaType\\\": \\\"tv\\\", \\\"mediaId\\\": \\\"9002\\\", \\\"episodeIds\\\": [\\\"10\\\", \\\"11\\\"], \\\"protectedFileIds\\\": [], \\\"historicalSeasons\\\": [1, 2], \\\"selectedSeasons\\\": [1]}\"}}];"
+      },
+      "position": [
+        0,
+        480
+      ]
+    },
+    {
+      "id": "5e5975cf-2fb0-5ff2-a715-e504f34d48f9",
+      "name": "Seed Test Profiles",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "isolated_retention_retention_records_test"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ $json.key }}",
+            "kind": "={{ $json.kind }}",
+            "payloadJson": "={{ $json.payloadJson }}"
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payloadJson",
+              "displayName": "payloadJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        270,
+        480
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "97fe6471-0faf-53eb-9952-a5971073942d",
+      "name": "Reset Isolated Test Lock",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "isolated_retention_retention_control_test"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "global"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "owner": ""
+          },
+          "schema": [
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        540,
+        480
+      ],
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Retention Setup": {
+      "main": [
+        [
+          {
+            "node": "Create snake_media_retention_records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create snake_media_retention_records": {
+      "main": [
+        [
+          {
+            "node": "Create snake_media_retention_control",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create snake_media_retention_control": {
+      "main": [
+        [
+          {
+            "node": "Find Global Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Global Lock": {
+      "main": [
+        [
+          {
+            "node": "Check Setup Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Setup Lock": {
+      "main": [
+        [
+          {
+            "node": "Lock Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lock Exists?": {
+      "main": [
+        [
+          {
+            "node": "Find Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert Global Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Global Lock": {
+      "main": [
+        [
+          {
+            "node": "Find Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Configuration": {
+      "main": [
+        [
+          {
+            "node": "Configuration Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration Exists?": {
+      "main": [
+        [
+          {
+            "node": "Create Test Requests",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert Preview Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Preview Configuration": {
+      "main": [
+        [
+          {
+            "node": "Create Test Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Requests": {
+      "main": [
+        [
+          {
+            "node": "Test Request Fixtures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Request Fixtures": {
+      "main": [
+        [
+          {
+            "node": "Seed Test Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed Test Requests": {
+      "main": [
+        [
+          {
+            "node": "Test Profile Fixtures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Profile Fixtures": {
+      "main": [
+        [
+          {
+            "node": "Seed Test Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed Test Profiles": {
+      "main": [
+        [
+          {
+            "node": "Reset Isolated Test Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reset Isolated Test Lock": {
+      "main": [
+        [
+          {
+            "node": "Setup Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 600
+  }
+}

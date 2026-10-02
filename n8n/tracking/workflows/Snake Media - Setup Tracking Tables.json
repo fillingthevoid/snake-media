@@ -1,0 +1,343 @@
+{
+  "id": "snakeTrackingSetupV1",
+  "name": "Snake Media - Setup Tracking Tables",
+  "nodes": [
+    {
+      "id": "44070e0d-0564-5e16-b8fb-35d527afea90",
+      "name": "Run Setup",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "b2cd09f4-47c4-54a0-a6b6-823626e2f92d",
+      "name": "Create snake_media_requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "snake_media_requests",
+        "columns": {
+          "column": [
+            {
+              "name": "requestKey",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "userId",
+              "type": "string"
+            },
+            {
+              "name": "destinationId",
+              "type": "string"
+            },
+            {
+              "name": "messageId",
+              "type": "string"
+            },
+            {
+              "name": "text",
+              "type": "string"
+            },
+            {
+              "name": "mediaType",
+              "type": "string"
+            },
+            {
+              "name": "mediaId",
+              "type": "string"
+            },
+            {
+              "name": "externalId",
+              "type": "string"
+            },
+            {
+              "name": "title",
+              "type": "string"
+            },
+            {
+              "name": "episodeIdsJson",
+              "type": "string"
+            },
+            {
+              "name": "preexistingFileIdsJson",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": "string"
+            },
+            {
+              "name": "requestedAt",
+              "type": "date"
+            },
+            {
+              "name": "retentionDays",
+              "type": "number"
+            },
+            {
+              "name": "baselineCaptured",
+              "type": "boolean"
+            },
+            {
+              "name": "deletionEligible",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        250,
+        0
+      ]
+    },
+    {
+      "id": "f421ca76-d09d-5474-b472-a115f713e5f0",
+      "name": "Create snake_media_request_files",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "snake_media_request_files",
+        "columns": {
+          "column": [
+            {
+              "name": "requestKey",
+              "type": "string"
+            },
+            {
+              "name": "fileKey",
+              "type": "string"
+            },
+            {
+              "name": "mediaType",
+              "type": "string"
+            },
+            {
+              "name": "mediaId",
+              "type": "string"
+            },
+            {
+              "name": "fileId",
+              "type": "string"
+            },
+            {
+              "name": "episodeIdsJson",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": "string"
+            },
+            {
+              "name": "importedAt",
+              "type": "date"
+            },
+            {
+              "name": "expiresAt",
+              "type": "date"
+            },
+            {
+              "name": "protected",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "id": "2b2b76af-e758-5c70-a459-0557f7f4d08a",
+      "name": "Create snake_media_import_events",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "snake_media_import_events",
+        "columns": {
+          "column": [
+            {
+              "name": "eventKey",
+              "type": "string"
+            },
+            {
+              "name": "mediaType",
+              "type": "string"
+            },
+            {
+              "name": "mediaId",
+              "type": "string"
+            },
+            {
+              "name": "fileId",
+              "type": "string"
+            },
+            {
+              "name": "episodeIdsJson",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": "string"
+            },
+            {
+              "name": "payloadJson",
+              "type": "string"
+            },
+            {
+              "name": "importedAt",
+              "type": "date"
+            },
+            {
+              "name": "receivedAt",
+              "type": "date"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        750,
+        0
+      ]
+    },
+    {
+      "id": "b261ebb1-8843-50ff-b7a5-92101d4b9883",
+      "name": "Create snake_media_notifications",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "snake_media_notifications",
+        "columns": {
+          "column": [
+            {
+              "name": "notificationKey",
+              "type": "string"
+            },
+            {
+              "name": "requestKey",
+              "type": "string"
+            },
+            {
+              "name": "fileKey",
+              "type": "string"
+            },
+            {
+              "name": "source",
+              "type": "string"
+            },
+            {
+              "name": "destinationId",
+              "type": "string"
+            },
+            {
+              "name": "payloadJson",
+              "type": "string"
+            },
+            {
+              "name": "state",
+              "type": "string"
+            },
+            {
+              "name": "deliveredMessageId",
+              "type": "string"
+            },
+            {
+              "name": "attempts",
+              "type": "number"
+            },
+            {
+              "name": "nextAttemptAt",
+              "type": "date"
+            },
+            {
+              "name": "deliveredAt",
+              "type": "date"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "position": [
+        1000,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Run Setup": {
+      "main": [
+        [
+          {
+            "node": "Create snake_media_requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create snake_media_requests": {
+      "main": [
+        [
+          {
+            "node": "Create snake_media_request_files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create snake_media_request_files": {
+      "main": [
+        [
+          {
+            "node": "Create snake_media_import_events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create snake_media_import_events": {
+      "main": [
+        [
+          {
+            "node": "Create snake_media_notifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

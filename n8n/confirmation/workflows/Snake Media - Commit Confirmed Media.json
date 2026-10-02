@@ -1,0 +1,1188 @@
+{
+  "id": "snakeCommitMediaV1",
+  "name": "Snake Media - Commit Confirmed Media",
+  "nodes": [
+    {
+      "id": "10eb39b1-797e-5b0c-a3ec-6966818296e2",
+      "name": "Commit Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "bd32fc61-8c83-54e2-b721-598b1508d729",
+      "name": "Confirmed Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$json;if(r.state!=='processing'||!r.claimId)throw new Error('Unclaimed request');const m=JSON.parse(r.mediaJson);return [{json:{...r,media:m,context:JSON.parse(r.contextJson)}}];"
+      },
+      "position": [
+        250,
+        0
+      ]
+    },
+    {
+      "id": "a11e303c-4528-5be4-9a61-82a3d4702fea",
+      "name": "Commit Movie?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ $json.mediaType==='movie' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "id": "aadf925f-5372-5f14-a051-fe8fd587408e",
+      "name": "Find Confirmed Movie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:7878/api/v3/movie",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "tmdbId",
+              "value": "={{ $('Confirmed Metadata').first().json.media.tmdbId }}"
+            }
+          ]
+        }
+      },
+      "position": [
+        750,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "9803d010-da82-589d-ae0c-65d1e01c1d1d",
+      "name": "Existing Movie",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const m=$('Confirmed Metadata').first().json.media;return [{json:$input.all().map(x=>x.json).find(x=>x.tmdbId===m.tmdbId&&x.id)||{}}];"
+      },
+      "position": [
+        1000,
+        0
+      ]
+    },
+    {
+      "id": "52f7dc94-0730-56e6-b531-cb06eb583747",
+      "name": "Movie Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1250,
+        0
+      ]
+    },
+    {
+      "id": "2a30b854-88db-51f1-9b67-7b959cc8143f",
+      "name": "Build Movie Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Build nested payloads in Code, away from n8n's template expression delimiters.\nconst r=$('Confirmed Metadata').first().json;\nconst m=r.media;\nif(!m||typeof m.title!=='string'||!m.title.trim())throw new Error('Missing confirmed title');\nif(r.mediaType==='movie'){\n if(!Number.isSafeInteger(m.tmdbId)||m.tmdbId<=0)throw new Error('Invalid confirmed movie');\n return [{json:{title:m.title,tmdbId:m.tmdbId,year:m.year,qualityProfileId:4,rootFolderPath:'/movies',monitored:true,minimumAvailability:'released',addOptions:{searchForMovie:false}}}];\n}\nif(r.mediaType!=='tv'||!Number.isSafeInteger(m.tvdbId)||m.tvdbId<=0||!Array.isArray(m.seasons))throw new Error('Invalid confirmed series');\nreturn [{json:{title:m.title,tvdbId:m.tvdbId,titleSlug:m.titleSlug,qualityProfileId:4,rootFolderPath:'/tv',monitored:false,monitorNewItems:'none',seasonFolder:true,seriesType:m.seriesType||'standard',seasons:m.seasons.map(s=>({seasonNumber:s.seasonNumber,monitored:false})),addOptions:{monitor:'none',searchForMissingEpisodes:false,searchForCutoffUnmetEpisodes:false}}}];\n"
+      },
+      "position": [
+        1500,
+        0
+      ]
+    },
+    {
+      "id": "f57d8f24-c8a8-5cf3-85c1-381f70e5eea9",
+      "name": "Add Confirmed Movie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.10:7878/api/v3/movie",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}"
+      },
+      "position": [
+        1750,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "33650e6f-f1fd-5a4d-b01b-c3ff25073e79",
+      "name": "Movie Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const m=$json;const p=$('Confirmed Metadata').first().json;const c=p.context;if(!m.id||m.tmdbId!==p.media.tmdbId)throw new Error('Movie identity mismatch');return [{json:{...c,mediaType:'movie',mediaId:String(m.id),externalId:String(m.tmdbId),title:m.title,episodeIds:[],preexistingFileIds:m.movieFile?.id?[String(m.movieFile.id)]:[],baselineCaptured:true,retentionDays:null,missing:!m.movieFile?.id}}];"
+      },
+      "position": [
+        0,
+        280
+      ]
+    },
+    {
+      "id": "c0d5c5cf-d94e-50c2-acd9-c5a37d453369",
+      "name": "Register Movie Before Search",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeTrackRequestV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        250,
+        280
+      ]
+    },
+    {
+      "id": "77a8a73b-cfcf-5e9c-8e23-abae5e26f74d",
+      "name": "Movie Search Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "if(!$json.requestKey)throw new Error('Tracking not saved');return [{json:$('Movie Snapshot').first().json}];"
+      },
+      "position": [
+        500,
+        280
+      ]
+    },
+    {
+      "id": "972c1de3-3bfd-50ea-b786-7cdedf59ceb5",
+      "name": "Movie Missing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ $json.missing }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        750,
+        280
+      ]
+    },
+    {
+      "id": "845f06ee-5e4d-5386-8481-7bc95cd11126",
+      "name": "Search Confirmed Movie",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.10:7878/api/v3/command",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {name:'MoviesSearch',movieIds:[Number($json.mediaId)]} }}"
+      },
+      "position": [
+        1000,
+        280
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "b77724ef-3835-5fd0-b814-543bc267a3b4",
+      "name": "Movie Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$('Movie Snapshot').first().json;return [{json:{version:1,status:'notice',text:'\ud83c\udfac '+r.title+'\\n\\n'+(r.missing?'\ud83d\udd0e Search started.':'\u2705 Already available in Radarr.')}}];"
+      },
+      "position": [
+        1250,
+        280
+      ]
+    },
+    {
+      "id": "3cd1af45-be5e-56f5-9035-7540cfb65c09",
+      "name": "Find Confirmed Series",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8989/api/v3/series",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "tvdbId",
+              "value": "={{ $('Confirmed Metadata').first().json.media.tvdbId }}"
+            }
+          ]
+        }
+      },
+      "position": [
+        1500,
+        280
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "e850dcd8-cd28-5d0c-b611-419548a073a2",
+      "name": "Existing Series",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const m=$('Confirmed Metadata').first().json.media;return [{json:$input.all().map(x=>x.json).find(x=>x.tvdbId===m.tvdbId&&x.id)||{}}];"
+      },
+      "position": [
+        1750,
+        280
+      ]
+    },
+    {
+      "id": "f12a5f32-20ad-5ad1-871d-38d9eda279c1",
+      "name": "Series Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ !!$json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        0,
+        560
+      ]
+    },
+    {
+      "id": "817aa886-9439-5b1c-90b9-74425f0bda85",
+      "name": "Build Series Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Build nested payloads in Code, away from n8n's template expression delimiters.\nconst r=$('Confirmed Metadata').first().json;\nconst m=r.media;\nif(!m||typeof m.title!=='string'||!m.title.trim())throw new Error('Missing confirmed title');\nif(r.mediaType==='movie'){\n if(!Number.isSafeInteger(m.tmdbId)||m.tmdbId<=0)throw new Error('Invalid confirmed movie');\n return [{json:{title:m.title,tmdbId:m.tmdbId,year:m.year,qualityProfileId:4,rootFolderPath:'/movies',monitored:true,minimumAvailability:'released',addOptions:{searchForMovie:false}}}];\n}\nif(r.mediaType!=='tv'||!Number.isSafeInteger(m.tvdbId)||m.tvdbId<=0||!Array.isArray(m.seasons))throw new Error('Invalid confirmed series');\nreturn [{json:{title:m.title,tvdbId:m.tvdbId,titleSlug:m.titleSlug,qualityProfileId:4,rootFolderPath:'/tv',monitored:false,monitorNewItems:'none',seasonFolder:true,seriesType:m.seriesType||'standard',seasons:m.seasons.map(s=>({seasonNumber:s.seasonNumber,monitored:false})),addOptions:{monitor:'none',searchForMissingEpisodes:false,searchForCutoffUnmetEpisodes:false}}}];\n"
+      },
+      "position": [
+        250,
+        560
+      ]
+    },
+    {
+      "id": "4a313894-e6c2-54c3-8fc0-6b9e0d4db482",
+      "name": "Add Confirmed Series",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.10:8989/api/v3/series",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}"
+      },
+      "position": [
+        500,
+        560
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "360b9275-a69b-517e-acc2-6d453e8c299d",
+      "name": "Series Identity",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Confirmed Metadata').first().json;if(!$json.id||$json.tvdbId!==p.media.tvdbId)throw new Error('Series identity mismatch');return [{json:$json}];"
+      },
+      "position": [
+        750,
+        560
+      ]
+    },
+    {
+      "id": "9bec7778-c180-5f44-9399-223f9982c111",
+      "name": "Read Confirmed Episodes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8989/api/v3/episode",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "seriesId",
+              "value": "={{ $('Series Identity').first().json.id }}"
+            }
+          ]
+        }
+      },
+      "position": [
+        1000,
+        560
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "bb4258b5-0153-5606-b313-30a24fa85773",
+      "name": "Episodes Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ !!$json.id || $runIndex>=5 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1250,
+        560
+      ]
+    },
+    {
+      "id": "46ed7fe3-5b64-59ff-9dde-53564ab496f0",
+      "name": "Wait Metadata",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "position": [
+        1500,
+        560
+      ]
+    },
+    {
+      "id": "c8634786-2788-5db8-8412-37853f34b7d9",
+      "name": "Selected Episode Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Shared pure decisions embedded into n8n Code nodes by build.py.\nfunction scope(episodes,choice,now) {\n const aired=episodes.filter(e=>Number.isSafeInteger(e.id)&&e.id>0&&Number.isInteger(e.seasonNumber)&&e.seasonNumber>0&&Number.isFinite(Date.parse(e.airDateUtc))&&Date.parse(e.airDateUtc)<=now);\n if(choice==='all')return aired;\n let season;\n if(choice==='latest')season=Math.max(0,...aired.map(e=>e.seasonNumber));\n else if(/^season_[1-9][0-9]{0,3}$/.test(choice))season=Number(choice.slice(7));\n else throw new Error('Invalid season choice');\n return aired.filter(e=>e.seasonNumber===season);\n}\nfunction transition(row,actor,now) {\n if(!row||!['discord','telegram'].includes(row.source)||['source','userId','destinationId'].some(k=>row[k]!==actor[k]))throw new Error('Not your request');\n if(!Number.isFinite(Date.parse(row.expiresAt))||Date.parse(row.expiresAt)<=now)throw new Error('Request expired');\n if(!['preview','scope','seasons'].includes(row.state))throw new Error('Already handled');\n if(actor.action==='cancel')return 'cancelled';\n if(row.state==='preview'&&actor.action==='confirm')return row.mediaType==='tv'?'scope':'processing';\n if(row.mediaType==='tv'&&row.state==='scope'&&actor.action==='choose')return 'seasons';\n if(row.mediaType==='tv'&&row.state==='seasons'&&/^page_[0-9]{1,3}$/.test(actor.action))return 'seasons';\n if(row.mediaType==='tv'&&row.state==='scope'&&['latest','all'].includes(actor.action))return 'processing';\n if(row.mediaType==='tv'&&row.state==='seasons'&&/^season_[1-9][0-9]{0,3}$/.test(actor.action))return 'processing';\n throw new Error('Stale or invalid choice');\n}\nif(typeof module!=='undefined')module.exports={scope,transition};\n\nconst p=$('Confirmed Metadata').first().json;const selected=scope($input.all().map(x=>x.json),p.choice,Date.now());if(!selected.length)return [{json:{version:1,status:'notice',text:'No aired episodes were found for that selection. Nothing was searched. Please try again later.'}}];const s=$('Series Identity').first().json;return [{json:{...p.context,mediaType:'tv',mediaId:String(s.id),externalId:String(s.tvdbId),title:s.title,episodeIds:selected.map(e=>String(e.id)),preexistingFileIds:selected.filter(e=>e.episodeFileId>0).map(e=>String(e.episodeFileId)),baselineCaptured:true,retentionDays:null,missingIds:selected.filter(e=>!e.hasFile&&!e.episodeFileId).map(e=>e.id),seasons:[...new Set(selected.map(e=>e.seasonNumber))]}}];"
+      },
+      "position": [
+        1750,
+        560
+      ]
+    },
+    {
+      "id": "2356c086-3b48-5ada-98d7-112f91cd9526",
+      "name": "Has Aired Selection?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ !!$json.episodeIds }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        0,
+        840
+      ]
+    },
+    {
+      "id": "1d65a0f0-612e-5aeb-a331-4b9ce79b38dc",
+      "name": "Register TV Before Search",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeTrackRequestV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        250,
+        840
+      ]
+    },
+    {
+      "id": "b0ea1cbd-723c-5320-9da3-5c33ac4febb3",
+      "name": "TV Search Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "if(!$json.requestKey)throw new Error('Tracking not saved');return [{json:$('Selected Episode Snapshot').first().json}];"
+      },
+      "position": [
+        500,
+        840
+      ]
+    },
+    {
+      "id": "1c1671d4-fd85-563d-9b08-231fae418512",
+      "name": "Episodes Missing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ $json.missingIds.length>0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        750,
+        840
+      ]
+    },
+    {
+      "id": "47ae46e4-c39a-5e56-8413-338b1a328a01",
+      "name": "Search Confirmed Episodes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.10:8989/api/v3/command",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {name:'EpisodeSearch',episodeIds:$json.missingIds} }}"
+      },
+      "position": [
+        1000,
+        840
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "505e3ef3-676b-5482-8ed1-2e201189a700",
+      "name": "TV Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$('Selected Episode Snapshot').first().json;return [{json:{version:1,status:'notice',text:'\ud83d\udcfa '+r.title+' \u2014 season '+r.seasons.join(', ')+'\\n\\n'+(r.missingIds.length?'\ud83d\udd0e Search started for '+r.missingIds.length+' aired episodes.':'\u2705 Selected episodes are already in Sonarr.')}}];"
+      },
+      "position": [
+        1250,
+        840
+      ]
+    },
+    {
+      "id": "43f373bd-7a95-5174-b1bf-8070d333f913",
+      "name": "Save Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{reply:$json}}];"
+      },
+      "position": [
+        1500,
+        840
+      ]
+    },
+    {
+      "id": "67e7e7d8-6d78-5d98-ae1e-51e49b674601",
+      "name": "Complete Pending",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_pending"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Commit Input').first().json.id }}"
+            },
+            {
+              "keyName": "claimId",
+              "condition": "eq",
+              "keyValue": "={{ $('Commit Input').first().json.claimId }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "state": "done"
+          },
+          "schema": [
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1750,
+        840
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "8a52d9a5-4a5f-5847-a1fe-6d7cf9818f4a",
+      "name": "Return Outcome",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:$('Save Outcome').first().json.reply}];"
+      },
+      "position": [
+        0,
+        1120
+      ]
+    }
+  ],
+  "connections": {
+    "Commit Input": {
+      "main": [
+        [
+          {
+            "node": "Confirmed Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmed Metadata": {
+      "main": [
+        [
+          {
+            "node": "Commit Movie?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Commit Movie?": {
+      "main": [
+        [
+          {
+            "node": "Find Confirmed Movie",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Confirmed Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Confirmed Movie": {
+      "main": [
+        [
+          {
+            "node": "Existing Movie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existing Movie": {
+      "main": [
+        [
+          {
+            "node": "Movie Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Movie Exists?": {
+      "main": [
+        [
+          {
+            "node": "Movie Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Movie Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Movie Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Register Movie Before Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register Movie Before Search": {
+      "main": [
+        [
+          {
+            "node": "Movie Search Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Movie Search Plan": {
+      "main": [
+        [
+          {
+            "node": "Movie Missing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Movie Missing?": {
+      "main": [
+        [
+          {
+            "node": "Search Confirmed Movie",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Movie Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Confirmed Movie": {
+      "main": [
+        [
+          {
+            "node": "Movie Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Movie Result": {
+      "main": [
+        [
+          {
+            "node": "Save Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Outcome": {
+      "main": [
+        [
+          {
+            "node": "Complete Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Pending": {
+      "main": [
+        [
+          {
+            "node": "Return Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Movie Payload": {
+      "main": [
+        [
+          {
+            "node": "Add Confirmed Movie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Confirmed Movie": {
+      "main": [
+        [
+          {
+            "node": "Movie Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Confirmed Series": {
+      "main": [
+        [
+          {
+            "node": "Existing Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existing Series": {
+      "main": [
+        [
+          {
+            "node": "Series Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Series Exists?": {
+      "main": [
+        [
+          {
+            "node": "Series Identity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Series Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Series Identity": {
+      "main": [
+        [
+          {
+            "node": "Read Confirmed Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Confirmed Episodes": {
+      "main": [
+        [
+          {
+            "node": "Episodes Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Episodes Ready?": {
+      "main": [
+        [
+          {
+            "node": "Selected Episode Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selected Episode Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Has Aired Selection?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Aired Selection?": {
+      "main": [
+        [
+          {
+            "node": "Register TV Before Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register TV Before Search": {
+      "main": [
+        [
+          {
+            "node": "TV Search Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TV Search Plan": {
+      "main": [
+        [
+          {
+            "node": "Episodes Missing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Episodes Missing?": {
+      "main": [
+        [
+          {
+            "node": "Search Confirmed Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TV Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Confirmed Episodes": {
+      "main": [
+        [
+          {
+            "node": "TV Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TV Result": {
+      "main": [
+        [
+          {
+            "node": "Save Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Series Payload": {
+      "main": [
+        [
+          {
+            "node": "Add Confirmed Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Confirmed Series": {
+      "main": [
+        [
+          {
+            "node": "Series Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Metadata": {
+      "main": [
+        [
+          {
+            "node": "Read Confirmed Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  },
+  "active": false
+}

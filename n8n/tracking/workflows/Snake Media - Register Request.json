@@ -1,0 +1,423 @@
+{
+  "id": "snakeTrackRequestV1",
+  "name": "Snake Media - Register Request",
+  "nodes": [
+    {
+      "id": "a78c584d-19bc-5c0b-bf49-9094b3372b3f",
+      "name": "Request Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "065029a9-c841-589a-bcb9-d8bb0a73b002",
+      "name": "Normalize Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Called only by trusted request workflows after their own authentication.\nconst r = $input.first().json;\nfunction requireThat(ok, reason) { if (!ok) throw new Error('Tracking input: ' + reason); }\nconst positiveId = x => typeof x === 'string' && /^[1-9][0-9]{0,19}$/.test(x);\nconst idList = x => Array.isArray(x) && x.length <= 10000 && x.every(positiveId);\nrequireThat(['discord', 'telegram'].includes(r.source), 'invalid source');\nrequireThat(positiveId(r.userId) && positiveId(r.messageId), 'IDs must be positive strings');\nrequireThat(typeof r.destinationId === 'string' &&\n  (r.source === 'telegram' ? /^-?[1-9][0-9]{0,19}$/ : /^[1-9][0-9]{0,19}$/).test(r.destinationId), 'invalid destination');\nrequireThat(typeof r.requestedAt === 'string' && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(r.requestedAt), 'timestamp must be UTC ISO with milliseconds');\nrequireThat(Number.isFinite(Date.parse(r.requestedAt)) && new Date(r.requestedAt).toISOString() === r.requestedAt, 'invalid timestamp');\nrequireThat(typeof r.text === 'string' && r.text.trim().length > 0 && r.text.length <= 2000, 'invalid request text');\nrequireThat(['movie', 'tv'].includes(r.mediaType), 'invalid media type');\nrequireThat(positiveId(r.mediaId) && positiveId(r.externalId), 'media IDs must be positive strings');\nrequireThat(typeof r.title === 'string' && r.title.trim().length > 0 && r.title.length <= 300, 'invalid title');\nrequireThat(typeof r.baselineCaptured === 'boolean', 'baseline state required');\nrequireThat(idList(r.preexistingFileIds) && idList(r.episodeIds), 'explicit file and episode lists required');\nrequireThat(r.mediaType === 'tv' ? r.episodeIds.length > 0 : r.episodeIds.length === 0, 'invalid episode scope');\nconst days = r.retentionDays === undefined ? null : r.retentionDays;\nrequireThat(days === null || (Number.isInteger(days) && days >= 1 && days <= 3650 && r.retentionExplicit === true), 'retention must be explicit and between 1 and 3650 days');\nconst canonical = ids => JSON.stringify([...new Set(ids)].sort());\nreturn [{json: {\n  requestKey: `${r.source}:${r.destinationId}:${r.messageId}`,\n  source: r.source, userId: r.userId, destinationId: r.destinationId,\n  messageId: r.messageId, requestedAt: r.requestedAt, text: r.text.trim(),\n  mediaType: r.mediaType, mediaId: r.mediaId, externalId: r.externalId,\n  title: r.title.trim(), episodeIdsJson: canonical(r.episodeIds),\n  preexistingFileIdsJson: canonical(r.preexistingFileIds),\n  baselineCaptured: r.baselineCaptured, retentionDays: days,\n  deletionEligible: days !== null && r.baselineCaptured,\n  state: 'registered',\n}}];\n"
+      },
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "id": "1968cd46-5a31-5bfe-91e1-d431c77c611c",
+      "name": "Find Existing Request",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_requests"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requestKey",
+              "condition": "eq",
+              "keyValue": "={{ $json.requestKey }}"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "position": [
+        480,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "d1e9afab-44b4-5245-8847-0132943c5423",
+      "name": "Resolve Existing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const request = $('Normalize Request').first().json;\nconst rows = $input.all().map(x => x.json).filter(x => x.requestKey);\nif (rows.length > 1) throw new Error('Tracking conflict: duplicate request keys require reconciliation');\nif (rows.length === 1) {\n  const existing = rows[0];\n  // state can change later; repeat delivery must not revert it.\n  for (const key of Object.keys(request).filter(k => k !== 'state')) {\n    if (existing[key] !== request[key]) throw new Error('Tracking conflict: original request cannot be overwritten');\n  }\n  return [{json: {exists: true, record: existing}}];\n}\nreturn [{json: {exists: false, record: request}}];\n"
+      },
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "id": "249f5521-f79e-5508-8f74-b5a6c7f89b48",
+      "name": "Already Registered?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "exists",
+              "leftValue": "={{ $json.exists }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "id": "10a23e0d-39cf-5ee2-b0fd-813a69e43e40",
+      "name": "Keep Existing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json: $input.first().json.record}];"
+      },
+      "position": [
+        1200,
+        -140
+      ]
+    },
+    {
+      "id": "49d79045-b2df-5d64-85d4-6d4afeb7141e",
+      "name": "Insert Request",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_requests"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requestKey": "={{ $json.record.requestKey }}",
+            "source": "={{ $json.record.source }}",
+            "userId": "={{ $json.record.userId }}",
+            "destinationId": "={{ $json.record.destinationId }}",
+            "messageId": "={{ $json.record.messageId }}",
+            "text": "={{ $json.record.text }}",
+            "mediaType": "={{ $json.record.mediaType }}",
+            "mediaId": "={{ $json.record.mediaId }}",
+            "externalId": "={{ $json.record.externalId }}",
+            "title": "={{ $json.record.title }}",
+            "episodeIdsJson": "={{ $json.record.episodeIdsJson }}",
+            "preexistingFileIdsJson": "={{ $json.record.preexistingFileIdsJson }}",
+            "state": "={{ $json.record.state }}",
+            "requestedAt": "={{ $json.record.requestedAt }}",
+            "retentionDays": "={{ $json.record.retentionDays }}",
+            "baselineCaptured": "={{ $json.record.baselineCaptured }}",
+            "deletionEligible": "={{ $json.record.deletionEligible }}"
+          },
+          "schema": [
+            {
+              "id": "requestKey",
+              "displayName": "requestKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "userId",
+              "displayName": "userId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "destinationId",
+              "displayName": "destinationId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "messageId",
+              "displayName": "messageId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaType",
+              "displayName": "mediaType",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "mediaId",
+              "displayName": "mediaId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "externalId",
+              "displayName": "externalId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "episodeIdsJson",
+              "displayName": "episodeIdsJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "preexistingFileIdsJson",
+              "displayName": "preexistingFileIdsJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requestedAt",
+              "displayName": "requestedAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "retentionDays",
+              "displayName": "retentionDays",
+              "type": "number",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "baselineCaptured",
+              "displayName": "baselineCaptured",
+              "type": "boolean",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deletionEligible",
+              "displayName": "deletionEligible",
+              "type": "boolean",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        1200,
+        140
+      ]
+    },
+    {
+      "id": "849ef6cd-742f-5552-8c86-9a99aed7f37a",
+      "name": "Return Tracking Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$input.first().json; return [{json:{trackingVersion:1,requestKey:r.requestKey,state:r.state,retentionDays:r.retentionDays,deletionEligible:r.deletionEligible}}];"
+      },
+      "position": [
+        1440,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Request Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Request": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Request": {
+      "main": [
+        [
+          {
+            "node": "Resolve Existing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Existing": {
+      "main": [
+        [
+          {
+            "node": "Already Registered?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already Registered?": {
+      "main": [
+        [
+          {
+            "node": "Keep Existing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep Existing": {
+      "main": [
+        [
+          {
+            "node": "Return Tracking Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Request": {
+      "main": [
+        [
+          {
+            "node": "Return Tracking Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,3144 @@
+[
+  {
+    "id": "gAzzbRdwQJNByVkd",
+    "name": "Add Movie - Radarr",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "url": "http://192.168.1.10:7878/api/v3/movie/lookup",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "term",
+                "value": "={{ $('Movie Request Input').first().json.movie }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Api-Key",
+                "value": "__SERVER_HEADER__"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          -112,
+          -224
+        ],
+        "id": "387f1226-2dc0-4215-ac7f-81d3a9dd3254",
+        "name": "Movie Search"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://192.168.1.10:7878/api/v3/movie",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Api-Key",
+                "value": "__SERVER_HEADER__"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{\n  {\n    \"title\": $('Select Correct Movie').first().json.title,\n    \"tmdbId\": $('Select Correct Movie').first().json.tmdbId,\n    \"year\": $('Select Correct Movie').first().json.year,\n    \"qualityProfileId\": 4,\n    \"rootFolderPath\": \"/movies\",\n    \"monitored\": true,\n    \"minimumAvailability\": \"released\",\n    \"addOptions\": {\n      \"searchForMovie\": true\n    }\n  }\n}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          192,
+          624
+        ],
+        "id": "356d6b08-dd44-40f4-9bd2-7b2ca92857ab",
+        "name": "Add Movie"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.limit",
+        "typeVersion": 1,
+        "position": [
+          -112,
+          160
+        ],
+        "id": "c46a0a1b-c861-40cf-af86-608426d7be62",
+        "name": "Select Correct Movie"
+      },
+      {
+        "parameters": {
+          "url": "http://192.168.1.10:7878/api/v3/movie",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "tmdbId",
+                "value": "={{ $('Select Correct Movie').first().json.tmdbId }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Api-Key",
+                "value": "__SERVER_HEADER__"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          -112,
+          352
+        ],
+        "id": "2cd0dcf9-eba9-47fe-8852-7b155c4e0d22",
+        "name": "Check If Movie Exists",
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "48b3b3e0-af53-4599-8019-a6d978903c0f",
+                "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          -112,
+          544
+        ],
+        "id": "c64e7209-554b-440b-a6b6-e003cd13a733",
+        "name": "Already in Radarr?"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "f4f2842f-06ba-42b2-9f1c-b7d5ca07779f",
+                "name": "status",
+                "value": "already_added",
+                "type": "string"
+              },
+              {
+                "id": "4c241c3a-d9ec-4d6e-9bee-d568d014dc86",
+                "name": "message",
+                "value": "Movie is already in Radarr",
+                "type": "string"
+              },
+              {
+                "id": "10d30ccf-a4ec-4ef1-a11e-e5199fdeb839",
+                "name": "movie",
+                "value": "={{ $('Select Correct Movie').first().json.title }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.5,
+        "position": [
+          192,
+          448
+        ],
+        "id": "163610ab-3e80-482c-af08-1f82ac33f31a",
+        "name": "Already Added"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "e7c4ecfe-671c-4773-bcc3-7c885d03e7b5",
+                "leftValue": "={{ $json.year }}",
+                "rightValue": "={{ $('Movie Request Input').first().json.year || $json.year }}",
+                "operator": {
+                  "type": "number",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.filter",
+        "typeVersion": 2.3,
+        "position": [
+          -112,
+          -32
+        ],
+        "id": "241a8580-fe65-4282-b7ab-e06f95ea494d",
+        "name": "Match Requested Year"
+      },
+      {
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "movie"
+              },
+              {
+                "name": "year",
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          -416,
+          -224
+        ],
+        "id": "4fd38fde-46c2-4718-a5d0-f9820d3122b7",
+        "name": "Movie Request Input"
+      }
+    ],
+    "connections": {
+      "Movie Search": {
+        "main": [
+          [
+            {
+              "node": "Match Requested Year",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Select Correct Movie": {
+        "main": [
+          [
+            {
+              "node": "Check If Movie Exists",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check If Movie Exists": {
+        "main": [
+          [
+            {
+              "node": "Already in Radarr?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Already in Radarr?": {
+        "main": [
+          [
+            {
+              "node": "Already Added",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Add Movie",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Match Requested Year": {
+        "main": [
+          [
+            {
+              "node": "Select Correct Movie",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Movie Request Input": {
+        "main": [
+          [
+            {
+              "node": "Movie Search",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "availableInMCP": true
+    },
+    "nodeGroups": [],
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "versionMetadata": {
+      "name": "Radarr V1",
+      "description": ""
+    }
+  },
+  {
+    "id": "xWK1b9ugbjMKhGeC",
+    "name": "Add TV Show - Sonarr",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "f4f2842f-06ba-42b2-9f1c-b7d5ca07779f",
+                "name": "status",
+                "value": "already_added",
+                "type": "string"
+              },
+              {
+                "id": "4c241c3a-d9ec-4d6e-9bee-d568d014dc86",
+                "name": "message",
+                "value": "TV show is already in Sonarr",
+                "type": "string"
+              },
+              {
+                "id": "10d30ccf-a4ec-4ef1-a11e-e5199fdeb839",
+                "name": "movie",
+                "value": "={{ $('Select Correct Series').first().json.title }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.5,
+        "position": [
+          192,
+          448
+        ],
+        "id": "6ddc1405-00a6-4b88-bec6-b8e63eb00656",
+        "name": "Already Added"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "e7c4ecfe-671c-4773-bcc3-7c885d03e7b5",
+                "leftValue": "={{ $json.year }}",
+                "rightValue": "={{ $('TV Request Input').first().json.year || $json.year }}",
+                "operator": {
+                  "type": "number",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.filter",
+        "typeVersion": 2.3,
+        "position": [
+          -112,
+          -32
+        ],
+        "id": "5cc22d28-a54c-493a-be2c-4e9b9a66ff48",
+        "name": "Match Requested Year"
+      },
+      {
+        "parameters": {
+          "url": "http://192.168.1.10:8989/api/v3/series/lookup",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "term",
+                "value": "={{ $('TV Request Input').first().json.show }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Api-Key",
+                "value": "__SERVER_HEADER__"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          -112,
+          -224
+        ],
+        "id": "df87b4b4-d023-4d55-923a-426ec53a69be",
+        "name": "Series Search"
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.limit",
+        "typeVersion": 1,
+        "position": [
+          -112,
+          160
+        ],
+        "id": "8648db9a-ec2a-4e61-af24-0aa380743c5e",
+        "name": "Select Correct Series"
+      },
+      {
+        "parameters": {
+          "url": "http://192.168.1.10:8989/api/v3/series",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "tvdbId",
+                "value": "={{ $('Select Correct Series').first().json.tvdbId }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Api-Key",
+                "value": "__SERVER_HEADER__"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          -112,
+          352
+        ],
+        "id": "0d0c2bad-2751-48b8-b352-481e70ea84e4",
+        "name": "Check If Series Exists",
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "48b3b3e0-af53-4599-8019-a6d978903c0f",
+                "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          -112,
+          544
+        ],
+        "id": "dd69ff33-4277-4038-a668-aa987a0684f9",
+        "name": "Already in Sonarr?"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://192.168.1.10:8989/api/v3/series",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Api-Key",
+                "value": "__SERVER_HEADER__"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{\n  {\n    \"title\": $('Select Correct Series').first().json.title,\n    \"tvdbId\": $('Select Correct Series').first().json.tvdbId,\n    \"titleSlug\": $('Select Correct Series').first().json.titleSlug,\n    \"qualityProfileId\": 4,\n    \"rootFolderPath\": \"/tv\",\n    \"monitored\": true,\n    \"seasonFolder\": true,\n    \"seriesType\": $('Select Correct Series').first().json.seriesType || \"standard\",\n    \"addOptions\": {\n      \"searchForMissingEpisodes\": true\n    }\n  }\n}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          192,
+          624
+        ],
+        "id": "bdddbff1-0018-4f78-a80e-859226afdf22",
+        "name": "Add Series"
+      },
+      {
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "show"
+              },
+              {
+                "name": "year",
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          -400,
+          -224
+        ],
+        "id": "5392e6a2-9cf0-458f-946e-3465a13430d3",
+        "name": "TV Request Input"
+      }
+    ],
+    "connections": {
+      "Match Requested Year": {
+        "main": [
+          [
+            {
+              "node": "Select Correct Series",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Series Search": {
+        "main": [
+          [
+            {
+              "node": "Match Requested Year",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Select Correct Series": {
+        "main": [
+          [
+            {
+              "node": "Check If Series Exists",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check If Series Exists": {
+        "main": [
+          [
+            {
+              "node": "Already in Sonarr?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Already in Sonarr?": {
+        "main": [
+          [
+            {
+              "node": "Already Added",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Add Series",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "TV Request Input": {
+        "main": [
+          [
+            {
+              "node": "Series Search",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "availableInMCP": true
+    },
+    "nodeGroups": [],
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "versionMetadata": {
+      "name": "Sonarr V1",
+      "description": ""
+    }
+  },
+  {
+    "id": "wUMD5MA4ny8aqiB2",
+    "name": "Media Imported - Jellyfin Refresh",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "media-imported",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          -272,
+          -176
+        ],
+        "id": "1dcc5d8b-cf0b-4fb2-b808-f0feb59bb2f4",
+        "name": "Media Imported"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://192.168.1.10:8096/ScheduledTasks/Running/7738148ffcd07979c7ceb148e06b3aed",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "__SERVER_HEADER__"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          -48,
+          -176
+        ],
+        "id": "c0c1fe8a-f68d-450e-ac00-5fc9a3dccf5d",
+        "name": "Refresh Jellyfin Library"
+      }
+    ],
+    "connections": {
+      "Media Imported": {
+        "main": [
+          [
+            {
+              "node": "Refresh Jellyfin Library",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "availableInMCP": true
+    },
+    "nodeGroups": [],
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "versionMetadata": {
+      "name": "Version 1",
+      "description": ""
+    }
+  },
+  {
+    "id": "i3iFVLPij8euaIX0",
+    "name": "TEST - Call Sonarr",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          -416,
+          -96
+        ],
+        "id": "ca30b0ba-ffd2-40ad-ad16-6c66da3615dd",
+        "name": "When clicking \u2018Execute workflow\u2019"
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "xWK1b9ugbjMKhGeC",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/xWK1b9ugbjMKhGeC",
+            "cachedResultName": "Add TV Show - Sonarr"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "show": "Breaking Bad",
+              "year": 2008
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "show",
+                "displayName": "show",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "year",
+                "displayName": "year",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "number"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          -192,
+          -96
+        ],
+        "id": "d19343ad-f0df-428d-acd1-b6247b265f06",
+        "name": "Call Add TV Show - Sonarr"
+      }
+    ],
+    "connections": {
+      "When clicking \u2018Execute workflow\u2019": {
+        "main": [
+          [
+            {
+              "node": "Call Add TV Show - Sonarr",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "availableInMCP": true
+    },
+    "nodeGroups": [],
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  },
+  {
+    "id": "0e67KTcphqxEKNsh",
+    "name": "Media Request - Telegram",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "3d237014-3e0b-4e97-8267-f1c331a991a1",
+                "name": "text",
+                "value": "={{ $json.message.text }}",
+                "type": "string"
+              },
+              {
+                "id": "9ae8a897-3a69-4518-a512-adb5c92c215b",
+                "name": "chatId",
+                "value": "={{ $json.message.chat.id }}",
+                "type": "number"
+              },
+              {
+                "id": "2c214613-ea9e-420d-86b0-52b32627db0f",
+                "name": "userId",
+                "value": "={{ $json.message.from.id }}",
+                "type": "number"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.5,
+        "position": [
+          224,
+          0
+        ],
+        "id": "9e90bbf8-9ada-4380-8dbe-45b8a455ea0d",
+        "name": "Prepare Request"
+      },
+      {
+        "parameters": {
+          "updates": [
+            "message"
+          ],
+          "additionalFields": {}
+        },
+        "type": "n8n-nodes-base.telegramTrigger",
+        "typeVersion": 1.5,
+        "position": [
+          0,
+          0
+        ],
+        "id": "3d7ea825-42fe-448d-8d6f-a9b2c64f5ce9",
+        "name": "On message",
+        "credentials": {
+          "telegramApi": {
+            "id": "CONFIGURE_TELEGRAMAPI",
+            "name": "Configure telegramApi"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "text": "={{ $json.text }}",
+          "attributes": {
+            "attributes": [
+              {
+                "name": "type",
+                "description": "Classify the requested media as exactly one of: movie, tv, unknown. Use \"movie\" for films and \"tv\" for television/streaming series. Use \"unknown\" if the request is not for media or you cannot reliably determine whether the title is a movie or TV series. Never guess when genuinely ambiguous.",
+                "required": true
+              },
+              {
+                "name": "title",
+                "description": "The canonical title of the movie or TV series being requested. Remove conversational command words such as add, download, grab, get, please, movie, show, series, and year phrases. Preserve the actual media title. If no media title can be identified, return an empty string.",
+                "required": true
+              },
+              {
+                "name": "year",
+                "type": "number",
+                "description": "The four-digit release or premiere year specified by the user. If the user does not specify a year, do not invent one."
+              }
+            ]
+          },
+          "options": {
+            "systemPromptTemplate": "You extract movie and TV series requests for a personal media-management system.\n\nReturn only information supported by the user's request or reliably identifiable from the named media title.\n\nThe \"type\" field must be exactly:\n- movie\n- tv\n- unknown\n\nInterpret natural conversational commands such as \"add\", \"grab\", \"get\", \"download\", \"find\", or \"I want\" as media requests.\n\nDo not include command words in the title.\n\nIf a year is explicitly supplied, extract it. If no year is supplied, do not invent one.\n\nIf the message is not a recognizable request for a movie or TV series, set type to \"unknown\".\n\nWhen genuinely uncertain whether a title refers to a movie or TV series, set type to \"unknown\" rather than guessing."
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+        "typeVersion": 1.2,
+        "position": [
+          672,
+          -16
+        ],
+        "id": "a34eae75-0060-474e-9d54-4a9c9315b4dc",
+        "name": "Interpret Media Request"
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "gpt-5.6-luna",
+            "mode": "list",
+            "cachedResultName": "gpt-5.6-luna"
+          },
+          "builtInTools": {},
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          672,
+          272
+        ],
+        "id": "4e3f513b-58f3-4388-9bf8-845dd2f091ec",
+        "name": "OpenAI Chat Model",
+        "credentials": {
+          "openAiApi": {
+            "id": "CONFIGURE_OPENAIAPI",
+            "name": "Configure openAiApi"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.output.type }}",
+                      "rightValue": "movie",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      },
+                      "id": "321a9a7f-afad-4ea9-9f9e-86f50ef00121"
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Movie"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "7cb2e823-c430-4263-9e15-3b8de1225145",
+                      "leftValue": "={{ $json.output.type }}",
+                      "rightValue": "tv",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "name": "filter.operator.equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "TV"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "297af099-0b96-4727-9f61-0a816dca8e42",
+                      "leftValue": "={{ $json.output.type }}",
+                      "rightValue": "unknown",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals",
+                        "name": "filter.operator.equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Unknown"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.4,
+        "position": [
+          1040,
+          -32
+        ],
+        "id": "7449565e-8dbc-44a5-831a-72f9f0a9e5a1",
+        "name": "Route Media Type"
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "xWK1b9ugbjMKhGeC",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/xWK1b9ugbjMKhGeC",
+            "cachedResultName": "Add TV Show - Sonarr"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "show": "={{ $json.output.title }}",
+              "year": "={{ $json.output.year }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "show",
+                "displayName": "show",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "year",
+                "displayName": "year",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "number"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          1264,
+          -16
+        ],
+        "id": "80432974-f1f2-491d-b08c-ff0d43bc7894",
+        "name": "Add TV Show - Sonarr"
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "gAzzbRdwQJNByVkd",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/gAzzbRdwQJNByVkd",
+            "cachedResultName": "Add Movie - Radarr"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "movie": "={{ $json.output.title }}",
+              "year": "={{ $json.output.year }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "movie",
+                "displayName": "movie",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "year",
+                "displayName": "year",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "number"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          1264,
+          -176
+        ],
+        "id": "1ee3903f-1b36-4e1f-9f18-e9bd6bf0c330",
+        "name": "Add Movie - Radarr"
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Prepare Request').first().json.chatId }}",
+          "text": "={{ '\ud83e\udd14 I couldn\\'t confidently determine whether you meant a movie or TV show.\\n\\nTry something like:\\n\\n\ud83c\udfac Movie: Add Step Brothers from 2008\\n\\n\ud83d\udcfa TV: Add Severance' }}",
+          "additionalFields": {
+            "appendAttribution": false
+          }
+        },
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1264,
+          144
+        ],
+        "id": "e555eb47-eecc-4564-9f8e-8e388428582e",
+        "name": "Ask for Clarification",
+        "credentials": {
+          "telegramApi": {
+            "id": "CONFIGURE_TELEGRAMAPI",
+            "name": "Configure telegramApi"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Prepare Request').first().json.chatId }}",
+          "text": "={{   $json.status === 'already_added'     ? '\ud83c\udfac ' + $('Interpret Media Request').first().json.output.title + '\\n\\n\u2705 Already in Radarr.'     : '\ud83c\udfac ' + $('Interpret Media Request').first().json.output.title + '\\n\\n\ud83d\udd0e Added to Radarr.\\nSearch started.' }}",
+          "additionalFields": {
+            "appendAttribution": false
+          }
+        },
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1488,
+          -176
+        ],
+        "id": "7be156d8-2730-4d0d-a5f7-f1522bc9e61b",
+        "name": "Send a text message",
+        "credentials": {
+          "telegramApi": {
+            "id": "CONFIGURE_TELEGRAMAPI",
+            "name": "Configure telegramApi"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "chatId": "={{ $('Prepare Request').first().json.chatId }}",
+          "text": "={{   $json.status === 'already_added'     ? '\ud83d\udcfa ' + $('Interpret Media Request').first().json.output.title + '\\n\\n\u2705 Already in Sonarr.'     : '\ud83d\udcfa ' + $('Interpret Media Request').first().json.output.title + '\\n\\n\ud83d\udd0e Added to Sonarr.\\nSearch started.' }}",
+          "additionalFields": {
+            "appendAttribution": false
+          }
+        },
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          1488,
+          -16
+        ],
+        "id": "f27c4536-6d5d-4273-b414-687a04aee469",
+        "name": "Send a text message1",
+        "credentials": {
+          "telegramApi": {
+            "id": "CONFIGURE_TELEGRAMAPI",
+            "name": "Configure telegramApi"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "8e0a2c4c-112a-48f3-9fed-a45ae53c2d13",
+                "leftValue": "={{ [1005350592,8752658721].includes(Number($json.userId)) }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          448,
+          0
+        ],
+        "id": "8709c787-6dea-473f-a60a-0b460c000e2e",
+        "name": "Authorized User?"
+      },
+      {
+        "parameters": {
+          "operation": "sendRichMessage",
+          "chatId": "={{ $('Prepare Request').first().json.chatId }}",
+          "richMessageText": "\u26d4 This Telegram account isn't authorized to use Snake Media.",
+          "additionalFields": {}
+        },
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1.2,
+        "position": [
+          448,
+          256
+        ],
+        "id": "81e8cc41-b43a-4813-92cb-c9f987b036f3",
+        "name": "Access Denied",
+        "credentials": {
+          "telegramApi": {
+            "id": "CONFIGURE_TELEGRAMAPI",
+            "name": "Configure telegramApi"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Prepare Request": {
+        "main": [
+          [
+            {
+              "node": "Authorized User?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "On message": {
+        "main": [
+          [
+            {
+              "node": "Prepare Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Interpret Media Request",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Interpret Media Request": {
+        "main": [
+          [
+            {
+              "node": "Route Media Type",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Route Media Type": {
+        "main": [
+          [
+            {
+              "node": "Add Movie - Radarr",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Add TV Show - Sonarr",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Ask for Clarification",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Add TV Show - Sonarr": {
+        "main": [
+          [
+            {
+              "node": "Send a text message1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Add Movie - Radarr": {
+        "main": [
+          [
+            {
+              "node": "Send a text message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Authorized User?": {
+        "main": [
+          [
+            {
+              "node": "Interpret Media Request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Access Denied",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "availableInMCP": true
+    },
+    "nodeGroups": [],
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "versionMetadata": {
+      "name": "Version 34e9939e",
+      "description": ""
+    }
+  },
+  {
+    "id": "HXtTzVTrpNZMZVt3",
+    "name": "Media Request - Discord",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "snake-media-discord",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "c31cb56c-d81d-4080-a8ee-429f561f0c41",
+        "name": "Discord Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          464
+        ],
+        "notesInFlow": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "CONFIGURE_HTTPHEADERAUTH",
+            "name": "Configure httpHeaderAuth"
+          }
+        },
+        "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication."
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "e815a2f6-7b73-4269-a5f2-fe74629c8119",
+                "name": "allowedUserIds",
+                "type": "string",
+                "value": "100000000000000001,100000000000000002,100000000000000003"
+              },
+              {
+                "id": "88d0a926-e4c4-461c-a3e1-b2637427eb5a",
+                "name": "allowedChannelIds",
+                "type": "string",
+                "value": "100000000000000004"
+              }
+            ]
+          },
+          "includeOtherFields": true,
+          "options": {}
+        },
+        "id": "0031e0cf-b781-41b2-9735-6b7f80ea78c9",
+        "name": "Discord Access Settings",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          240,
+          464
+        ],
+        "notes": "Editable comma-separated IDs. Keep these synchronized with the bot environment allowlists. IDs must stay strings."
+      },
+      {
+        "parameters": {
+          "jsCode": "\nconst data = $input.first().json;\nconst b = data.body;\nconst denied = [{json: {authorized: false, version: 1, status: 'error'}}];\nconst validId = x => typeof x === 'string' && /^[1-9][0-9]{0,19}$/.test(x) && BigInt(x) < 2n ** 64n;\nconst ids = x => typeof x === 'string' ? x.split(',').map(s => s.trim()) : [];\nconst users = ids(data.allowedUserIds);\nconst channels = ids(data.allowedChannelIds);\nif (!users.length || !channels.length || !users.every(validId) || !channels.every(validId)) return denied;\nif (!b || typeof b !== 'object' || Array.isArray(b) || b.source !== 'discord') return denied;\nif (![b.userId, b.channelId, b.guildId].every(validId)) return denied;\nif (!users.includes(b.userId) || !channels.includes(b.channelId)) return denied;\nif (typeof b.text !== 'string' || !b.text.trim() || b.text.trim().length > 2000) return denied;\nreturn [{json: {authorized: true, text: b.text.trim(), userId: b.userId,\n  channelId: b.channelId, guildId: b.guildId}}];\n"
+        },
+        "id": "a87a8722-9f2e-4fe7-bb82-fb14fb376382",
+        "name": "Validate Discord Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          464
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "2358ec09-5404-4b8c-b243-d8212e53073a",
+                "leftValue": "={{ $json.authorized }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "7e5997be-fde9-486c-9c70-8fc3ddfdebe6",
+        "name": "Authorized Request?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          720,
+          464
+        ]
+      },
+      {
+        "parameters": {
+          "text": "={{ $json.text }}",
+          "attributes": {
+            "attributes": [
+              {
+                "name": "type",
+                "description": "Classify the requested media as exactly one of: movie, tv, unknown. Use \"movie\" for films and \"tv\" for television/streaming series. Use \"unknown\" if the request is not for media or you cannot reliably determine whether the title is a movie or TV series. Never guess when genuinely ambiguous.",
+                "required": true
+              },
+              {
+                "name": "title",
+                "description": "The canonical title of the movie or TV series being requested. Remove conversational command words such as add, download, grab, get, please, movie, show, series, and year phrases. Preserve the actual media title. If no media title can be identified, return an empty string.",
+                "required": true
+              },
+              {
+                "name": "year",
+                "type": "number",
+                "description": "The four-digit release or premiere year specified by the user. If the user does not specify a year, do not invent one."
+              }
+            ]
+          },
+          "options": {
+            "systemPromptTemplate": "You extract movie and TV series requests for a personal media-management system.\n\nReturn only information supported by the user's request or reliably identifiable from the named media title.\n\nThe \"type\" field must be exactly:\n- movie\n- tv\n- unknown\n\nInterpret natural conversational commands such as \"add\", \"grab\", \"get\", \"download\", \"find\", or \"I want\" as media requests.\n\nDo not include command words in the title.\n\nIf a year is explicitly supplied, extract it. If no year is supplied, do not invent one.\n\nIf the message is not a recognizable request for a movie or TV series, set type to \"unknown\".\n\nWhen genuinely uncertain whether a title refers to a movie or TV series, set type to \"unknown\" rather than guessing."
+          }
+        },
+        "id": "79dade90-a377-4fae-bb2c-9d82df9cab94",
+        "name": "Interpret Media Request",
+        "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+        "typeVersion": 1.2,
+        "position": [
+          960,
+          368
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "gpt-5.6-luna",
+            "mode": "list",
+            "cachedResultName": "gpt-5.6-luna"
+          },
+          "builtInTools": {},
+          "options": {}
+        },
+        "id": "ec712087-ca9b-4a22-b407-41768b0327b1",
+        "name": "OpenAI Chat Model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          960,
+          608
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "CONFIGURE_OPENAIAPI",
+            "name": "Configure openAiApi"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "\nconst data = $input.first().json;\nif (Object.prototype.hasOwnProperty.call(data, 'error')) return [{json: {route: 'error'}}];\nconst out = data.output;\nconst clarify = [{json: {route: 'clarification'}}];\nif (!out || !['movie', 'tv'].includes(out.type) || typeof out.title !== 'string' || !out.title.trim()) return clarify;\nif (out.title.length > 300) return clarify;\nconst result = {route: out.type, title: out.title.trim()};\nif (out.year !== undefined && out.year !== null) {\n  if (!Number.isInteger(out.year) || out.year < 1800 || out.year > 2200) return clarify;\n  result.year = out.year;\n}\nreturn [{json: result}];\n"
+        },
+        "id": "d4fee48d-041a-4eaf-9272-53442a1ffbbd",
+        "name": "Validate Interpretation",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1232,
+          368
+        ]
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "d3b013ba-515d-4e2e-87dc-084016522f3c",
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "movie",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "movie"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "11cf36de-e2ff-449e-8e6d-28968d8b743e",
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "tv",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "tv"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "fe05f60a-0b52-43de-8077-d0e01ee4ebaa",
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "clarification",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "clarification"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "86ffa5dd-52a4-4a1b-ac3a-fec893e33c44",
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "error",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "error"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": 3
+          }
+        },
+        "id": "e5a55545-7efc-4f14-9901-2c4ca4f2fc34",
+        "name": "Route Media Type",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.4,
+        "position": [
+          1472,
+          368
+        ]
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "gAzzbRdwQJNByVkd",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/gAzzbRdwQJNByVkd",
+            "cachedResultName": "Add Movie - Radarr"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "movie": "={{ $json.title }}",
+              "year": "={{ $json.year }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "movie",
+                "displayName": "movie",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "year",
+                "displayName": "year",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "number"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        },
+        "id": "036ca304-f2ed-44d6-8fcb-dacff952f3cb",
+        "name": "Add Movie - Radarr",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          1712,
+          64
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "\nconst data = $input.first().json;\nconst result = {version: 1, status: 'error'};\nif (Object.prototype.hasOwnProperty.call(data, 'error')) return [{json: result}];\nif (Object.keys(data).length === 0) return [{json: {version: 1, status: 'not_found'}}];\nconst validTitle = x => typeof x === 'string' && !!x.trim();\nif (data.status === 'already_added' && validTitle(data.movie)) {\n  return [{json: {version: 1, status: 'already_added', mediaType: \"movie\", title: data.movie.trim()}}];\n}\nif (Number.isInteger(data.id) && data.id > 0 && Number.isInteger(data.tmdbId)\n    && data.tmdbId > 0 && validTitle(data.title) && data.status !== 'already_added') {\n  // Existing child workflow adds with searchForMovie/searchForMissingEpisodes=true.\n  // Successful creation acknowledges that search request, not download completion.\n  return [{json: {version: 1, status: 'added', mediaType: \"movie\",\n    title: data.title.trim(), searchStarted: true}}];\n}\nreturn [{json: result}];\n"
+        },
+        "id": "9cbd8fef-9f3f-4f76-a42e-698cc665cbb6",
+        "name": "Normalize Movie Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1952,
+          64
+        ]
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "xWK1b9ugbjMKhGeC",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/xWK1b9ugbjMKhGeC",
+            "cachedResultName": "Add TV Show - Sonarr"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "show": "={{ $json.title }}",
+              "year": "={{ $json.year }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "show",
+                "displayName": "show",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "year",
+                "displayName": "year",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "number"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        },
+        "id": "764f6a99-dac5-4131-8376-7f000581e386",
+        "name": "Add TV Show - Sonarr",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          1712,
+          304
+        ],
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "\nconst data = $input.first().json;\nconst result = {version: 1, status: 'error'};\nif (Object.prototype.hasOwnProperty.call(data, 'error')) return [{json: result}];\nif (Object.keys(data).length === 0) return [{json: {version: 1, status: 'not_found'}}];\nconst validTitle = x => typeof x === 'string' && !!x.trim();\nif (data.status === 'already_added' && validTitle(data.movie)) {\n  return [{json: {version: 1, status: 'already_added', mediaType: \"tv\", title: data.movie.trim()}}];\n}\nif (Number.isInteger(data.id) && data.id > 0 && Number.isInteger(data.tvdbId)\n    && data.tvdbId > 0 && validTitle(data.title) && data.status !== 'already_added') {\n  // Existing child workflow adds with searchForMovie/searchForMissingEpisodes=true.\n  // Successful creation acknowledges that search request, not download completion.\n  return [{json: {version: 1, status: 'added', mediaType: \"tv\",\n    title: data.title.trim(), searchStarted: true}}];\n}\nreturn [{json: result}];\n"
+        },
+        "id": "2171a3ba-b81a-40e3-ae90-e98e39ceec48",
+        "name": "Normalize TV Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1952,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "return [{json: {version: 1, status: 'clarification'}}];"
+        },
+        "id": "fd62b5f5-c09a-4285-8bb5-552a99a475bc",
+        "name": "Clarification Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1712,
+          544
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "return [{json: {version: 1, status: 'error'}}];"
+        },
+        "id": "ce1ee85a-6dbc-442a-8ef9-52360d2ae553",
+        "name": "Error Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1712,
+          768
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ $json }}",
+          "options": {
+            "responseCode": 200
+          }
+        },
+        "id": "45b547a6-1792-4b2e-90c1-2a1909ad7470",
+        "name": "Respond to Discord",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          2208,
+          368
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## Snake Media \u2014 Discord\n1. Select Header Auth on Discord Webhook: X-Snake-Media-Key + private secret.\n2. Confirm existing OpenAI credential and Radarr/Sonarr workflow selections.\n3. Access Settings contains your IDs; extend comma-separated lists there and in the bot .env.\n4. Test before publishing; keep BOT_MODE=test until client deployment.\nNo Telegram workflow is replaced. This workflow can add media when called.\nProduction path: /webhook/snake-media-discord",
+          "height": 320,
+          "width": 680
+        },
+        "id": "cb018b13-eeac-4b91-a415-b207098e8aad",
+        "name": "Import Setup",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ]
+      }
+    ],
+    "connections": {
+      "Add Movie - Radarr": {
+        "main": [
+          [
+            {
+              "node": "Normalize Movie Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Movie Result": {
+        "main": [
+          [
+            {
+              "node": "Respond to Discord",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Add TV Show - Sonarr": {
+        "main": [
+          [
+            {
+              "node": "Normalize TV Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize TV Result": {
+        "main": [
+          [
+            {
+              "node": "Respond to Discord",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Discord Webhook": {
+        "main": [
+          [
+            {
+              "node": "Discord Access Settings",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Discord Access Settings": {
+        "main": [
+          [
+            {
+              "node": "Validate Discord Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Discord Request": {
+        "main": [
+          [
+            {
+              "node": "Authorized Request?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Authorized Request?": {
+        "main": [
+          [
+            {
+              "node": "Interpret Media Request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Error Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Interpret Media Request": {
+        "main": [
+          [
+            {
+              "node": "Validate Interpretation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Interpretation": {
+        "main": [
+          [
+            {
+              "node": "Route Media Type",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Clarification Result": {
+        "main": [
+          [
+            {
+              "node": "Respond to Discord",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Error Result": {
+        "main": [
+          [
+            {
+              "node": "Respond to Discord",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Interpret Media Request",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Route Media Type": {
+        "main": [
+          [
+            {
+              "node": "Add Movie - Radarr",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Add TV Show - Sonarr",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Clarification Result",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Error Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "availableInMCP": true
+    },
+    "nodeGroups": [],
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "versionMetadata": {
+      "name": "Discord Media Request V1",
+      "description": ""
+    }
+  },
+  {
+    "id": "snakeTrackRequestV1",
+    "name": "Snake Media - Register Request",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "a78c584d-19bc-5c0b-bf49-9094b3372b3f",
+        "name": "Request Input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "id": "065029a9-c841-589a-bcb9-d8bb0a73b002",
+        "name": "Normalize Request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "// Called only by trusted request workflows after their own authentication.\nconst r = $input.first().json;\nfunction requireThat(ok, reason) { if (!ok) throw new Error('Tracking input: ' + reason); }\nconst positiveId = x => typeof x === 'string' && /^[1-9][0-9]{0,19}$/.test(x);\nconst idList = x => Array.isArray(x) && x.length <= 10000 && x.every(positiveId);\nrequireThat(['discord', 'telegram'].includes(r.source), 'invalid source');\nrequireThat(positiveId(r.userId) && positiveId(r.messageId), 'IDs must be positive strings');\nrequireThat(typeof r.destinationId === 'string' &&\n  (r.source === 'telegram' ? /^-?[1-9][0-9]{0,19}$/ : /^[1-9][0-9]{0,19}$/).test(r.destinationId), 'invalid destination');\nrequireThat(typeof r.requestedAt === 'string' && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(r.requestedAt), 'timestamp must be UTC ISO with milliseconds');\nrequireThat(Number.isFinite(Date.parse(r.requestedAt)) && new Date(r.requestedAt).toISOString() === r.requestedAt, 'invalid timestamp');\nrequireThat(typeof r.text === 'string' && r.text.trim().length > 0 && r.text.length <= 2000, 'invalid request text');\nrequireThat(['movie', 'tv'].includes(r.mediaType), 'invalid media type');\nrequireThat(positiveId(r.mediaId) && positiveId(r.externalId), 'media IDs must be positive strings');\nrequireThat(typeof r.title === 'string' && r.title.trim().length > 0 && r.title.length <= 300, 'invalid title');\nrequireThat(typeof r.baselineCaptured === 'boolean', 'baseline state required');\nrequireThat(idList(r.preexistingFileIds) && idList(r.episodeIds), 'explicit file and episode lists required');\nrequireThat(r.mediaType === 'tv' ? r.episodeIds.length > 0 : r.episodeIds.length === 0, 'invalid episode scope');\nconst days = r.retentionDays === undefined ? null : r.retentionDays;\nrequireThat(days === null || (Number.isInteger(days) && days >= 1 && days <= 3650 && r.retentionExplicit === true), 'retention must be explicit and between 1 and 3650 days');\nconst canonical = ids => JSON.stringify([...new Set(ids)].sort());\nreturn [{json: {\n  requestKey: `${r.source}:${r.destinationId}:${r.messageId}`,\n  source: r.source, userId: r.userId, destinationId: r.destinationId,\n  messageId: r.messageId, requestedAt: r.requestedAt, text: r.text.trim(),\n  mediaType: r.mediaType, mediaId: r.mediaId, externalId: r.externalId,\n  title: r.title.trim(), episodeIdsJson: canonical(r.episodeIds),\n  preexistingFileIdsJson: canonical(r.preexistingFileIds),\n  baselineCaptured: r.baselineCaptured, retentionDays: days,\n  deletionEligible: days !== null && r.baselineCaptured,\n  state: 'registered',\n}}];\n"
+        },
+        "position": [
+          240,
+          0
+        ]
+      },
+      {
+        "id": "1968cd46-5a31-5bfe-91e1-d431c77c611c",
+        "name": "Find Existing Request",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "name",
+            "value": "snake_media_requests"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.requestKey }}"
+              }
+            ]
+          },
+          "returnAll": true
+        },
+        "position": [
+          480,
+          0
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "d1e9afab-44b4-5245-8847-0132943c5423",
+        "name": "Resolve Existing",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "const request = $('Normalize Request').first().json;\nconst rows = $input.all().map(x => x.json).filter(x => x.requestKey);\nif (rows.length > 1) throw new Error('Tracking conflict: duplicate request keys require reconciliation');\nif (rows.length === 1) {\n  const existing = rows[0];\n  // state can change later; repeat delivery must not revert it.\n  for (const key of Object.keys(request).filter(k => k !== 'state')) {\n    if (existing[key] !== request[key]) throw new Error('Tracking conflict: original request cannot be overwritten');\n  }\n  return [{json: {exists: true, record: existing}}];\n}\nreturn [{json: {exists: false, record: request}}];\n"
+        },
+        "position": [
+          720,
+          0
+        ]
+      },
+      {
+        "id": "249f5521-f79e-5508-8f74-b5a6c7f89b48",
+        "name": "Already Registered?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "exists",
+                "leftValue": "={{ $json.exists }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "position": [
+          960,
+          0
+        ]
+      },
+      {
+        "id": "10a23e0d-39cf-5ee2-b0fd-813a69e43e40",
+        "name": "Keep Existing",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "return [{json: $input.first().json.record}];"
+        },
+        "position": [
+          1200,
+          -140
+        ]
+      },
+      {
+        "id": "49d79045-b2df-5d64-85d4-6d4afeb7141e",
+        "name": "Insert Request",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "insert",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "name",
+            "value": "snake_media_requests"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "requestKey": "={{ $json.record.requestKey }}",
+              "source": "={{ $json.record.source }}",
+              "userId": "={{ $json.record.userId }}",
+              "destinationId": "={{ $json.record.destinationId }}",
+              "messageId": "={{ $json.record.messageId }}",
+              "text": "={{ $json.record.text }}",
+              "mediaType": "={{ $json.record.mediaType }}",
+              "mediaId": "={{ $json.record.mediaId }}",
+              "externalId": "={{ $json.record.externalId }}",
+              "title": "={{ $json.record.title }}",
+              "episodeIdsJson": "={{ $json.record.episodeIdsJson }}",
+              "preexistingFileIdsJson": "={{ $json.record.preexistingFileIdsJson }}",
+              "state": "={{ $json.record.state }}",
+              "requestedAt": "={{ $json.record.requestedAt }}",
+              "retentionDays": "={{ $json.record.retentionDays }}",
+              "baselineCaptured": "={{ $json.record.baselineCaptured }}",
+              "deletionEligible": "={{ $json.record.deletionEligible }}"
+            },
+            "schema": [
+              {
+                "id": "requestKey",
+                "displayName": "requestKey",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "source",
+                "displayName": "source",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "userId",
+                "displayName": "userId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "destinationId",
+                "displayName": "destinationId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "messageId",
+                "displayName": "messageId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "text",
+                "displayName": "text",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "mediaType",
+                "displayName": "mediaType",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "mediaId",
+                "displayName": "mediaId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "externalId",
+                "displayName": "externalId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "title",
+                "displayName": "title",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "episodeIdsJson",
+                "displayName": "episodeIdsJson",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "preexistingFileIdsJson",
+                "displayName": "preexistingFileIdsJson",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "state",
+                "displayName": "state",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "requestedAt",
+                "displayName": "requestedAt",
+                "type": "date",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "retentionDays",
+                "displayName": "retentionDays",
+                "type": "number",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "baselineCaptured",
+                "displayName": "baselineCaptured",
+                "type": "boolean",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "deletionEligible",
+                "displayName": "deletionEligible",
+                "type": "boolean",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        },
+        "position": [
+          1200,
+          140
+        ]
+      },
+      {
+        "id": "849ef6cd-742f-5552-8c86-9a99aed7f37a",
+        "name": "Return Tracking Record",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "const r=$input.first().json; return [{json:{trackingVersion:1,requestKey:r.requestKey,state:r.state,retentionDays:r.retentionDays,deletionEligible:r.deletionEligible}}];"
+        },
+        "position": [
+          1440,
+          0
+        ]
+      }
+    ],
+    "connections": {
+      "Request Input": {
+        "main": [
+          [
+            {
+              "node": "Normalize Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Request": {
+        "main": [
+          [
+            {
+              "node": "Find Existing Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Find Existing Request": {
+        "main": [
+          [
+            {
+              "node": "Resolve Existing",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Resolve Existing": {
+        "main": [
+          [
+            {
+              "node": "Already Registered?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Already Registered?": {
+        "main": [
+          [
+            {
+              "node": "Keep Existing",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Insert Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Keep Existing": {
+        "main": [
+          [
+            {
+              "node": "Return Tracking Record",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Insert Request": {
+        "main": [
+          [
+            {
+              "node": "Return Tracking Record",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "nodeGroups": [],
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  },
+  {
+    "id": "snakeTrackingSetupV1",
+    "name": "Snake Media - Setup Tracking Tables",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "44070e0d-0564-5e16-b8fb-35d527afea90",
+        "name": "Run Setup",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "parameters": {},
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "id": "b2cd09f4-47c4-54a0-a6b6-823626e2f92d",
+        "name": "Create snake_media_requests",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "table",
+          "operation": "create",
+          "tableName": "snake_media_requests",
+          "columns": {
+            "column": [
+              {
+                "name": "requestKey",
+                "type": "string"
+              },
+              {
+                "name": "source",
+                "type": "string"
+              },
+              {
+                "name": "userId",
+                "type": "string"
+              },
+              {
+                "name": "destinationId",
+                "type": "string"
+              },
+              {
+                "name": "messageId",
+                "type": "string"
+              },
+              {
+                "name": "text",
+                "type": "string"
+              },
+              {
+                "name": "mediaType",
+                "type": "string"
+              },
+              {
+                "name": "mediaId",
+                "type": "string"
+              },
+              {
+                "name": "externalId",
+                "type": "string"
+              },
+              {
+                "name": "title",
+                "type": "string"
+              },
+              {
+                "name": "episodeIdsJson",
+                "type": "string"
+              },
+              {
+                "name": "preexistingFileIdsJson",
+                "type": "string"
+              },
+              {
+                "name": "state",
+                "type": "string"
+              },
+              {
+                "name": "requestedAt",
+                "type": "date"
+              },
+              {
+                "name": "retentionDays",
+                "type": "number"
+              },
+              {
+                "name": "baselineCaptured",
+                "type": "boolean"
+              },
+              {
+                "name": "deletionEligible",
+                "type": "boolean"
+              }
+            ]
+          },
+          "options": {
+            "createIfNotExists": true
+          }
+        },
+        "position": [
+          250,
+          0
+        ]
+      },
+      {
+        "id": "f421ca76-d09d-5474-b472-a115f713e5f0",
+        "name": "Create snake_media_request_files",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "table",
+          "operation": "create",
+          "tableName": "snake_media_request_files",
+          "columns": {
+            "column": [
+              {
+                "name": "requestKey",
+                "type": "string"
+              },
+              {
+                "name": "fileKey",
+                "type": "string"
+              },
+              {
+                "name": "mediaType",
+                "type": "string"
+              },
+              {
+                "name": "mediaId",
+                "type": "string"
+              },
+              {
+                "name": "fileId",
+                "type": "string"
+              },
+              {
+                "name": "episodeIdsJson",
+                "type": "string"
+              },
+              {
+                "name": "state",
+                "type": "string"
+              },
+              {
+                "name": "importedAt",
+                "type": "date"
+              },
+              {
+                "name": "expiresAt",
+                "type": "date"
+              },
+              {
+                "name": "protected",
+                "type": "boolean"
+              }
+            ]
+          },
+          "options": {
+            "createIfNotExists": true
+          }
+        },
+        "position": [
+          500,
+          0
+        ]
+      },
+      {
+        "id": "2b2b76af-e758-5c70-a459-0557f7f4d08a",
+        "name": "Create snake_media_import_events",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "table",
+          "operation": "create",
+          "tableName": "snake_media_import_events",
+          "columns": {
+            "column": [
+              {
+                "name": "eventKey",
+                "type": "string"
+              },
+              {
+                "name": "mediaType",
+                "type": "string"
+              },
+              {
+                "name": "mediaId",
+                "type": "string"
+              },
+              {
+                "name": "fileId",
+                "type": "string"
+              },
+              {
+                "name": "episodeIdsJson",
+                "type": "string"
+              },
+              {
+                "name": "state",
+                "type": "string"
+              },
+              {
+                "name": "payloadJson",
+                "type": "string"
+              },
+              {
+                "name": "importedAt",
+                "type": "date"
+              },
+              {
+                "name": "receivedAt",
+                "type": "date"
+              }
+            ]
+          },
+          "options": {
+            "createIfNotExists": true
+          }
+        },
+        "position": [
+          750,
+          0
+        ]
+      },
+      {
+        "id": "b261ebb1-8843-50ff-b7a5-92101d4b9883",
+        "name": "Create snake_media_notifications",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "table",
+          "operation": "create",
+          "tableName": "snake_media_notifications",
+          "columns": {
+            "column": [
+              {
+                "name": "notificationKey",
+                "type": "string"
+              },
+              {
+                "name": "requestKey",
+                "type": "string"
+              },
+              {
+                "name": "fileKey",
+                "type": "string"
+              },
+              {
+                "name": "source",
+                "type": "string"
+              },
+              {
+                "name": "destinationId",
+                "type": "string"
+              },
+              {
+                "name": "payloadJson",
+                "type": "string"
+              },
+              {
+                "name": "state",
+                "type": "string"
+              },
+              {
+                "name": "deliveredMessageId",
+                "type": "string"
+              },
+              {
+                "name": "attempts",
+                "type": "number"
+              },
+              {
+                "name": "nextAttemptAt",
+                "type": "date"
+              },
+              {
+                "name": "deliveredAt",
+                "type": "date"
+              }
+            ]
+          },
+          "options": {
+            "createIfNotExists": true
+          }
+        },
+        "position": [
+          1000,
+          0
+        ]
+      }
+    ],
+    "connections": {
+      "Run Setup": {
+        "main": [
+          [
+            {
+              "node": "Create snake_media_requests",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create snake_media_requests": {
+        "main": [
+          [
+            {
+              "node": "Create snake_media_request_files",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create snake_media_request_files": {
+        "main": [
+          [
+            {
+              "node": "Create snake_media_import_events",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create snake_media_import_events": {
+        "main": [
+          [
+            {
+              "node": "Create snake_media_notifications",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "nodeGroups": [],
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  },
+  {
+    "id": "snakeTrackingVerifyV1",
+    "name": "Snake Media - Verify Tracking Storage",
+    "description": null,
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "216f9c80-5432-5ecd-b1db-4cdd9be11e4c",
+        "name": "Run Storage Test",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "parameters": {},
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "id": "1de9bfb3-2eee-5af1-b6a7-bfa1b25b4323",
+        "name": "Synthetic Input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "return [{json:{\"source\": \"discord\", \"userId\": \"1\", \"destinationId\": \"1\", \"messageId\": \"1\", \"requestedAt\": \"2026-09-29T00:00:00.000Z\", \"text\": \"synthetic storage test only\", \"mediaType\": \"movie\", \"mediaId\": \"1\", \"externalId\": \"1\", \"title\": \"SYNTHETIC TEST - NOT MEDIA\", \"episodeIds\": [], \"preexistingFileIds\": [], \"baselineCaptured\": false}}];"
+        },
+        "position": [
+          240,
+          0
+        ]
+      },
+      {
+        "id": "811f9554-d59b-5919-9c09-e2be46aa2513",
+        "name": "Register Test 1",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "snakeTrackRequestV1"
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          },
+          "workflowInputs": {
+            "mappingMode": "passThrough"
+          }
+        },
+        "position": [
+          600,
+          0
+        ]
+      },
+      {
+        "id": "3ce48b9f-7dfb-54ed-957b-20669e87c5b6",
+        "name": "Repeat Original Input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "return [{json:$('Synthetic Input').first().json}];"
+        },
+        "position": [
+          840,
+          0
+        ]
+      },
+      {
+        "id": "5f967755-ac89-5769-8f4c-0a1bb4a2ed88",
+        "name": "Register Test 2",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "snakeTrackRequestV1"
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          },
+          "workflowInputs": {
+            "mappingMode": "passThrough"
+          }
+        },
+        "position": [
+          960,
+          0
+        ]
+      },
+      {
+        "id": "850ed1a0-1b96-544b-a535-af321b5327b1",
+        "name": "Check Stored Rows",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "name",
+            "value": "snake_media_requests"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "discord:1:1"
+              }
+            ]
+          },
+          "returnAll": true
+        },
+        "position": [
+          1440,
+          0
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "a5dbb978-c10a-5f82-b3c7-104f749f52fd",
+        "name": "Verify Exactly One Row",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "const rows=$input.all(); if(rows.length!==1 || rows[0].json.requestKey!=='discord:1:1' || rows[0].json.retentionDays!==null || rows[0].json.deletionEligible!==false) throw new Error('Storage verification failed'); return rows;"
+        },
+        "position": [
+          1680,
+          0
+        ]
+      },
+      {
+        "id": "f41a146e-6270-5503-b26f-b8ca8795483d",
+        "name": "Remove Synthetic Row",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "deleteRows",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "name",
+            "value": "snake_media_requests"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "discord:1:1"
+              },
+              {
+                "keyName": "title",
+                "condition": "eq",
+                "keyValue": "SYNTHETIC TEST - NOT MEDIA"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "position": [
+          1920,
+          0
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "81dbd9ef-b682-55e1-9c24-132862a969a4",
+        "name": "Storage Test Passed",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "return [{json:{test:'shared-request-registration',passed:true,duplicateRetry:'one row',cleanup:'synthetic row removed'}}];"
+        },
+        "position": [
+          2160,
+          0
+        ]
+      }
+    ],
+    "connections": {
+      "Run Storage Test": {
+        "main": [
+          [
+            {
+              "node": "Synthetic Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Synthetic Input": {
+        "main": [
+          [
+            {
+              "node": "Register Test 1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Register Test 1": {
+        "main": [
+          [
+            {
+              "node": "Repeat Original Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Repeat Original Input": {
+        "main": [
+          [
+            {
+              "node": "Register Test 2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Register Test 2": {
+        "main": [
+          [
+            {
+              "node": "Check Stored Rows",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Stored Rows": {
+        "main": [
+          [
+            {
+              "node": "Verify Exactly One Row",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verify Exactly One Row": {
+        "main": [
+          [
+            {
+              "node": "Remove Synthetic Row",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Remove Synthetic Row": {
+        "main": [
+          [
+            {
+              "node": "Storage Test Passed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "nodeGroups": [],
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

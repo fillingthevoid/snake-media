@@ -1,0 +1,862 @@
+{
+  "id": "HXtTzVTrpNZMZVt3",
+  "name": "Media Request - Discord",
+  "description": null,
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "snake-media-discord",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c31cb56c-d81d-4080-a8ee-429f561f0c41",
+      "name": "Discord Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "notesInFlow": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CONFIGURE_HTTPHEADERAUTH",
+          "name": "Configure httpHeaderAuth"
+        }
+      },
+      "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e815a2f6-7b73-4269-a5f2-fe74629c8119",
+              "name": "allowedUserIds",
+              "type": "string",
+              "value": "100000000000000001,100000000000000002,100000000000000003"
+            },
+            {
+              "id": "88d0a926-e4c4-461c-a3e1-b2637427eb5a",
+              "name": "allowedChannelIds",
+              "type": "string",
+              "value": "100000000000000004"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "0031e0cf-b781-41b2-9735-6b7f80ea78c9",
+      "name": "Discord Access Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        270,
+        0
+      ],
+      "notes": "Editable comma-separated IDs. Keep these synchronized with the bot environment allowlists. IDs must stay strings."
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst data = $input.first().json;\nconst b = data.body;\nconst denied = [{json: {authorized: false, version: 1, status: 'error'}}];\nconst validId = x => typeof x === 'string' && /^[1-9][0-9]{0,19}$/.test(x) && BigInt(x) < 2n ** 64n;\nconst ids = x => typeof x === 'string' ? x.split(',').map(s => s.trim()) : [];\nconst users = ids(data.allowedUserIds);\nconst channels = ids(data.allowedChannelIds);\nif (!users.length || !channels.length || !users.every(validId) || !channels.every(validId)) return denied;\nif (!b || typeof b !== 'object' || Array.isArray(b) || b.source !== 'discord') return denied;\nif (![b.userId, b.channelId, b.guildId].every(validId)) return denied;\nif (!users.includes(b.userId) || !channels.includes(b.channelId)) return denied;\nif (typeof b.text !== 'string' || !b.text.trim() || b.text.trim().length > 2000) return denied;\nreturn [{json: {authorized: true, text: b.text.trim(), userId: b.userId,\n  channelId: b.channelId, guildId: b.guildId, messageId: b.messageId, requestedAt: b.requestedAt, action:b.action, pendingId:b.pendingId}}];\n"
+      },
+      "id": "a87a8722-9f2e-4fe7-bb82-fb14fb376382",
+      "name": "Validate Discord Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2358ec09-5404-4b8c-b243-d8212e53073a",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7e5997be-fde9-486c-9c70-8fc3ddfdebe6",
+      "name": "Authorized Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        810,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.text }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "type",
+              "description": "Classify the requested media as exactly one of: movie, tv, unknown. Use \"movie\" for films and \"tv\" for television/streaming series. Use \"unknown\" if the request is not for media or you cannot reliably determine whether the title is a movie or TV series. Never guess when genuinely ambiguous.",
+              "required": true
+            },
+            {
+              "name": "title",
+              "description": "The canonical title of the movie or TV series being requested. Remove conversational command words such as add, download, grab, get, please, movie, show, series, and year phrases. Preserve the actual media title. If no media title can be identified, return an empty string.",
+              "required": true
+            },
+            {
+              "name": "year",
+              "type": "number",
+              "description": "The four-digit release or premiere year specified by the user. If the user does not specify a year, do not invent one."
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "You extract movie and TV series requests for a personal media-management system.\n\nReturn only information supported by the user's request or reliably identifiable from the named media title.\n\nThe \"type\" field must be exactly:\n- movie\n- tv\n- unknown\n\nInterpret natural conversational commands such as \"add\", \"grab\", \"get\", \"download\", \"find\", or \"I want\" as media requests.\n\nDo not include command words in the title.\n\nIf a year is explicitly supplied, extract it. If no year is supplied, do not invent one.\n\nIf the message is not a recognizable request for a movie or TV series, set type to \"unknown\".\n\nWhen genuinely uncertain whether a title refers to a movie or TV series, set type to \"unknown\" rather than guessing."
+        }
+      },
+      "id": "79dade90-a377-4fae-bb2c-9d82df9cab94",
+      "name": "Interpret Media Request",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        1080,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.6-luna",
+          "mode": "list",
+          "cachedResultName": "gpt-5.6-luna"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "ec712087-ca9b-4a22-b407-41768b0327b1",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1350,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "CONFIGURE_OPENAIAPI",
+          "name": "Configure openAiApi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst data = $input.first().json;\nif (Object.prototype.hasOwnProperty.call(data, 'error')) return [{json: {route: 'error'}}];\nconst out = data.output;\nconst clarify = [{json: {route: 'clarification'}}];\nif (!out || !['movie', 'tv'].includes(out.type) || typeof out.title !== 'string' || !out.title.trim()) return clarify;\nif (out.title.length > 300) return clarify;\nconst result = {route: out.type, title: out.title.trim()};\nif (out.year !== undefined && out.year !== null) {\n  if (!Number.isInteger(out.year) || out.year < 1800 || out.year > 2200) return clarify;\n  result.year = out.year;\n}\nreturn [{json: result}];\n"
+      },
+      "id": "d4fee48d-041a-4eaf-9272-53442a1ffbbd",
+      "name": "Validate Interpretation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d3b013ba-515d-4e2e-87dc-084016522f3c",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "movie",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "movie"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "11cf36de-e2ff-449e-8e6d-28968d8b743e",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "tv",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "tv"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "fe05f60a-0b52-43de-8077-d0e01ee4ebaa",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "clarification",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clarification"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "86ffa5dd-52a4-4a1b-ac3a-fec893e33c44",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 3
+        }
+      },
+      "id": "e5a55545-7efc-4f14-9901-2c4ca4f2fc34",
+      "name": "Route Media Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json: {version: 1, status: 'clarification'}}];"
+      },
+      "id": "fd62b5f5-c09a-4285-8bb5-552a99a475bc",
+      "name": "Clarification Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        270,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json: {version: 1, status: 'error'}}];"
+      },
+      "id": "ce1ee85a-6dbc-442a-8ef9-52360d2ae553",
+      "name": "Error Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "45b547a6-1792-4b2e-90c1-2a1909ad7470",
+      "name": "Respond to Discord",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        810,
+        250
+      ]
+    },
+    {
+      "id": "5248a0a0-b4c1-50e3-a64f-e4d1674500d8",
+      "name": "Confirmation Callback?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "yes",
+              "leftValue": "={{ !!$json.action }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1080,
+        250
+      ]
+    },
+    {
+      "id": "168651ce-8ff8-54f9-a23b-007b8922fa62",
+      "name": "Prepare Confirmation Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Validate Discord Request').first().json;return [{json:{...{source:'discord',userId:p.userId,destinationId:p.channelId,messageId:p.messageId,requestedAt:p.requestedAt,text:p.text},pendingId:p.pendingId,action:p.action}}];"
+      },
+      "position": [
+        1350,
+        250
+      ]
+    },
+    {
+      "id": "7353239e-d59b-5d21-b0f0-7c49b8f3fedb",
+      "name": "Resolve Confirmation",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeConfirmMediaV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        1620,
+        250
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "7ada7315-0647-572f-bf6d-58c5c245b364",
+      "name": "Prepare movie Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Validate Discord Request').first().json,m=$('Validate Interpretation').first().json;return [{json:{context:{source:'discord',userId:p.userId,destinationId:p.channelId,messageId:p.messageId,requestedAt:p.requestedAt,text:p.text},mediaType:'movie',title:m.title,year:m.year}}];"
+      },
+      "position": [
+        0,
+        500
+      ]
+    },
+    {
+      "id": "26a6994a-721a-5bcd-a123-538937eb903f",
+      "name": "Preview movie",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakePreviewMediaV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        270,
+        500
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "13be7b05-bd32-558f-88fa-18613800785d",
+      "name": "Prepare tv Preview",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$('Validate Discord Request').first().json,m=$('Validate Interpretation').first().json;return [{json:{context:{source:'discord',userId:p.userId,destinationId:p.channelId,messageId:p.messageId,requestedAt:p.requestedAt,text:p.text},mediaType:'tv',title:m.title,year:m.year}}];"
+      },
+      "position": [
+        540,
+        500
+      ]
+    },
+    {
+      "id": "b5d7a0bf-8931-5e03-96b0-378fcf865698",
+      "name": "Preview tv",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakePreviewMediaV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        810,
+        500
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "685742c6-90dc-55b2-bd77-d3a46064ad26",
+      "name": "Parse Status Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Read-only status projection. Never calculates or changes retention policy.\nfunction command(text){const m=typeof text==='string'&&text.trim().match(/^\\/?status(?:@[A-Za-z0-9_]+)?(?:\\s+(.*))?$/i);return m?(m[1]||'').trim().slice(0,200):null;}\nfunction select(rows,actor){\n if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\\d+$/.test(actor.userId))throw new Error('Invalid status actor');\n const query=String(actor.query||'').toLowerCase();const groups=new Map();\n for(const r of [...rows].sort((a,b)=>Date.parse(b.requestedAt)-Date.parse(a.requestedAt))){\n  if(r.source!==actor.source||r.userId!==actor.userId||r.userId==='1'||r.state!=='registered'||!r.requestKey||!['movie','tv'].includes(r.mediaType)||!/^\\d+$/.test(String(r.mediaId))||!String(r.title).toLowerCase().includes(query))continue;\n  const key=r.mediaType+':'+r.mediaId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);\n }\n const values=[...groups.values()];\n if(!values.length)return [{notice:query?'No requests of yours match that title.':'No requests found for your account on this platform.'}];\n if(query&&values.length>1)return [{notice:'Several matches. Use status with a more specific title:\\n'+values.slice(0,8).map(rs=>'\u2022 '+rs[0].title.slice(0,100)).join('\\n')}];\n return values.slice(0,3).map(requests=>({requests}));\n}\nfunction dateLabel(stamp){return new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(stamp));}\nfunction describe({requests,records,media,episodes,queue,library,now}){\n const r=requests[0],title=String(r.title).replace(/[\\r\\n]/g,' ').slice(0,100),header=(r.mediaType==='movie'?'\ud83c\udfac ':'\ud83d\udcfa ')+title;\n if(!media||media.id!==Number(r.mediaId))return header+'\\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');\n const saved=new Map(records.filter(x=>x.key).map(x=>[x.key,JSON.parse(x.payloadJson)]));\n const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]').map(String)));\n for(const request of requests){const profile=saved.get('request:'+request.requestKey);if(profile)for(const id of profile.episodeIds||[])ids.add(String(id));}\n const items=r.mediaType==='movie'?[{id:r.mediaId,file:media.movieFile,release:media.digitalRelease||media.physicalRelease||media.inCinemas}]:episodes.filter(e=>ids.has(String(e.id))).map(e=>({...e,file:e.episodeFile,release:e.airDateUtc}));\n const paths=new Set(library.filter(x=>x.Id&&x.Path).map(x=>x.Path));\n const counts={available:0,imported:0,downloading:0,queued:0,unreleased:0,waiting:0,removed:0};const files=new Map();\n for(const item of items){\n  if(item.file?.id){files.set(item.file.id,item.file);counts[paths.has('/data'+item.file.path)?'available':'imported']++;continue;}\n  const q=queue.find(q=>r.mediaType==='movie'?q.movieId===Number(r.mediaId):q.seriesId===Number(r.mediaId)&&(q.episodeId===item.id||(!q.episodeId&&q.seasonNumber===item.seasonNumber)));\n  if(q){counts[String(q.status).toLowerCase()==='downloading'?'downloading':'queued']++;continue;}\n  const deleted=r.mediaType==='tv'&&[...saved.entries()].some(([key,v])=>key.startsWith('file:tv:'+r.mediaId+':')&&v.state==='deleted'&&(v.episodeIds||[]).includes(String(item.id)));\n  counts[deleted?'removed':Date.parse(item.release)>now?'unreleased':'waiting']++;\n }\n let status;\n if(r.mediaType==='movie')status=counts.available?'\u2705 Available in Jellyfin':counts.imported?'\ud83d\udce5 Imported; waiting for Jellyfin':counts.downloading?'\u2b07\ufe0f Downloading':counts.queued?'\u23f3 In download queue / awaiting import':counts.unreleased?'\ud83d\udcc5 Awaiting release':'\ud83d\udd0e Waiting for a release';\n else {const labels={available:'available in Jellyfin',imported:'imported; waiting for Jellyfin',downloading:'downloading',queued:'queued / awaiting import',unreleased:'awaiting release',waiting:'waiting for a release',removed:'previously expired'};status=Object.entries(counts).filter(([,v])=>v).map(([k,v])=>v+' '+labels[k]).join(' \u00b7 ')||'Episode metadata pending';}\n let protectedCount=0,pending=0,earliest=null,oldest=Infinity,deferred=0;\n for(const file of files.values()){\n  const v=saved.get(`file:${r.mediaType}:${r.mediaId}:${file.id}`);\n  if(!v||v.state!=='tracked'||v.path!==file.path||Date.parse(v.importedAt)!==Date.parse(file.dateAdded)||!Number.isFinite(Date.parse(v.checkedAt))){pending++;continue;}\n  oldest=Math.min(oldest,Date.parse(v.checkedAt));\n  if(v.identityProtected||!v.expiresAt||v.reason==='protected claim'||v.reason==='unclaimed'||v.reason==='unclaimed episode in shared file'){protectedCount++;continue;}\n  if(!Number.isFinite(Date.parse(v.expiresAt))){pending++;continue;}\n  earliest=Math.min(earliest??Infinity,Date.parse(v.expiresAt));\n  if(v.reason==='currently playing or unresolved active session')deferred++;\n }\n const lines=[header,status];\n if(earliest!==null)lines.push((r.mediaType==='tv'?'Next episode expiry: ':'Expiry: ')+dateLabel(earliest)+(earliest<=now?' (due; cleanup pending)':''));\n if(protectedCount)lines.push(protectedCount+' protected '+(protectedCount===1?'file':'files')+' \u2014 no automatic deletion.');\n if(pending)lines.push('Expiry check pending for '+pending+' '+(pending===1?'file.':'files.'));\n if(!files.size){const days=[...new Set(requests.map(x=>x.retentionDays))];lines.push(days.includes(null)?'Permanent/protected request.':days.length===1?`Expiry starts after import (${days[0]} days${r.mediaType==='tv'?' per episode':''}).`:'Expiry starts after import; multiple retention choices apply.');}\n if(Number.isFinite(oldest))lines.push('Retention checked '+dateLabel(oldest)+(now-oldest>30*60000?' \u2014 stale; dates may change.':'.'));\n if(deferred)lines.push('Cleanup deferred for active playback.');\n if(r.mediaType==='tv'&&requests.some(x=>saved.has('request:'+x.requestKey)))lines.push('Future regular seasons monitored.');\n return lines.join('\\n');\n}\nif(typeof module!=='undefined')module.exports={command,select,describe};\n\nconst p=$('Validate Discord Request').first().json;return [{json:{...p,statusQuery:command(p.text)}}];"
+      },
+      "position": [
+        1080,
+        500
+      ]
+    },
+    {
+      "id": "b079f874-698d-53b1-98e9-aed589c39f31",
+      "name": "Status Command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ $json.statusQuery!==null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1350,
+        500
+      ]
+    },
+    {
+      "id": "bcb61608-607d-54a7-8892-49b50ca757ac",
+      "name": "Prepare Status Actor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const p=$json;return [{json:{source:'discord',userId:String(p.userId),query:p.statusQuery}}];"
+      },
+      "position": [
+        1620,
+        500
+      ]
+    },
+    {
+      "id": "94897ce5-f212-5bf1-8208-56f5bcc6c759",
+      "name": "Read Request Status",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeStatusV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        0,
+        750
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Discord Webhook": {
+      "main": [
+        [
+          {
+            "node": "Discord Access Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord Access Settings": {
+      "main": [
+        [
+          {
+            "node": "Validate Discord Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Discord Request": {
+      "main": [
+        [
+          {
+            "node": "Authorized Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorized Request?": {
+      "main": [
+        [
+          {
+            "node": "Confirmation Callback?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Interpret Media Request": {
+      "main": [
+        [
+          {
+            "node": "Validate Interpretation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Interpretation": {
+      "main": [
+        [
+          {
+            "node": "Route Media Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clarification Result": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Result": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Interpret Media Request",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Media Type": {
+      "main": [
+        [
+          {
+            "node": "Prepare movie Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare tv Preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clarification Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmation Callback?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Confirmation Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Status Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Confirmation Action": {
+      "main": [
+        [
+          {
+            "node": "Resolve Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare movie Preview": {
+      "main": [
+        [
+          {
+            "node": "Preview movie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview movie": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare tv Preview": {
+      "main": [
+        [
+          {
+            "node": "Preview tv",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview tv": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Status Command": {
+      "main": [
+        [
+          {
+            "node": "Status Command?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Command?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Status Actor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Interpret Media Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Status Actor": {
+      "main": [
+        [
+          {
+            "node": "Read Request Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Request Status": {
+      "main": [
+        [
+          {
+            "node": "Respond to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "versionMetadata": {
+    "name": "Discord Media Request V1",
+    "description": ""
+  }
+}

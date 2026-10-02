@@ -1,0 +1,383 @@
+{
+  "id": "snakeStatusV1",
+  "name": "Snake Media - Request Status",
+  "nodes": [
+    {
+      "id": "d2539e1c-f1ec-55bb-b04b-4b980bed8ce0",
+      "name": "Status Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "945500e2-643f-5851-8466-a0b9ee7976a1",
+      "name": "Read Status Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_requests"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "5b66629e-30d2-51fd-aed0-5e80ccd5ce97",
+      "name": "Select Status Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Read-only status projection. Never calculates or changes retention policy.\nfunction command(text){const m=typeof text==='string'&&text.trim().match(/^\\/?status(?:@[A-Za-z0-9_]+)?(?:\\s+(.*))?$/i);return m?(m[1]||'').trim().slice(0,200):null;}\nfunction select(rows,actor){\n if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\\d+$/.test(actor.userId))throw new Error('Invalid status actor');\n const query=String(actor.query||'').toLowerCase();const groups=new Map();\n for(const r of [...rows].sort((a,b)=>Date.parse(b.requestedAt)-Date.parse(a.requestedAt))){\n  if(r.source!==actor.source||r.userId!==actor.userId||r.userId==='1'||r.state!=='registered'||!r.requestKey||!['movie','tv'].includes(r.mediaType)||!/^\\d+$/.test(String(r.mediaId))||!String(r.title).toLowerCase().includes(query))continue;\n  const key=r.mediaType+':'+r.mediaId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);\n }\n const values=[...groups.values()];\n if(!values.length)return [{notice:query?'No requests of yours match that title.':'No requests found for your account on this platform.'}];\n if(query&&values.length>1)return [{notice:'Several matches. Use status with a more specific title:\\n'+values.slice(0,8).map(rs=>'\u2022 '+rs[0].title.slice(0,100)).join('\\n')}];\n return values.slice(0,3).map(requests=>({requests}));\n}\nfunction dateLabel(stamp){return new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(stamp));}\nfunction describe({requests,records,media,episodes,queue,library,now}){\n const r=requests[0],title=String(r.title).replace(/[\\r\\n]/g,' ').slice(0,100),header=(r.mediaType==='movie'?'\ud83c\udfac ':'\ud83d\udcfa ')+title;\n if(!media||media.id!==Number(r.mediaId))return header+'\\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');\n const saved=new Map(records.filter(x=>x.key).map(x=>[x.key,JSON.parse(x.payloadJson)]));\n const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]').map(String)));\n for(const request of requests){const profile=saved.get('request:'+request.requestKey);if(profile)for(const id of profile.episodeIds||[])ids.add(String(id));}\n const items=r.mediaType==='movie'?[{id:r.mediaId,file:media.movieFile,release:media.digitalRelease||media.physicalRelease||media.inCinemas}]:episodes.filter(e=>ids.has(String(e.id))).map(e=>({...e,file:e.episodeFile,release:e.airDateUtc}));\n const paths=new Set(library.filter(x=>x.Id&&x.Path).map(x=>x.Path));\n const counts={available:0,imported:0,downloading:0,queued:0,unreleased:0,waiting:0,removed:0};const files=new Map();\n for(const item of items){\n  if(item.file?.id){files.set(item.file.id,item.file);counts[paths.has('/data'+item.file.path)?'available':'imported']++;continue;}\n  const q=queue.find(q=>r.mediaType==='movie'?q.movieId===Number(r.mediaId):q.seriesId===Number(r.mediaId)&&(q.episodeId===item.id||(!q.episodeId&&q.seasonNumber===item.seasonNumber)));\n  if(q){counts[String(q.status).toLowerCase()==='downloading'?'downloading':'queued']++;continue;}\n  const deleted=r.mediaType==='tv'&&[...saved.entries()].some(([key,v])=>key.startsWith('file:tv:'+r.mediaId+':')&&v.state==='deleted'&&(v.episodeIds||[]).includes(String(item.id)));\n  counts[deleted?'removed':Date.parse(item.release)>now?'unreleased':'waiting']++;\n }\n let status;\n if(r.mediaType==='movie')status=counts.available?'\u2705 Available in Jellyfin':counts.imported?'\ud83d\udce5 Imported; waiting for Jellyfin':counts.downloading?'\u2b07\ufe0f Downloading':counts.queued?'\u23f3 In download queue / awaiting import':counts.unreleased?'\ud83d\udcc5 Awaiting release':'\ud83d\udd0e Waiting for a release';\n else {const labels={available:'available in Jellyfin',imported:'imported; waiting for Jellyfin',downloading:'downloading',queued:'queued / awaiting import',unreleased:'awaiting release',waiting:'waiting for a release',removed:'previously expired'};status=Object.entries(counts).filter(([,v])=>v).map(([k,v])=>v+' '+labels[k]).join(' \u00b7 ')||'Episode metadata pending';}\n let protectedCount=0,pending=0,earliest=null,oldest=Infinity,deferred=0;\n for(const file of files.values()){\n  const v=saved.get(`file:${r.mediaType}:${r.mediaId}:${file.id}`);\n  if(!v||v.state!=='tracked'||v.path!==file.path||Date.parse(v.importedAt)!==Date.parse(file.dateAdded)||!Number.isFinite(Date.parse(v.checkedAt))){pending++;continue;}\n  oldest=Math.min(oldest,Date.parse(v.checkedAt));\n  if(v.identityProtected||!v.expiresAt||v.reason==='protected claim'||v.reason==='unclaimed'||v.reason==='unclaimed episode in shared file'){protectedCount++;continue;}\n  if(!Number.isFinite(Date.parse(v.expiresAt))){pending++;continue;}\n  earliest=Math.min(earliest??Infinity,Date.parse(v.expiresAt));\n  if(v.reason==='currently playing or unresolved active session')deferred++;\n }\n const lines=[header,status];\n if(earliest!==null)lines.push((r.mediaType==='tv'?'Next episode expiry: ':'Expiry: ')+dateLabel(earliest)+(earliest<=now?' (due; cleanup pending)':''));\n if(protectedCount)lines.push(protectedCount+' protected '+(protectedCount===1?'file':'files')+' \u2014 no automatic deletion.');\n if(pending)lines.push('Expiry check pending for '+pending+' '+(pending===1?'file.':'files.'));\n if(!files.size){const days=[...new Set(requests.map(x=>x.retentionDays))];lines.push(days.includes(null)?'Permanent/protected request.':days.length===1?`Expiry starts after import (${days[0]} days${r.mediaType==='tv'?' per episode':''}).`:'Expiry starts after import; multiple retention choices apply.');}\n if(Number.isFinite(oldest))lines.push('Retention checked '+dateLabel(oldest)+(now-oldest>30*60000?' \u2014 stale; dates may change.':'.'));\n if(deferred)lines.push('Cleanup deferred for active playback.');\n if(r.mediaType==='tv'&&requests.some(x=>saved.has('request:'+x.requestKey)))lines.push('Future regular seasons monitored.');\n return lines.join('\\n');\n}\nif(typeof module!=='undefined')module.exports={command,select,describe};\n\nconst a=$('Status Input').first().json;const selected=select($input.all().map(x=>x.json),a);return [{json:{selected}}];"
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "2b9b278d-2988-54f6-bb64-fc6184a2e82b",
+      "name": "Status Has Matches?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ !!$json.selected[0].requests }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        810,
+        0
+      ]
+    },
+    {
+      "id": "dca0745b-fa45-51a4-aace-5d1f9dd1e0fa",
+      "name": "Read Status Retention",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_records"
+        },
+        "returnAll": true,
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {}
+      },
+      "position": [
+        1080,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "0a283d26-9571-50f3-acdc-004125dd10c6",
+      "name": "One Status Library Read",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      },
+      "position": [
+        1350,
+        0
+      ]
+    },
+    {
+      "id": "0edc9961-5026-5629-900c-5b62f1a468f4",
+      "name": "Read Status Library",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "parameters": {
+        "method": "GET",
+        "url": "http://192.168.1.10:8096/Items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 12000,
+          "pagination": {
+            "pagination": {
+              "paginationMode": "updateAParameterInEachRequest",
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "StartIndex",
+                    "value": "={{ $pageCount * 500 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.Items.length < 500 }}",
+              "limitPagesFetched": true,
+              "maxRequests": 100
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "Recursive",
+              "value": "true"
+            },
+            {
+              "name": "IncludeItemTypes",
+              "value": "Movie,Episode"
+            },
+            {
+              "name": "Fields",
+              "value": "Path"
+            },
+            {
+              "name": "Limit",
+              "value": "500"
+            },
+            {
+              "name": "EnableImages",
+              "value": "false"
+            },
+            {
+              "name": "EnableUserData",
+              "value": "false"
+            }
+          ]
+        }
+      },
+      "position": [
+        1620,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "632daae0-fa1f-5d2f-ac93-78994f4a5191",
+      "name": "Status Groups",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const pages=$input.all().map(x=>x.json);if(pages.some(p=>!Array.isArray(p.Items)||!Number.isInteger(p.TotalRecordCount))||pages.reduce((n,p)=>n+p.Items.length,0)<pages[0].TotalRecordCount)throw new Error('Incomplete Jellyfin status');const library=pages.flatMap(p=>p.Items).map(x=>({Id:x.Id,Path:x.Path}));const records=$('Read Status Retention').all().map(x=>x.json);return $('Select Status Requests').first().json.selected.map(g=>({json:{...g,records,library}}));"
+      },
+      "position": [
+        0,
+        250
+      ]
+    },
+    {
+      "id": "287c1424-a5e8-527f-91f7-8d7df6fc817f",
+      "name": "Inspect Status Groups",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeStatusInspectV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        270,
+        250
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "d5bf9008-c381-5ab7-b725-1512559f4ca9",
+      "name": "Format Status Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const text=$input.all().map(x=>x.json.text||'\u26a0\ufe0f Status temporarily unavailable for one title.').join('\\n\\n');return [{json:{version:1,status:'notice',text:text.slice(0,1740)+(text.length>1740?'\\nUse status with a title for details.':'')}}];"
+      },
+      "position": [
+        540,
+        250
+      ]
+    },
+    {
+      "id": "cc6ba911-1efe-583e-b89d-66e0f03dbe69",
+      "name": "Status No Matches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{version:1,status:'notice',text:$('Select Status Requests').first().json.selected[0].notice}}];"
+      },
+      "position": [
+        810,
+        250
+      ]
+    }
+  ],
+  "connections": {
+    "Status Input": {
+      "main": [
+        [
+          {
+            "node": "Read Status Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Status Requests": {
+      "main": [
+        [
+          {
+            "node": "Select Status Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Status Requests": {
+      "main": [
+        [
+          {
+            "node": "Status Has Matches?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Has Matches?": {
+      "main": [
+        [
+          {
+            "node": "Read Status Retention",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Status No Matches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Status Retention": {
+      "main": [
+        [
+          {
+            "node": "One Status Library Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Status Library Read": {
+      "main": [
+        [
+          {
+            "node": "Read Status Library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Status Library": {
+      "main": [
+        [
+          {
+            "node": "Status Groups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Groups": {
+      "main": [
+        [
+          {
+            "node": "Inspect Status Groups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inspect Status Groups": {
+      "main": [
+        [
+          {
+            "node": "Format Status Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  },
+  "active": false
+}

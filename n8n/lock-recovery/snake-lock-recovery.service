@@ -1,0 +1,16 @@
+[Unit]
+Description=Recover verified abandoned Snake Media locks
+After=docker.service
+
+[Service]
+Type=oneshot
+User=media
+WorkingDirectory=/mnt/media/appdata/discord-bot
+ExecStart=/usr/bin/python3 /mnt/media/appdata/discord-bot/n8n/lock-recovery/watchdog.py
+TimeoutStartSec=45
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077

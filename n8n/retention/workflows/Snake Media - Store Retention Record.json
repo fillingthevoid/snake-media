@@ -1,0 +1,172 @@
+{
+  "id": "snakeRetentionStoreV1",
+  "name": "Snake Media - Store Retention Record",
+  "nodes": [
+    {
+      "id": "b54d4e7c-262c-5e76-9857-6f5dcc53fea5",
+      "name": "Record Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "70938fd4-8ab1-5496-877f-1f5ef2a072b3",
+      "name": "Read Store Lock",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "global"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        270,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a6b59e8a-1d0a-54b7-8ce7-3c5a7bfc41cd",
+      "name": "Validate Store Owner",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const rows=$input.all().filter(x=>x.json.key);const r=$('Record Input').first().json;if(rows.length!==1||!r.owner||rows[0].json.owner!==r.owner||!r.key||!r.kind||typeof r.payloadJson!=='string')throw new Error('Retention write requires lock');JSON.parse(r.payloadJson);return [{json:r}];"
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "cb91f98c-15b0-58f3-aabf-cc57106bf77f",
+      "name": "Upsert Retention Record",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_records"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ $json.key }}",
+            "kind": "={{ $json.kind }}",
+            "payloadJson": "={{ $json.payloadJson }}"
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payloadJson",
+              "displayName": "payloadJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        810,
+        0
+      ],
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Record Input": {
+      "main": [
+        [
+          {
+            "node": "Read Store Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Store Lock": {
+      "main": [
+        [
+          {
+            "node": "Validate Store Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Store Owner": {
+      "main": [
+        [
+          {
+            "node": "Upsert Retention Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 600
+  }
+}

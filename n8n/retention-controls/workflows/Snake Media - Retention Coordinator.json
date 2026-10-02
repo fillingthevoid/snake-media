@@ -1,0 +1,646 @@
+{
+  "id": "snakeRetentionCoordinatorV1",
+  "name": "Snake Media - Retention Coordinator",
+  "nodes": [
+    {
+      "id": "028fbf1b-c57f-5ebe-89f5-d4cdefd83084",
+      "name": "Coordinator Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "d2794741-1894-50fb-abdc-728fa52bf039",
+      "name": "Read Global Lock",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "global"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        270,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "8a1765a9-05d7-5743-866d-8663bec0d29f",
+      "name": "Validate Global Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const rows=$input.all().filter(x=>x.json.key);if(rows.length!==1)throw new Error('Retention lock not initialized');return [{json:{available:rows[0].json.owner===''}}];"
+      },
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "id": "52816c8a-7d83-53c9-9a1d-5ae1312104be",
+      "name": "Lock Available?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.available }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        810,
+        0
+      ]
+    },
+    {
+      "id": "35b72578-ea43-5048-8462-67e4e1a1f9bc",
+      "name": "Acquire Global Lock",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "global"
+            },
+            {
+              "keyName": "owner",
+              "condition": "eq",
+              "keyValue": ""
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "owner": "={{ String($execution.id) }}"
+          },
+          "schema": [
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1080,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "9f5cf1b9-c898-58e4-9c39-eee92d0bf670",
+      "name": "Verify Global Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const r=$input.first().json;return [{json:{owned:r.owner===String($execution.id)}}];"
+      },
+      "position": [
+        1350,
+        0
+      ]
+    },
+    {
+      "id": "c2cba922-3962-524e-b894-f075fefb17df",
+      "name": "Lock Owned?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.owned }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        1620,
+        0
+      ]
+    },
+    {
+      "id": "ef67aa8d-4ff5-5dd1-9bd0-142e5de39f41",
+      "name": "Locked Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{...$('Coordinator Input').first().json,owner:String($execution.id)}}];"
+      },
+      "position": [
+        0,
+        250
+      ]
+    },
+    {
+      "id": "080e74bf-951c-5cdb-a247-4fb68575cebf",
+      "name": "Commit Job?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition",
+              "leftValue": "={{ $json.job==='commit' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        250
+      ]
+    },
+    {
+      "id": "dcca78fd-1810-5819-b099-a5cbafbbb3c2",
+      "name": "Run Locked Commit",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeCommitMediaBodyV2"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        540,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "346a1d90-caf1-57fd-b186-8bec11c12013",
+      "name": "Run Locked Scan",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeRetentionScanV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        810,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "cbbf4d45-93e9-5bc0-84f3-6722359908f2",
+      "name": "Save Locked Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{result:$json}}];"
+      },
+      "position": [
+        1080,
+        250
+      ]
+    },
+    {
+      "id": "6e1d6078-f8b8-5b89-bd65-d1524184d125",
+      "name": "Release Global Lock",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "snake_media_retention_control"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "global"
+            },
+            {
+              "keyName": "owner",
+              "condition": "eq",
+              "keyValue": "={{ String($execution.id) }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "owner": ""
+          },
+          "schema": [
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1350,
+        250
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a0eff354-7a02-5d19-952e-ce9dcb69a5b3",
+      "name": "Return Locked Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "if($json.owner!=='')throw new Error('Lock release failed');return [{json:$('Save Locked Result').first().json.result}];"
+      },
+      "position": [
+        1620,
+        250
+      ]
+    },
+    {
+      "id": "833707bd-9e02-5f7d-99a1-eef78fe76e8e",
+      "name": "Busy Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "return [{json:{version:1,status:'notice',text:'Snake Media is processing another request or performing maintenance. Please send a new request in a moment.',busy:true}}];"
+      },
+      "position": [
+        0,
+        500
+      ]
+    },
+    {
+      "id": "7a489cb3-af2d-590a-abe7-79e2a92a0256",
+      "name": "Retention Change Job?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "test",
+              "leftValue": "={{ $json.job==='amend' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "position": [
+        270,
+        500
+      ]
+    },
+    {
+      "id": "b3d9d3cd-10b4-5fcb-af2b-707c618fcfe3",
+      "name": "Run Locked Retention Change",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "snakeRetentionChangeApplyV1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "position": [
+        540,
+        500
+      ],
+      "alwaysOutputData": true
+    }
+  ],
+  "connections": {
+    "Coordinator Input": {
+      "main": [
+        [
+          {
+            "node": "Read Global Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Global Lock": {
+      "main": [
+        [
+          {
+            "node": "Validate Global Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Global Lock": {
+      "main": [
+        [
+          {
+            "node": "Lock Available?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lock Available?": {
+      "main": [
+        [
+          {
+            "node": "Acquire Global Lock",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Busy Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acquire Global Lock": {
+      "main": [
+        [
+          {
+            "node": "Verify Global Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Global Lock": {
+      "main": [
+        [
+          {
+            "node": "Lock Owned?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lock Owned?": {
+      "main": [
+        [
+          {
+            "node": "Locked Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Busy Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Locked Input": {
+      "main": [
+        [
+          {
+            "node": "Commit Job?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Commit Job?": {
+      "main": [
+        [
+          {
+            "node": "Run Locked Commit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retention Change Job?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Locked Commit": {
+      "main": [
+        [
+          {
+            "node": "Save Locked Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Locked Result": {
+      "main": [
+        [
+          {
+            "node": "Release Global Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Release Global Lock": {
+      "main": [
+        [
+          {
+            "node": "Return Locked Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Locked Scan": {
+      "main": [
+        [
+          {
+            "node": "Save Locked Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retention Change Job?": {
+      "main": [
+        [
+          {
+            "node": "Run Locked Retention Change",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run Locked Scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Locked Retention Change": {
+      "main": [
+        [
+          {
+            "node": "Save Locked Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 600
+  }
+}

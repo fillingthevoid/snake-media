@@ -1,0 +1,300 @@
+{
+  "id": "gAzzbRdwQJNByVkd",
+  "name": "Add Movie - Radarr",
+  "description": null,
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "url": "http://192.168.1.10:7878/api/v3/movie/lookup",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "term",
+              "value": "={{ $('Movie Request Input').first().json.movie }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -112,
+        -224
+      ],
+      "id": "387f1226-2dc0-4215-ac7f-81d3a9dd3254",
+      "name": "Movie Search"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.10:7878/api/v3/movie",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    \"title\": $('Select Correct Movie').first().json.title,\n    \"tmdbId\": $('Select Correct Movie').first().json.tmdbId,\n    \"year\": $('Select Correct Movie').first().json.year,\n    \"qualityProfileId\": 4,\n    \"rootFolderPath\": \"/movies\",\n    \"monitored\": true,\n    \"minimumAvailability\": \"released\",\n    \"addOptions\": {\n      \"searchForMovie\": true\n    }\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        192,
+        624
+      ],
+      "id": "356d6b08-dd44-40f4-9bd2-7b2ca92857ab",
+      "name": "Add Movie"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        160
+      ],
+      "id": "c46a0a1b-c861-40cf-af86-608426d7be62",
+      "name": "Select Correct Movie"
+    },
+    {
+      "parameters": {
+        "url": "http://192.168.1.10:7878/api/v3/movie",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "tmdbId",
+              "value": "={{ $('Select Correct Movie').first().json.tmdbId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "__SERVER_HEADER__"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -112,
+        352
+      ],
+      "id": "2cd0dcf9-eba9-47fe-8852-7b155c4e0d22",
+      "name": "Check If Movie Exists",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "48b3b3e0-af53-4599-8019-a6d978903c0f",
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -112,
+        544
+      ],
+      "id": "c64e7209-554b-440b-a6b6-e003cd13a733",
+      "name": "Already in Radarr?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$('Check If Movie Exists').first().json; return [{json:{...r,status:'already_added',movie:r.title}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        448
+      ],
+      "id": "163610ab-3e80-482c-af08-1f82ac33f31a",
+      "name": "Already Added"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e7c4ecfe-671c-4773-bcc3-7c885d03e7b5",
+              "leftValue": "={{ $json.year }}",
+              "rightValue": "={{ $('Movie Request Input').first().json.year || $json.year }}",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -112,
+        -32
+      ],
+      "id": "241a8580-fe65-4282-b7ab-e06f95ea494d",
+      "name": "Match Requested Year"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "movie"
+            },
+            {
+              "name": "year",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        -224
+      ],
+      "id": "4fd38fde-46c2-4718-a5d0-f9820d3122b7",
+      "name": "Movie Request Input"
+    }
+  ],
+  "connections": {
+    "Movie Search": {
+      "main": [
+        [
+          {
+            "node": "Match Requested Year",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Correct Movie": {
+      "main": [
+        [
+          {
+            "node": "Check If Movie Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Movie Exists": {
+      "main": [
+        [
+          {
+            "node": "Already in Radarr?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already in Radarr?": {
+      "main": [
+        [
+          {
+            "node": "Already Added",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add Movie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Requested Year": {
+      "main": [
+        [
+          {
+            "node": "Select Correct Movie",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Movie Request Input": {
+      "main": [
+        [
+          {
+            "node": "Movie Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "nodeGroups": [],
+  "sourceWorkflowId": null,
+  "versionMetadata": {
+    "name": "Radarr V1",
+    "description": ""
+  }
+}
