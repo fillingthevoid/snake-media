@@ -1,0 +1,29 @@
+[
+  {
+    "definitionName": "nyaasi",
+    "protocol": "torrent",
+    "priority": 25,
+    "fields": [],
+    "implementation": "Cardigann",
+    "configContract": "CardigannSettings",
+    "name": "Indexer 1"
+  },
+  {
+    "definitionName": "Newznab",
+    "protocol": "usenet",
+    "priority": 1,
+    "fields": [],
+    "implementation": "Newznab",
+    "configContract": "NewznabSettings",
+    "name": "Indexer 2"
+  },
+  {
+    "definitionName": "yts",
+    "protocol": "torrent",
+    "priority": 25,
+    "fields": [],
+    "implementation": "Cardigann",
+    "configContract": "CardigannSettings",
+    "name": "Indexer 3"
+  }
+]

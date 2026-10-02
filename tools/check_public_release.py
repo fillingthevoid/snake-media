@@ -7,6 +7,7 @@ import subprocess
 
 TOKEN = re.compile(r'(?:mfa\.[A-Za-z0-9_-]{60,}|[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{25,}|sk-(?:proj-)?[A-Za-z0-9_-]{32,})')
 SENSITIVE = re.compile(r'key|token|authorization|secret|password', re.I)
+PRIVATE_KEY = re.compile(r'AGE-SECRET-KEY-[A-Z0-9]{20,}|-----BEGIN (?:OPENSSH |RSA |EC |ENCRYPTED )?PRIVATE KEY-----')
 
 
 def placeholder(value):
@@ -50,7 +51,8 @@ def scan(root, paths=None):
         path = root / relative
         name = path.name
         forbidden = (name == '.env' or name.startswith('.env.') and name != '.env.example'
-                     or path.suffix in {'.db', '.sqlite', '.sqlite3', '.gz', '.zip', '.tar', '.png', '.jpg'}
+                     or path.suffix in {'.db', '.sqlite', '.sqlite3', '.gz', '.zip', '.tar', '.png', '.jpg', '.age', '.key'}
+                     or name in {'identity.txt', 'backup-config.json', 'pull-config.json'}
                      or 'private' in name and path.suffix == '.json')
         if forbidden:
             findings.append(f'{relative}: private configuration/state/archive')
@@ -64,6 +66,8 @@ def scan(root, paths=None):
             continue
         if TOKEN.search(text):
             findings.append(f'{relative}: token-shaped string')
+        if PRIVATE_KEY.search(text):
+            findings.append(f'{relative}: private recovery/SSH key')
         if path.suffix == '.json':
             try:
                 reasons = export_issues(json.loads(text))

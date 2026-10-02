@@ -41,3 +41,13 @@ class PublicReleaseTests(unittest.TestCase):
             (root / '.env').write_text('DISCORD_TOKEN=synthetic', encoding='utf-8')
             (root / 'receipts.sqlite3').write_bytes(b'private state')
             self.assertEqual(len(self.check.scan(root)), 2)
+
+    def test_recovery_keys_are_rejected_under_innocent_filenames(self):
+        for text in ['AGE-' + 'SECRET-KEY-' + 'A' * 59,
+                     '-----BEGIN ' + 'OPENSSH PRIVATE KEY-----']:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / 'notes.txt').write_text(text, encoding='utf-8')
+                findings = self.check.scan(root)
+                self.assertTrue(findings)
+                self.assertNotIn(text, str(findings))

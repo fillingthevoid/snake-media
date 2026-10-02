@@ -16,6 +16,12 @@ state/
 admin-config/
 admin-runtime/
 backups/
+*.age
+*.sha256
+*.key
+identity.txt
+backup-config.json
+pull-config.json
 private/
 *private*.json
 n8n/polish/table-ids.json

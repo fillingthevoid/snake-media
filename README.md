@@ -12,7 +12,9 @@ A lightweight Discord front end for an n8n media-request backend. Discord handle
 - Discord Gateway reconnects, bounded HTTP requests and friendly errors.
 - Persistent notification receipts to reduce duplicate delivery after restart.
 
-These media features require the matching n8n workflows. **This repository is not a turnkey installer for a complete media server.** Included workflow JSON files are sanitized development templates from several implementation stages. They are inactive, use example IDs and credential placeholders, and need configuration before use. See [the backend guide](docs/BACKEND.md).
+These media features require the matching n8n workflows. **This repository is not a turnkey installer for a complete media server.** The [current configuration templates](config-templates/) contain a reviewed snapshot of media workflows and selected Arr settings. Historical development templates are also included under `n8n/`. Workflows are inactive and need credentials, service addresses and backend references configured before use. See [the backend guide](docs/BACKEND.md).
+
+See [Backups](docs/BACKUPS.md) for encrypted recovery archives, the Windows backup task and restore instructions. Private backups and keys stay outside this repository.
 
 ## Requirements
 
