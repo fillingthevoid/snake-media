@@ -31,7 +31,7 @@ See [Backups](docs/BACKUPS.md) for encrypted recovery archives, the Windows back
 1. Create an application in the [Discord Developer Portal](https://discord.com/developers/applications), then open **Bot**.
 2. Generate a bot token and store it privately. Never put it in an issue, commit or screenshot.
 3. Leave privileged Presence, Server Members and Message Content intents off. The bot handles messages that directly mention it using the normal outbound Gateway connection.
-4. In **OAuth2 â†’ URL Generator**, select **bot** and **applications.commands**. Give it **View Channels**, **Send Messages**, **Read Message History** and **Embed Links**. Invite it to your server.
+4. In **OAuth2 Ã¢â€ â€™ URL Generator**, select **bot** and **applications.commands**. Give it **View Channels**, **Send Messages**, **Read Message History** and **Embed Links**. Invite it to your server.
 5. Enable Developer Mode in Discord, then copy your user ID and the permitted text channel IDs.
 
 Authorization uses immutable user IDs. DMs, other bots and messages outside the allowed channels are ignored.
@@ -97,6 +97,7 @@ contracts. Do not apply historical templates over a live stack.
 ## Telegram commands
 
 The current Telegram workflow supports `/request <title>`, `/help` and `/start`,
+`/serverstatus` for the shared server health report,
 plus existing `/status`, `/extend` and `/keep`. TV season choices and final
 confirmation share the Discord backend. Plain-text requests also work.
 

@@ -15,6 +15,11 @@ Telegram command menu can be registered in BotFather with /setcommands:
 request - Request a movie or series
 help - Request and expiry instructions
 status - Your downloads and expiry
+serverstatus - Server storage and playback checks
 ```
 
 The menu lists commands; workflow nodes implement their behavior.
+
+`health.py` adds the Telegram route to the existing `snakeServerHealthV1`
+subworkflow, preserving account authorization and media paths. The health collector
+must already be installed; this overlay does not create a new collector.
