@@ -592,7 +592,7 @@
     "nodes": [
       {
         "parameters": {
-          "jsCode": "const u=$json,q=u.callback_query,m=q?.message||u.message;if(!m)return [];const d=q?.data?.match(/^snake:([1-9][0-9]{0,15}):([a-z_0-9]+)$/);return [{json:{text:q?'confirmation':m.text||'',chatId:m.chat.id,userId:(q?.from||m.from).id,messageId:String(m.message_id),requestedAt:new Date(m.date*1000).toISOString(),action:d?.[2],pendingId:d?.[1],callbackId:q?.id}}];"
+          "jsCode": "function help(){return '/request <movie or series title> \u2014 request media. Include the year if needed.\\nYou can also send a plain-text request.\\n\\nTV: choose Latest season, All seasons or a specific season, then Confirm the poster and selection. New episodes in selected seasons and future seasons download automatically.\\n\\n/status [title] \u2014 your downloads, availability and expiry.\\nMovies expire 7 days after import; TV episodes expire 30 days after each import. Watching can shorten expiry to 7 days, but never extends it.\\nInclude \"keep for 14 days\" or \"keep permanently\" in your request to change the default. Download cards have expiry buttons.\\n\\n/extend <title> 7 days \u2014 extend an existing request.\\n/keep <title> permanently \u2014 keep an existing request.';}\nfunction prepare(u,botUsername){\n const q=u.callback_query,m=q?.message||u.message;if(!m)return [];\n const d=q?.data?.match(/^snake:([1-9][0-9]{0,15}):([a-z_0-9]+)$/);\n const p={text:q?'confirmation':m.text||'',chatId:m.chat.id,userId:(q?.from||m.from).id,messageId:String(m.message_id),requestedAt:new Date(m.date*1000).toISOString(),action:d?.[2],pendingId:d?.[1],callbackId:q?.id};\n if(q)return [{json:p}];\n const c=p.text.trim().match(/^\\/([a-z][a-z0-9_]*)(?:@([a-z0-9_]+))?(?:\\s+([\\s\\S]*))?$/i);\n if(!c)return [{json:p}];\n if(c[2]&&c[2].toLowerCase()!==String(botUsername).toLowerCase())return [];\n const name=c[1].toLowerCase(),title=(c[3]||'').trim();\n if(name==='request'){\n  if(!title||title.length>1600)p.commandReply='Use /request <movie or series title>, up to 1600 characters. Example: /request The Matrix from 1999';\n  else p.text='add '+title;\n }else if(['help','start'].includes(name))p.commandReply=help();\n else if(!['status','extend','keep'].includes(name))p.commandReply='Unknown command. Use /request <title>, /status or /help.';\n return [{json:p}];\n}\nif(typeof module!=='undefined')module.exports={prepare,help};\n\nreturn prepare($json,\"CONFIGURE_TELEGRAM_BOT_USERNAME\");"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -1383,6 +1383,53 @@
           }
         },
         "onError": "continueRegularOutput"
+      },
+      {
+        "id": "c9c40b87-8bd6-41b5-804a-069ebbfcf6c7",
+        "name": "Telegram Command Reply?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "test",
+                "leftValue": "={{ typeof $json.commandReply==='string' }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "position": [
+          1080,
+          250
+        ]
+      },
+      {
+        "id": "e036f180-e8b3-4ad9-a149-cc7730d9a30f",
+        "name": "Telegram Command Reply",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1350,
+          250
+        ],
+        "parameters": {
+          "jsCode": "return [{json:{version:1,status:'notice',text:$json.commandReply}}];"
+        }
       }
     ],
     "connections": {
@@ -1495,7 +1542,7 @@
           ],
           [
             {
-              "node": "Parse Status Command",
+              "node": "Telegram Command Reply?",
               "type": "main",
               "index": 0
             }
@@ -1760,13 +1807,43 @@
             }
           ]
         ]
+      },
+      "Telegram Command Reply?": {
+        "main": [
+          [
+            {
+              "node": "Telegram Command Reply",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Parse Status Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Telegram Command Reply": {
+        "main": [
+          [
+            {
+              "node": "Preserve Telegram Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "settings": {
       "executionOrder": "v1",
       "binaryMode": "separate",
       "availableInMCP": true
-    }
+    },
+    "pinData": {}
   },
   {
     "id": "HXtTzVTrpNZMZVt3",
