@@ -31,6 +31,9 @@ class SnakeMediaClient(discord.Client):
         self.tree.add_command(app_commands.Command(name='status',
             description='Show your media requests, download progress and expiry.',
             callback=self.status_command))
+        self.tree.add_command(app_commands.Command(name='serverstatus',
+            description='Check server storage, media services and Jellyfin streaming.',
+            callback=self.server_status_command))
 
     async def authorize_command(self, interaction: discord.Interaction, user_id: str):
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -41,8 +44,14 @@ class SnakeMediaClient(discord.Client):
                                        allowed_mentions=discord.AllowedMentions.none())
 
     async def status_command(self, interaction: discord.Interaction, title: str = ''):
+        await self.read_command(interaction, f'status {title}')
+
+    async def server_status_command(self, interaction: discord.Interaction):
+        await self.read_command(interaction, 'serverstatus')
+
+    async def read_command(self, interaction: discord.Interaction, text: str):
         await interaction.response.defer(ephemeral=True, thinking=True)
-        incoming = IncomingMessage(text=f'<@{self.user.id}> status {title}',
+        incoming = IncomingMessage(text=f'<@{self.user.id}> {text}',
             user_id=str(interaction.user.id), username=interaction.user.name,
             channel_id=str(interaction.channel_id),
             guild_id=str(interaction.guild_id) if interaction.guild_id else None,

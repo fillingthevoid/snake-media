@@ -2537,6 +2537,91 @@
           540,
           1000
         ]
+      },
+      {
+        "id": "f88279f4-82c6-5bd9-bde3-7aa6c81fe6d1",
+        "name": "Parse Server Health Command",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "const SERVICES=['Jellyfin','Radarr','Sonarr','Prowlarr','SABnzbd','qBittorrent','n8n'];\nfunction command(text){return typeof text==='string'&&/^\\/?serverstatus\\s*$/i.test(text.trim());}\nfunction report(r,now=Date.now()){\n if(!r||r.version!==1||!Number.isFinite(r.checkedAt)||!r.host||!r.storage||!r.services||!r.playback)return '\u26a0\ufe0f Server health is temporarily unavailable.';\n if(now-r.checkedAt>120000||now<r.checkedAt-5000)return '\u26a0\ufe0f Server health report is out of date. Please try again.';\n const num=n=>Number.isFinite(n)&&n>=0, h=r.host;\n const disks=r.storage.disks;\n if(![h.load1,h.cores,h.memoryUsed,h.memoryTotal,h.uptimeHours].every(num)||h.cores<1||h.memoryTotal<=0||!Array.isArray(disks)||disks.length!==3||!['Main','SSD','Pool'].every(label=>disks.some(d=>d&&d.label===label)))return '\u26a0\ufe0f Server health is temporarily unavailable.';\n const highLoad=h.load1>h.cores*1.5,highMemory=h.memoryUsed/h.memoryTotal>0.9;\n const activeKnown=Number.isInteger(r.playback.active)&&r.playback.active>=0;\n const problems=highLoad||highMemory||!activeKnown||SERVICES.some(s=>r.services[s]!==true)||r.storage.guard!==true||r.playback.sample!=='ok'||disks.some(d=>!num(d.freeGiB)||!num(d.totalGiB)||d.freeGiB<50);\n const lines=[(problems?'\u26a0\ufe0f Checks need attention':'\u2705 Server checks passed'),`CPU load: ${h.load1.toFixed(2)} / ${h.cores} cores \u00b7 Memory: ${h.memoryUsed.toFixed(1)} / ${h.memoryTotal.toFixed(1)} GiB`,`Uptime: ${Math.floor(h.uptimeHours)} hours`,'',r.storage.guard===true?'\ud83d\udcbe Storage mounts verified':'\u26a0\ufe0f Storage mount check failed'];\n if(highLoad)lines.splice(3,0,'\u26a0\ufe0f High CPU load');\n if(highMemory)lines.splice(3,0,'\u26a0\ufe0f Memory usage above 90%');\n for(const d of disks)lines.push(num(d.freeGiB)&&num(d.totalGiB)?`${d.freeGiB<50?'\u26a0\ufe0f ':''}${d.label}: ${Math.floor(d.freeGiB)} / ${Math.floor(d.totalGiB)} GiB free`:`${d.label}: capacity unavailable`);\n lines.push('',...SERVICES.map(s=>`${r.services[s]===true?'\ud83d\udfe2':'\ud83d\udd34'} ${s}`),'');\n lines.push(Number.isInteger(r.playback.active)&&r.playback.active>=0?`\u25b6\ufe0f ${r.playback.active} active playback session(s)`:'\u26a0\ufe0f Active playback check unavailable');\n lines.push(r.playback.sample==='ok'?'\u2705 Jellyfin sample stream passed':r.playback.sample==='no_media'?'\u26a0\ufe0f No suitable media available for a playback sample':'\u26a0\ufe0f Jellyfin sample stream failed or unavailable');\n lines.push('Client playback and transcoding were not tested.','Checked within the last minute.');\n return lines.join('\\n').slice(0,1800);\n}\nif(typeof module!=='undefined')module.exports={command,report};\n\nconst p=$(\"Validate Discord Request\").first().json;return [{json:{...p,serverHealthCommand:command(p.text)}}];"
+        },
+        "position": [
+          810,
+          1000
+        ]
+      },
+      {
+        "id": "25083c79-003d-5cfb-9936-92d9b576f426",
+        "name": "Server Health Command?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "health",
+                "leftValue": "={{ $json.serverHealthCommand }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "position": [
+          1080,
+          1000
+        ]
+      },
+      {
+        "id": "727c116b-de6a-582d-ab5d-8cc08ddb1650",
+        "name": "Read Server Health",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "snakeServerHealthV1"
+          },
+          "workflowInputs": {
+            "mappingMode": "passThrough"
+          },
+          "mode": "once",
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        },
+        "position": [
+          1350,
+          1000
+        ],
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "fb6abf99-f7e5-55a1-9d5a-71ef0cb6c994",
+        "name": "Normalize Health Reply",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "return [{json:{version:1,status:\"notice\",text:typeof $json.text===\"string\"?$json.text:\"\u26a0\ufe0f Server health is temporarily unavailable.\"}}];"
+        },
+        "position": [
+          1620,
+          1000
+        ]
       }
     ],
     "connections": {
@@ -2689,7 +2774,7 @@
           ],
           [
             {
-              "node": "Parse Status Command",
+              "node": "Parse Server Health Command",
               "type": "main",
               "index": 0
             }
@@ -2925,13 +3010,65 @@
             }
           ]
         ]
+      },
+      "Parse Server Health Command": {
+        "main": [
+          [
+            {
+              "node": "Server Health Command?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Server Health Command?": {
+        "main": [
+          [
+            {
+              "node": "Read Server Health",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Parse Status Command",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Server Health": {
+        "main": [
+          [
+            {
+              "node": "Normalize Health Reply",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Health Reply": {
+        "main": [
+          [
+            {
+              "node": "Respond to Discord",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "settings": {
       "executionOrder": "v1",
       "binaryMode": "separate",
       "availableInMCP": true
-    }
+    },
+    "pinData": {}
   },
   {
     "id": "snakeTrackRequestV1",
@@ -24400,5 +24537,93 @@
       "executionOrder": "v1",
       "executionTimeout": 120
     }
+  },
+  {
+    "id": "snakeServerHealthV1",
+    "name": "Snake Media - Server Health",
+    "nodes": [
+      {
+        "id": "6fe77af1-58fe-5254-a15f-306cd5ee4270",
+        "name": "Health Input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "parameters": {
+          "inputSource": "passthrough"
+        },
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "id": "11bae01b-fe5b-54e6-b3bd-d97c746bb2bd",
+        "name": "Read Private Host Health",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "parameters": {
+          "method": "GET",
+          "url": "http://172.20.0.1:17492/health",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "options": {
+            "timeout": 25000
+          }
+        },
+        "position": [
+          270,
+          0
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "CONFIGURE_HTTPHEADERAUTH",
+            "name": "Configure httpHeaderAuth"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "id": "61227d08-6adc-584b-ae43-2ec79ad89d79",
+        "name": "Format Health Report",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "const SERVICES=['Jellyfin','Radarr','Sonarr','Prowlarr','SABnzbd','qBittorrent','n8n'];\nfunction command(text){return typeof text==='string'&&/^\\/?serverstatus\\s*$/i.test(text.trim());}\nfunction report(r,now=Date.now()){\n if(!r||r.version!==1||!Number.isFinite(r.checkedAt)||!r.host||!r.storage||!r.services||!r.playback)return '\u26a0\ufe0f Server health is temporarily unavailable.';\n if(now-r.checkedAt>120000||now<r.checkedAt-5000)return '\u26a0\ufe0f Server health report is out of date. Please try again.';\n const num=n=>Number.isFinite(n)&&n>=0, h=r.host;\n const disks=r.storage.disks;\n if(![h.load1,h.cores,h.memoryUsed,h.memoryTotal,h.uptimeHours].every(num)||h.cores<1||h.memoryTotal<=0||!Array.isArray(disks)||disks.length!==3||!['Main','SSD','Pool'].every(label=>disks.some(d=>d&&d.label===label)))return '\u26a0\ufe0f Server health is temporarily unavailable.';\n const highLoad=h.load1>h.cores*1.5,highMemory=h.memoryUsed/h.memoryTotal>0.9;\n const activeKnown=Number.isInteger(r.playback.active)&&r.playback.active>=0;\n const problems=highLoad||highMemory||!activeKnown||SERVICES.some(s=>r.services[s]!==true)||r.storage.guard!==true||r.playback.sample!=='ok'||disks.some(d=>!num(d.freeGiB)||!num(d.totalGiB)||d.freeGiB<50);\n const lines=[(problems?'\u26a0\ufe0f Checks need attention':'\u2705 Server checks passed'),`CPU load: ${h.load1.toFixed(2)} / ${h.cores} cores \u00b7 Memory: ${h.memoryUsed.toFixed(1)} / ${h.memoryTotal.toFixed(1)} GiB`,`Uptime: ${Math.floor(h.uptimeHours)} hours`,'',r.storage.guard===true?'\ud83d\udcbe Storage mounts verified':'\u26a0\ufe0f Storage mount check failed'];\n if(highLoad)lines.splice(3,0,'\u26a0\ufe0f High CPU load');\n if(highMemory)lines.splice(3,0,'\u26a0\ufe0f Memory usage above 90%');\n for(const d of disks)lines.push(num(d.freeGiB)&&num(d.totalGiB)?`${d.freeGiB<50?'\u26a0\ufe0f ':''}${d.label}: ${Math.floor(d.freeGiB)} / ${Math.floor(d.totalGiB)} GiB free`:`${d.label}: capacity unavailable`);\n lines.push('',...SERVICES.map(s=>`${r.services[s]===true?'\ud83d\udfe2':'\ud83d\udd34'} ${s}`),'');\n lines.push(Number.isInteger(r.playback.active)&&r.playback.active>=0?`\u25b6\ufe0f ${r.playback.active} active playback session(s)`:'\u26a0\ufe0f Active playback check unavailable');\n lines.push(r.playback.sample==='ok'?'\u2705 Jellyfin sample stream passed':r.playback.sample==='no_media'?'\u26a0\ufe0f No suitable media available for a playback sample':'\u26a0\ufe0f Jellyfin sample stream failed or unavailable');\n lines.push('Client playback and transcoding were not tested.','Checked within the last minute.');\n return lines.join('\\n').slice(0,1800);\n}\nif(typeof module!=='undefined')module.exports={command,report};\n\nreturn [{json:{version:1,status:\"notice\",text:report($json)}}];"
+        },
+        "position": [
+          540,
+          0
+        ]
+      }
+    ],
+    "connections": {
+      "Health Input": {
+        "main": [
+          [
+            {
+              "node": "Read Private Host Health",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Private Host Health": {
+        "main": [
+          [
+            {
+              "node": "Format Health Report",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "executionTimeout": 35
+    },
+    "active": false,
+    "pinData": {}
   }
 ]
