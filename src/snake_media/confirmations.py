@@ -21,7 +21,10 @@ def presentation(reply):
     poster = getattr(reply, 'poster_url', None)
     if poster:
         embed = discord.Embed(description=str(reply), colour=0x2ECC71)
-        embed.set_image(url=poster)
+        if getattr(reply, 'choices', None):
+            embed.set_thumbnail(url=poster)
+        else:
+            embed.set_image(url=poster)
         options.update(content=None, embed=embed)
     else:
         options.update(content=str(reply), embed=None)

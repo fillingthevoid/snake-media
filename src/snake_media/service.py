@@ -22,6 +22,10 @@ class RequestService:
         self.backend = backend
         self.allowed_users = LiveUsers(config.allowed_user_ids, config.authorization_state_path)
 
+    def command_allowed(self, user_id, channel_id, guild_id):
+        return bool(guild_id and channel_id in self.config.allowed_channel_ids
+                    and is_authorized(user_id, self.allowed_users))
+
     async def authorize_user(self, actor, channel, guild, user):
         if (actor not in self.config.admin_user_ids or channel not in self.config.allowed_channel_ids
                 or not valid_id(guild)):

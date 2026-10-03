@@ -34,6 +34,53 @@ class SnakeMediaClient(discord.Client):
         self.tree.add_command(app_commands.Command(name='serverstatus',
             description='Check server storage, media services and Jellyfin streaming.',
             callback=self.server_status_command))
+        self.tree.add_command(app_commands.Command(name='request',
+            description='Request a movie or series; review the poster before confirming.',
+            callback=self.request_command))
+        self.tree.add_command(app_commands.Command(name='help',
+            description='Show request, season, expiry and status instructions.',
+            callback=self.help_command))
+
+    async def help_command(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        if not self.service.command_allowed(str(interaction.user.id), str(interaction.channel_id), interaction.guild_id):
+            text = "⛔ This Discord account isn't authorized to use Snake Media here."
+        else:
+            text = ('Use /request title: The Matrix from 1999, or mention me with a request.\n'
+                    'TV: choose Latest season, All seasons or a specific season, then Confirm.\n'
+                    'New episodes and future seasons download automatically.\n\n'
+                    '/status — your downloads, availability and expiry.\n'
+                    '/serverstatus — storage, services and Jellyfin streaming.\n\n'
+                    'Movies: 7 days after import. TV: 30 days per episode after import.\n'
+                    'Watching can shorten expiry to 7 days; it never extends it.\n'
+                    'Include “keep for 14 days” or “keep permanently” in your request to change the default.\n'
+                    'Download cards have buttons to extend expiry or keep media permanently.')
+        await interaction.followup.send(text, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+
+    async def request_command(self, interaction: discord.Interaction, title: app_commands.Range[str, 1, 1600]):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        if not self.service.command_allowed(str(interaction.user.id), str(interaction.channel_id), interaction.guild_id):
+            await interaction.followup.send("⛔ This Discord account isn't authorized to use Snake Media here.", ephemeral=True)
+            return
+        if not title.strip():
+            await interaction.followup.send('Enter a movie or series title.', ephemeral=True)
+            return
+        card = None
+        try:
+            card = await interaction.channel.send('🔎 Checking your request…', allowed_mentions=discord.AllowedMentions.none())
+            incoming = IncomingMessage(text=f'<@{self.user.id}> add {title.strip()}',
+                user_id=str(interaction.user.id), username=interaction.user.name,
+                channel_id=str(interaction.channel_id), guild_id=str(interaction.guild_id),
+                is_bot=False, message_id=str(card.id),
+                requested_at=discord.utils.snowflake_time(card.id).isoformat(timespec='milliseconds').replace('+00:00', 'Z'))
+            reply = await self.service.handle(incoming, str(self.user.id))
+            options = presentation(reply or '⚠️ This request could not be prepared.')
+            options.setdefault('view', None)
+            await card.edit(**options)
+            await interaction.followup.send('Your request: '+card.jump_url, ephemeral=True)
+        except Exception as exc:
+            log.error('Slash request failed error_type=%s', type(exc).__name__)
+            await interaction.followup.send('⚠️ Request could not be confirmed. Check its card before trying again.', ephemeral=True)
 
     async def authorize_command(self, interaction: discord.Interaction, user_id: str):
         await interaction.response.defer(ephemeral=True, thinking=True)

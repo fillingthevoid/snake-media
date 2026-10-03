@@ -4,8 +4,10 @@ A lightweight Discord front end for an n8n media-request backend. Discord handle
 
 ## Features
 
-- Natural-language requests directed at the bot by mention.
-- Poster confirmation before adding media, with season selection for TV.
+- `/request title` or natural-language requests directed at the bot by mention.
+- Private `/help` with request, status and expiry guidance.
+- Compact poster confirmation showing expiry before adding media.
+- TV requests require latest, all or a specific season, followed by one final Confirm.
 - Download updates, release quality, expiry controls and Jellyfin links.
 - `/status` for the caller's requests.
 - `/serverstatus` for private storage, service availability and Jellyfin sample streaming checks. Requires the optional [host collector and n8n route](n8n/server-health/README.md).
@@ -78,6 +80,19 @@ docker compose up -d --force-recreate
 See [N8N-CONTRACT.md](N8N-CONTRACT.md) for normalized requests, responses and notification endpoints. Test missing/incorrect webhook authentication and unauthorized IDs before a real media request. Configure the notification queue separately before setting `N8N_NOTIFICATIONS_URL`.
 
 Jellyfin links support HTTPS or restricted HTTP on port 8096. The example LAN HTTP host is `192.168.1.10`; Tailscale addresses in `100.64.0.0/10` are also supported. For a different LAN HTTP host, update the explicit validators in `src/snake_media/n8n_client.py` and `n8n/polish/presentation/build.py`, along with your workflow service URLs. Setting a link URL alone does not widen this restriction.
+
+## Making a request
+
+Use `/request title: Severance` in an allowed channel, or mention the bot. The
+confirmation card appears in the channel; command acknowledgements and `/help`
+are private. For TV, choose Latest season, All seasons or Choose a season, then
+review the title, selection and expiry and press Confirm. Change selection returns
+to the choices. Choosing episodes alone does not add or search for media.
+
+The [current workflow snapshot](config-templates/) includes this flow. The
+[request simplification overlay](n8n/request-simplification/) is for a compatible
+private export of the earlier preview/action workflows; it fails on unknown node
+contracts. Do not apply historical templates over a live stack.
 
 ## Optional owner administration
 
