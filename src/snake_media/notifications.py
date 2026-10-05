@@ -7,6 +7,9 @@ from collections import deque, OrderedDict
 import aiohttp
 
 log = logging.getLogger('snake_media')
+ACK_BATCH_LIMIT = 5
+ACK_RETRY_BUDGET_SECONDS = 5
+ACK_TIMEOUT_SECONDS = 3
 
 class NotificationTransport:
     def __init__(self, url, secret):
@@ -49,6 +52,8 @@ class NotificationDelivery:
         self.transport,self.send,self.users,self.channels=transport,send,users,channels
         self.journal=journal
         self.pending_acks=journal.pending() if journal is not None else {}
+        self.ack_queue=deque(self.pending_acks)
+        self.queued_acks=set(self.pending_acks)
         self.delivered=deque(maxlen=1000)
         self.clock,self.wall_clock=clock,wall_clock
         self.retries=OrderedDict()
@@ -74,19 +79,37 @@ class NotificationDelivery:
                 # private state is temporarily unwritable.
                 log.warning('Notification retry storage deferred error_type=%s',type(exc).__name__)
 
-    async def _acknowledge(self,key,message_id):
+    def _queue_ack(self,key):
+        if key in self.pending_acks and key not in self.queued_acks:
+            self.ack_queue.append(key)
+            self.queued_acks.add(key)
+
+    async def _acknowledge(self,key,message_id,timeout=None):
         if self.journal is not None:
             self.journal.record(key,message_id)
-        await self.transport.acknowledge(key,message_id)
+        await asyncio.wait_for(self.transport.acknowledge(key,message_id),
+                               timeout=ACK_TIMEOUT_SECONDS if timeout is None else timeout)
         if self.journal is not None:
             self.journal.acknowledge(key)
         del self.pending_acks[key]
 
     async def tick(self):
-        for key,message_id in list(self.pending_acks.items()):
+        # Restore/rotate retry work separately from exclusion order. Each old
+        # receipt gets a turn, without copying or draining the entire backlog.
+        if len(self.pending_acks)>len(self.queued_acks):
+            for key in self.pending_acks:
+                self._queue_ack(key)
+        deadline=self.clock()+ACK_RETRY_BUDGET_SECONDS
+        for _ in range(min(ACK_BATCH_LIMIT,len(self.ack_queue))):
+            remaining=deadline-self.clock()
+            if remaining<=0: break
+            key=self.ack_queue.popleft()
+            self.queued_acks.discard(key)
+            if key not in self.pending_acks: continue
             try:
-                await self._acknowledge(key,message_id)
+                await self._acknowledge(key,self.pending_acks[key],min(ACK_TIMEOUT_SECONDS,remaining))
             except Exception as exc:
+                self._queue_ack(key)
                 log.warning('Notification acknowledgement deferred error_type=%s',type(exc).__name__)
         try:
             excluded=list(self.pending_acks)+[key for key,(_,due) in self.retries.items() if due>self.clock()]
@@ -101,7 +124,7 @@ class NotificationDelivery:
                 key=row.get('notificationKey'); channel=row.get('destinationId'); payload=row.get('payload')
                 if not isinstance(key,str) or not 1<=len(key)<=300 or not isinstance(payload,dict): continue
                 if self.retries.get(key,(0,0))[1]>self.clock(): continue
-                if key in self.delivered or (self.journal is not None and self.journal.get(key)): continue
+                if key in self.pending_acks or key in self.delivered or (self.journal is not None and self.journal.get(key)): continue
                 if payload.get('userId') not in self.users or channel not in self.channels:
                     self._defer(key)
                     continue
@@ -125,6 +148,7 @@ class NotificationDelivery:
                 await self._acknowledge(key,str(sent))
             except Exception as exc:
                 if key is not None and key not in self.pending_acks: self._defer(key)
+                elif key is not None: self._queue_ack(key)
                 log.warning('Notification delivery deferred error_type=%s',type(exc).__name__)
 
     async def run(self,client):

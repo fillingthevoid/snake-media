@@ -14,6 +14,11 @@ includes these changes.
   across restart until storage is writable again.
 - The queue accepts up to 1,000 excluded notice keys, allowing other recipients
   past deferred messages. Old clients remain compatible.
+- Old acknowledgement retries rotate through at most five records per cycle,
+  with a five-second network budget and a three-second timeout per request.
+  Initial acknowledgement of a new delivery also uses the three-second timeout.
+  Pending receipts are retained across restarts; the poll exclusion contract
+  remains limited to 1,000 keys.
 - Durable receipts still retry backend acknowledgement without resending a
   successfully delivered message. A crash before receipt storage can still cause
   a duplicate; delivery is not guaranteed exactly once.
