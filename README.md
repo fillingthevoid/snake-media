@@ -150,6 +150,8 @@ On PowerShell, use `$env:PYTHONPATH='src'` before running Python tests. Tests us
 
 - Telegram poster messages can retain old confirmation controls; stale actions are still checked by the backend.
 - Media expiry is a backend feature. Preview retention decisions and protect existing/shared files before enabling deletion.
-- The included workflow templates are not a single current production export. Configure dependencies and native table IDs explicitly; do not import every historical template over an existing installation.
+- Use the [maintained workflow bundle and tool](docs/CURRENT-WORKFLOWS.md). Other
+  workflow templates are historical migrations and test fixtures. Configure
+  dependencies and native table IDs before import.
 
 Licensed under [MIT](LICENSE). Dependency licenses remain with their respective projects.

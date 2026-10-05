@@ -52,6 +52,8 @@ class NotificationDelivery:
     def __init__(self,transport,send,users,channels,journal=None,clock=time.monotonic,wall_clock=time.time):
         self.transport,self.send,self.users,self.channels=transport,send,users,channels
         self.journal=journal
+        self.wake_event=asyncio.Event()
+        self.empty_polls=0
         self.pending_acks=journal.pending() if journal is not None else {}
         self.ack_queue=deque(self.pending_acks)
         self.queued_acks=set(self.pending_acks)
@@ -85,6 +87,20 @@ class NotificationDelivery:
             self.ack_queue.append(key)
             self.queued_acks.add(key)
 
+    def wake(self):
+        self.empty_polls=0
+        self.wake_event.set()
+
+    def poll_interval(self,idle):
+        self.empty_polls=min(3,self.empty_polls+1) if idle else 0
+        return max(60,self.empty_polls*60)
+
+    async def wait_for_work(self,delay):
+        try:
+            await asyncio.wait_for(self.wake_event.wait(),timeout=delay)
+        except asyncio.TimeoutError:
+            pass
+
     async def _acknowledge(self,key,message_id,timeout=None):
         if self.journal is not None:
             self.journal.record(key,message_id)
@@ -117,7 +133,7 @@ class NotificationDelivery:
             rows=await self.transport.poll(exclude=excluded[:1000])
         except Exception as exc:
             log.warning('Notification polling deferred error_type=%s',type(exc).__name__)
-            return
+            return False
         for row in rows:
             key=None
             try:
@@ -156,9 +172,13 @@ class NotificationDelivery:
                 if key is not None and key not in self.pending_acks: self._defer(key)
                 elif key is not None: self._queue_ack(key)
                 log.warning('Notification delivery deferred error_type=%s',type(exc).__name__)
+        return not rows and not self.pending_acks and not self.retries
 
     async def run(self,client):
         while not client.is_closed():
             await client.wait_until_ready()
-            await self.tick()
-            await asyncio.sleep(60)
+            # Clear before polling, so requests arriving during I/O remain visible.
+            self.wake_event.clear()
+            idle=await self.tick()
+            delay=self.poll_interval(idle and not self.wake_event.is_set())
+            await self.wait_for_work(delay)

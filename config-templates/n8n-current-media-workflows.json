@@ -4467,7 +4467,22 @@
           },
           "matchType": "allConditions",
           "filters": {
-            "conditions": []
+            "conditions": [
+              {
+                "keyName": "state",
+                "condition": "eq",
+                "keyValue": "registered"
+              },
+              {
+                "keyName": "baselineCaptured",
+                "condition": "isTrue"
+              },
+              {
+                "keyName": "userId",
+                "condition": "neq",
+                "keyValue": "1"
+              }
+            ]
           },
           "options": {},
           "returnAll": true
@@ -4497,7 +4512,7 @@
           "mode": "each"
         },
         "position": [
-          1350,
+          540,
           0
         ],
         "onError": "continueRegularOutput"
@@ -4522,7 +4537,7 @@
           }
         },
         "position": [
-          1620,
+          810,
           0
         ],
         "alwaysOutputData": true,
@@ -4541,15 +4556,1016 @@
             "mode": "id",
             "value": "HZ2inujBfAj6zwDl"
           },
-          "matchType": "allConditions",
+          "matchType": "anyCondition",
           "filters": {
-            "conditions": []
+            "conditions": [
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[0] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[1] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[2] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[3] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[4] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[5] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[6] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[7] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[8] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[9] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[10] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[11] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[12] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[13] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[14] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[15] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[16] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[17] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[18] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[19] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[20] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[21] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[22] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[23] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[24] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[25] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[26] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[27] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[28] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[29] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[30] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[31] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[32] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[33] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[34] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[35] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[36] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[37] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[38] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[39] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[40] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[41] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[42] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[43] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[44] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[45] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[46] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[47] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[48] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[49] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[50] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[51] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[52] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[53] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[54] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[55] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[56] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[57] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[58] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[59] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[60] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[61] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[62] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[63] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[64] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[65] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[66] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[67] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[68] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[69] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[70] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[71] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[72] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[73] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[74] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[75] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[76] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[77] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[78] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[79] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[80] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[81] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[82] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[83] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[84] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[85] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[86] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[87] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[88] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[89] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[90] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[91] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[92] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[93] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[94] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[95] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[96] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[97] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[98] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[99] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[100] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[101] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[102] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[103] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[104] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[105] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[106] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[107] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[108] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[109] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[110] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[111] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[112] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[113] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[114] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[115] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[116] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[117] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[118] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[119] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[120] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[121] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[122] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[123] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[124] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[125] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[126] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[127] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[128] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[129] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[130] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[131] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[132] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[133] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[134] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[135] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[136] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[137] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[138] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[139] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[140] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[141] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[142] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[143] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[144] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[145] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[146] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[147] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[148] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[149] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[150] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[151] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[152] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[153] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[154] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[155] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[156] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[157] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[158] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[159] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[160] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[161] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[162] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[163] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[164] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[165] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[166] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[167] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[168] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[169] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[170] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[171] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[172] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[173] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[174] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[175] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[176] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[177] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[178] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[179] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[180] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[181] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[182] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[183] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[184] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[185] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[186] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[187] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[188] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[189] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[190] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[191] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[192] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[193] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[194] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[195] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[196] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[197] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[198] ?? $json.keys[0] }}"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.keys[199] ?? $json.keys[0] }}"
+              }
+            ]
           },
           "options": {},
           "returnAll": true
         },
         "position": [
-          420,
+          1080,
           0
         ],
         "alwaysOutputData": true
@@ -4560,7 +5576,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          640,
+          1350,
           0
         ],
         "parameters": {
@@ -4573,7 +5589,7 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          0,
+          1620,
           0
         ],
         "parameters": {
@@ -4591,7 +5607,7 @@
               {
                 "keyName": "receivedAt",
                 "condition": "gt",
-                "keyValue": "={{ $now.minus({hours:24}).toISO() }}"
+                "keyValue": "={{ $now.minus({minutes:30}).toISO() }}"
               }
             ]
           },
@@ -4607,7 +5623,7 @@
         "typeVersion": 2,
         "position": [
           0,
-          0
+          240
         ],
         "parameters": {
           "jsCode": "function normalizeEvent(body,kind,now){\n if(body?.eventType==='Test')return null;\n if(!['movie','tv'].includes(kind)||!Number.isFinite(now)||!['Grab','Download'].includes(body?.eventType))throw new Error('Invalid media event');\n const id=x=>Number.isSafeInteger(x)&&x>0;\n const media=kind==='movie'?body.movie:body.series;\n if(!id(media?.id))throw new Error('Invalid event media ID');\n const downloadId=body.downloadId??'';\n if(typeof downloadId!=='string'||downloadId.length>200||!/^[A-Za-z0-9_.-]*$/.test(downloadId))throw new Error('Invalid download ID');\n const episodes=kind==='tv'?body.episodes:[];\n if(!Array.isArray(episodes)||episodes.length>5000||(kind==='tv'&&!episodes.length)||episodes.some(e=>!id(e?.id)))throw new Error('Invalid event episodes');\n const file=kind==='movie'?body.movieFile:body.episodeFile;\n if(body.eventType==='Download'&&!id(file?.id))throw new Error('Invalid imported file ID');\n if(body.eventType==='Grab'&&!downloadId)throw new Error('Missing download ID');\n const episodeIds=[...new Set(episodes.map(e=>String(e.id)))].sort((a,b)=>Number(a)-Number(b));\n const receivedAt=new Date(now).toISOString(),fileId=body.eventType==='Download'?String(file.id):'';\n return {eventKey:`${kind}:${media.id}:${body.eventType}:${fileId||downloadId}`,mediaType:kind,mediaId:String(media.id),fileId,\n  episodeIdsJson:JSON.stringify(episodeIds),state:body.eventType==='Download'?'imported':'downloading',\n  payloadJson:JSON.stringify({eventType:body.eventType,downloadId}),\n  importedAt:body.eventType==='Download'?receivedAt:null,receivedAt};\n}\nfunction affectedRequests(requests,events,now){\n const fallback=new Date(now).getUTCMinutes()%15===0;\n return requests.filter(r=>{\n  const requested=Date.parse(r.requestedAt);\n  if(!Number.isFinite(requested)||requested>now+60000)return false;\n  if(fallback||now-requested<15*60000)return true;\n  let scope;try{scope=new Set(JSON.parse(r.episodeIdsJson||'[]').map(String));}catch{return false;}\n  return events.some(e=>{\n   const received=Date.parse(e.receivedAt);\n   if(!Number.isFinite(received)||received<now-30*60000||received>now+60000||received<requested-60000||\n       e.mediaType!==r.mediaType||e.mediaId!==r.mediaId||!['downloading','imported'].includes(e.state))return false;\n   if(r.mediaType==='movie')return true;\n   try{return JSON.parse(e.episodeIdsJson).some(id=>scope.has(String(id)));}catch{return false;}\n  });\n });\n}\nfunction libraryRows(pages){\n if(!Array.isArray(pages)||pages.some(p=>!Array.isArray(p?.Items)))throw new Error('Jellyfin snapshot unavailable');\n const rows=pages.flatMap(p=>p.Items),total=Math.max(0,...pages.map(p=>Number(p.TotalRecordCount)||0));\n if(rows.length<total)throw new Error('Incomplete Jellyfin snapshot');\n return rows;\n}\nfunction libraryPath(path){\n if(typeof path!=='string'||!/^\\/(movies|tv)\\/[^/]/.test(path)||path.split('/').some(p=>p==='..'||p==='.')||/[\\x00-\\x1f]/.test(path))throw new Error('Invalid media directory');\n return '/data'+path.replace(/\\/$/,'');\n}\nfunction targetRoot(kind,path,pages){\n const root=libraryPath(path);\n const matches=libraryRows(pages).filter(x=>x?.Path===root&&typeof x.Id==='string'&&x.Id);\n const ids=[...new Set(matches.map(x=>x.Id))];\n if(ids.length>1)throw new Error('Ambiguous Jellyfin directory');\n return ids[0]||null;\n}\nfunction targetFiles(path,pages){\n const root=libraryPath(path)+'/';\n return libraryRows(pages).filter(x=>typeof x?.Id==='string'&&x.Id&&typeof x.Path==='string'&&x.Path.startsWith(root))\n  .map(x=>({Id:x.Id,Path:x.Path}));\n}\nif(typeof module!=='undefined')module.exports={normalizeEvent,affectedRequests,targetRoot,targetFiles};\n\nreturn affectedRequests($('Unfinished Requests').all().map(x=>x.json),$input.all().map(x=>x.json),Date.now()).map(json=>({json}));"
@@ -4619,8 +5635,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          0,
-          0
+          270,
+          240
         ],
         "parameters": {
           "resource": "row",
@@ -4643,6 +5659,19 @@
           },
           "options": {}
         }
+      },
+      {
+        "id": "efficiency-completion-request-batches",
+        "name": "Completion Request Batches",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "// Read-only projections. No media policy, credentials or persistent runtime state.\nfunction queueRows(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.records)||!Number.isInteger(p.totalRecords)||p.totalRecords<0))throw new Error('Incomplete queue snapshot');\n const total=pages[0].totalRecords,rows=pages.flatMap(p=>p.records);\n if(pages.some(p=>p.totalRecords!==total)||rows.length<total)throw new Error('Incomplete queue snapshot');\n return rows;\n}\nfunction completionBatches(requests){\n const keys=[...new Set(requests.filter(r=>r.requestKey&&r.state==='registered'&&r.baselineCaptured===true&&r.userId!=='1'&&['discord','telegram'].includes(r.source)).map(r=>r.requestKey))];\n const batches=[];\n for(let i=0;i<keys.length;i+=200)batches.push({keys:keys.slice(i,i+200)});\n return batches;\n}\nfunction compactWatched(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.Items)||!Number.isInteger(p.TotalRecordCount)||p.TotalRecordCount<0))throw new Error('Incomplete watched snapshot');\n const total=pages[0].TotalRecordCount,items=pages.flatMap(p=>p.Items);\n if(pages.some(p=>p.TotalRecordCount!==total)||items.length<total)throw new Error('Incomplete watched snapshot');\n return items.map(x=>{\n  if(typeof x.Id!=='string'||!x.Id||typeof x.Path!=='string'||!x.Path||x.UserData?.Played!==true)throw new Error('Invalid watched identity');\n  return {Id:x.Id,Path:x.Path,ParentIndexNumber:x.ParentIndexNumber,IndexNumber:x.IndexNumber,IndexNumberEnd:x.IndexNumberEnd,\n   UserData:{Played:true,LastPlayedDate:x.UserData.LastPlayedDate}};\n });\n}\nif(typeof module!=='undefined')module.exports={queueRows,completionBatches,compactWatched};\n\nreturn completionBatches($input.all().map(x=>x.json)).map(json=>({json}));"
+        },
+        "position": [
+          540,
+          240
+        ]
       }
     ],
     "connections": {
@@ -4666,7 +5695,7 @@
         "main": [
           [
             {
-              "node": "Completion Notices",
+              "node": "Completion Request Batches",
               "type": "main",
               "index": 0
             }
@@ -4716,6 +5745,17 @@
             },
             {
               "node": "Inspect Each Progress",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Completion Request Batches": {
+        "main": [
+          [
+            {
+              "node": "Completion Notices",
               "type": "main",
               "index": 0
             }
@@ -15375,7 +16415,18 @@
           },
           "matchType": "allConditions",
           "filters": {
-            "conditions": []
+            "conditions": [
+              {
+                "keyName": "state",
+                "condition": "eq",
+                "keyValue": "registered"
+              },
+              {
+                "keyName": "userId",
+                "condition": "neq",
+                "keyValue": "1"
+              }
+            ]
           },
           "options": {},
           "returnAll": true
@@ -15627,6 +16678,53 @@
           270,
           480
         ]
+      },
+      {
+        "id": "efficiency-retention-has-requests",
+        "name": "Retention Has Requests?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "efficiency-test",
+                "leftValue": "={{ $input.all().some(x=>x.json.requestKey&&x.json.state==='registered'&&x.json.userId!=='1') }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "position": [
+          540,
+          480
+        ]
+      },
+      {
+        "id": "efficiency-empty-retention-summary",
+        "name": "Empty Retention Summary",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "// Read-only projections. No media policy, credentials or persistent runtime state.\nfunction queueRows(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.records)||!Number.isInteger(p.totalRecords)||p.totalRecords<0))throw new Error('Incomplete queue snapshot');\n const total=pages[0].totalRecords,rows=pages.flatMap(p=>p.records);\n if(pages.some(p=>p.totalRecords!==total)||rows.length<total)throw new Error('Incomplete queue snapshot');\n return rows;\n}\nfunction completionBatches(requests){\n const keys=[...new Set(requests.filter(r=>r.requestKey&&r.state==='registered'&&r.baselineCaptured===true&&r.userId!=='1'&&['discord','telegram'].includes(r.source)).map(r=>r.requestKey))];\n const batches=[];\n for(let i=0;i<keys.length;i+=200)batches.push({conditions:keys.slice(i,i+200).map(key=>({keyName:'requestKey',condition:'eq',keyValue:key}))});\n return batches;\n}\nfunction compactWatched(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.Items)||!Number.isInteger(p.TotalRecordCount)||p.TotalRecordCount<0))throw new Error('Incomplete watched snapshot');\n const total=pages[0].TotalRecordCount,items=pages.flatMap(p=>p.Items);\n if(pages.some(p=>p.TotalRecordCount!==total)||items.length<total)throw new Error('Incomplete watched snapshot');\n return items.map(x=>{\n  if(typeof x.Id!=='string'||!x.Id||typeof x.Path!=='string'||!x.Path||x.UserData?.Played!==true)throw new Error('Invalid watched identity');\n  return {Id:x.Id,Path:x.Path,ParentIndexNumber:x.ParentIndexNumber,IndexNumber:x.IndexNumber,IndexNumberEnd:x.IndexNumberEnd,\n   UserData:{Played:true,LastPlayedDate:x.UserData.LastPlayedDate}};\n });\n}\nif(typeof module!=='undefined')module.exports={queueRows,completionBatches,compactWatched};\n\nreturn [{json:{scanned:0,groups:[]}}];"
+        },
+        "position": [
+          810,
+          480
+        ]
       }
     ],
     "connections": {
@@ -15667,7 +16765,7 @@
         "main": [
           [
             {
-              "node": "One Retention Read",
+              "node": "Retention Has Requests?",
               "type": "main",
               "index": 0
             }
@@ -15796,6 +16894,24 @@
           [
             {
               "node": "Scan Summary",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Retention Has Requests?": {
+        "main": [
+          [
+            {
+              "node": "One Retention Read",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Empty Retention Summary",
               "type": "main",
               "index": 0
             }
@@ -18630,7 +19746,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "parameters": {
-          "jsCode": "const pages=$input.all().map(x=>x.json);if(pages.some(p=>!Array.isArray(p.Items)||!Number.isInteger(p.TotalRecordCount)))throw new Error('Incomplete played response');const items=pages.flatMap(p=>p.Items);if(pages[0].TotalRecordCount>items.length)throw new Error('Incomplete played pagination');return [{json:{Items:items}}];"
+          "jsCode": "// Read-only projections. No media policy, credentials or persistent runtime state.\nfunction queueRows(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.records)||!Number.isInteger(p.totalRecords)||p.totalRecords<0))throw new Error('Incomplete queue snapshot');\n const total=pages[0].totalRecords,rows=pages.flatMap(p=>p.records);\n if(pages.some(p=>p.totalRecords!==total)||rows.length<total)throw new Error('Incomplete queue snapshot');\n return rows;\n}\nfunction completionBatches(requests){\n const keys=[...new Set(requests.filter(r=>r.requestKey&&r.state==='registered'&&r.baselineCaptured===true&&r.userId!=='1'&&['discord','telegram'].includes(r.source)).map(r=>r.requestKey))];\n const batches=[];\n for(let i=0;i<keys.length;i+=200)batches.push({conditions:keys.slice(i,i+200).map(key=>({keyName:'requestKey',condition:'eq',keyValue:key}))});\n return batches;\n}\nfunction compactWatched(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.Items)||!Number.isInteger(p.TotalRecordCount)||p.TotalRecordCount<0))throw new Error('Incomplete watched snapshot');\n const total=pages[0].TotalRecordCount,items=pages.flatMap(p=>p.Items);\n if(pages.some(p=>p.TotalRecordCount!==total)||items.length<total)throw new Error('Incomplete watched snapshot');\n return items.map(x=>{\n  if(typeof x.Id!=='string'||!x.Id||typeof x.Path!=='string'||!x.Path||x.UserData?.Played!==true)throw new Error('Invalid watched identity');\n  return {Id:x.Id,Path:x.Path,ParentIndexNumber:x.ParentIndexNumber,IndexNumber:x.IndexNumber,IndexNumberEnd:x.IndexNumberEnd,\n   UserData:{Played:true,LastPlayedDate:x.UserData.LastPlayedDate}};\n });\n}\nif(typeof module!=='undefined')module.exports={queueRows,completionBatches,compactWatched};\n\nreturn [{json:{Items:compactWatched($input.all().map(x=>x.json))}}];"
         },
         "position": [
           540,
@@ -21082,7 +22198,23 @@
           "returnAll": true,
           "matchType": "allConditions",
           "filters": {
-            "conditions": []
+            "conditions": [
+              {
+                "keyName": "source",
+                "condition": "eq",
+                "keyValue": "={{ $('Status Input').first().json.source }}"
+              },
+              {
+                "keyName": "userId",
+                "condition": "eq",
+                "keyValue": "={{ $('Status Input').first().json.userId }}"
+              },
+              {
+                "keyName": "state",
+                "condition": "eq",
+                "keyValue": "registered"
+              }
+            ]
           },
           "options": {}
         },
@@ -21166,103 +22298,16 @@
         "alwaysOutputData": true
       },
       {
-        "id": "0a283d26-9571-50f3-acdc-004125dd10c6",
-        "name": "One Status Library Read",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "parameters": {
-          "jsCode": "return [{json:{}}];"
-        },
-        "position": [
-          1350,
-          0
-        ]
-      },
-      {
-        "id": "0edc9961-5026-5629-900c-5b62f1a468f4",
-        "name": "Read Status Library",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "parameters": {
-          "method": "GET",
-          "url": "http://192.168.1.10:8096/Items",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "Authorization",
-                "value": "__CONFIGURE_PRIVATE_CREDENTIAL__"
-              }
-            ]
-          },
-          "options": {
-            "timeout": 12000,
-            "pagination": {
-              "pagination": {
-                "paginationMode": "updateAParameterInEachRequest",
-                "parameters": {
-                  "parameters": [
-                    {
-                      "type": "qs",
-                      "name": "StartIndex",
-                      "value": "={{ $pageCount * 500 }}"
-                    }
-                  ]
-                },
-                "paginationCompleteWhen": "other",
-                "completeExpression": "={{ $response.body.Items.length < 500 }}",
-                "limitPagesFetched": true,
-                "maxRequests": 100
-              }
-            }
-          },
-          "sendQuery": true,
-          "queryParameters": {
-            "parameters": [
-              {
-                "name": "Recursive",
-                "value": "true"
-              },
-              {
-                "name": "IncludeItemTypes",
-                "value": "Movie,Episode"
-              },
-              {
-                "name": "Fields",
-                "value": "Path"
-              },
-              {
-                "name": "Limit",
-                "value": "500"
-              },
-              {
-                "name": "EnableImages",
-                "value": "false"
-              },
-              {
-                "name": "EnableUserData",
-                "value": "false"
-              }
-            ]
-          }
-        },
-        "position": [
-          1620,
-          0
-        ],
-        "alwaysOutputData": true
-      },
-      {
         "id": "632daae0-fa1f-5d2f-ac93-78994f4a5191",
         "name": "Status Groups",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "parameters": {
-          "jsCode": "const pages=$input.all().map(x=>x.json);if(pages.some(p=>!Array.isArray(p.Items)||!Number.isInteger(p.TotalRecordCount))||pages.reduce((n,p)=>n+p.Items.length,0)<pages[0].TotalRecordCount)throw new Error('Incomplete Jellyfin status');const library=pages.flatMap(p=>p.Items).map(x=>({Id:x.Id,Path:x.Path}));const records=$('Read Status Retention').all().map(x=>x.json);return $('Select Status Requests').first().json.selected.map(g=>({json:{...g,records,library}}));"
+          "jsCode": "const i=$input.first().json;return i.selected.map(g=>({json:{...g,records:i.records,queue:g.requests[0].mediaType==='movie'?i.movieQueue:i.tvQueue}}));"
         },
         "position": [
-          0,
-          250
+          1350,
+          0
         ]
       },
       {
@@ -21285,8 +22330,8 @@
           }
         },
         "position": [
-          270,
-          250
+          1620,
+          0
         ],
         "alwaysOutputData": true,
         "onError": "continueRegularOutput"
@@ -21300,8 +22345,8 @@
           "jsCode": "const groups=$('Inspect Status Groups').all().map(x=>x.json);const text=groups.map(x=>x.text||'Status temporarily unavailable for one title.').join('\\n\\n');const single=groups.length===1?groups[0]:{};const keys=new Set((single.requests||[]).map(x=>x.requestKey));const notices=$input.all().map(x=>x.json).filter(x=>keys.has(x.requestKey)&&x.state==='delivered').sort((a,b)=>b.id-a.id);return [{json:{version:1,status:'notice',text:text.slice(0,1740)+(text.length>1740?'\\nUse /status with a title for details.':''),posterUrl:single.posterUrl,jellyfinUrl:single.jellyfinUrl,localJellyfinUrl:single.localJellyfinUrl,noticeId:notices[0]?String(notices[0].id):undefined}}];"
         },
         "position": [
-          540,
-          250
+          0,
+          240
         ]
       },
       {
@@ -21313,8 +22358,8 @@
           "jsCode": "const result=(()=>{\nreturn [{json:{version:1,status:'notice',text:$('Select Status Requests').first().json.selected[0].notice}}];\n})();for(const item of result)item.json.text=($('Recovery Status Warning').first().json.warning+item.json.text).slice(0,1800);return result;"
         },
         "position": [
-          810,
-          250
+          270,
+          240
         ]
       },
       {
@@ -21338,8 +22383,8 @@
           "options": {}
         },
         "position": [
-          1080,
-          250
+          540,
+          240
         ],
         "alwaysOutputData": true
       },
@@ -21352,8 +22397,8 @@
           "jsCode": "const rows=$input.all().map(x=>x.json);const paused=rows.some(r=>r.key==='mode'&&r.owner==='preview');const recovered=rows.some(r=>r.key==='recovery');return [{json:{warning:paused&&recovered?'\u26a0\ufe0f Automatic deletion is paused after recovery from an interrupted operation. Requests remain available; cleanup needs review.\\n\\n':''}}];"
         },
         "position": [
-          1350,
-          250
+          810,
+          240
         ]
       },
       {
@@ -21378,10 +22423,233 @@
           "options": {}
         },
         "position": [
-          1620,
-          250
+          1080,
+          240
         ],
         "alwaysOutputData": true
+      },
+      {
+        "id": "efficiency-status-queue-context",
+        "name": "Status Queue Context",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "// Read-only projections. No media policy, credentials or persistent runtime state.\nfunction queueRows(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.records)||!Number.isInteger(p.totalRecords)||p.totalRecords<0))throw new Error('Incomplete queue snapshot');\n const total=pages[0].totalRecords,rows=pages.flatMap(p=>p.records);\n if(pages.some(p=>p.totalRecords!==total)||rows.length<total)throw new Error('Incomplete queue snapshot');\n return rows;\n}\nfunction completionBatches(requests){\n const keys=[...new Set(requests.filter(r=>r.requestKey&&r.state==='registered'&&r.baselineCaptured===true&&r.userId!=='1'&&['discord','telegram'].includes(r.source)).map(r=>r.requestKey))];\n const batches=[];\n for(let i=0;i<keys.length;i+=200)batches.push({conditions:keys.slice(i,i+200).map(key=>({keyName:'requestKey',condition:'eq',keyValue:key}))});\n return batches;\n}\nfunction compactWatched(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.Items)||!Number.isInteger(p.TotalRecordCount)||p.TotalRecordCount<0))throw new Error('Incomplete watched snapshot');\n const total=pages[0].TotalRecordCount,items=pages.flatMap(p=>p.Items);\n if(pages.some(p=>p.TotalRecordCount!==total)||items.length<total)throw new Error('Incomplete watched snapshot');\n return items.map(x=>{\n  if(typeof x.Id!=='string'||!x.Id||typeof x.Path!=='string'||!x.Path||x.UserData?.Played!==true)throw new Error('Invalid watched identity');\n  return {Id:x.Id,Path:x.Path,ParentIndexNumber:x.ParentIndexNumber,IndexNumber:x.IndexNumber,IndexNumberEnd:x.IndexNumberEnd,\n   UserData:{Played:true,LastPlayedDate:x.UserData.LastPlayedDate}};\n });\n}\nif(typeof module!=='undefined')module.exports={queueRows,completionBatches,compactWatched};\n\nreturn [{json:{selected:$('Select Status Requests').first().json.selected,records:$input.all().map(x=>x.json),movieQueue:[],tvQueue:[]}}];"
+        },
+        "position": [
+          1350,
+          240
+        ]
+      },
+      {
+        "id": "efficiency-status-needs-movie-queue",
+        "name": "Status Needs Movie Queue?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "efficiency-test",
+                "leftValue": "={{ $json.selected.some(g=>g.requests[0].mediaType==='movie') }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "position": [
+          1620,
+          240
+        ]
+      },
+      {
+        "id": "efficiency-read-shared-movie-queue",
+        "name": "Read Shared Movie Queue",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "parameters": {
+          "method": "GET",
+          "url": "http://192.168.1.10:7878/api/v3/queue",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Api-Key",
+                "value": "__CONFIGURE_PRIVATE_CREDENTIAL__"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 12000,
+            "pagination": {
+              "pagination": {
+                "paginationMode": "updateAParameterInEachRequest",
+                "parameters": {
+                  "parameters": [
+                    {
+                      "type": "qs",
+                      "name": "page",
+                      "value": "={{ $pageCount + 1 }}"
+                    }
+                  ]
+                },
+                "paginationCompleteWhen": "other",
+                "completeExpression": "={{ ($pageCount + 1) * 500 >= $response.body.totalRecords }}",
+                "limitPagesFetched": true,
+                "maxRequests": 20
+              }
+            }
+          },
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "pageSize",
+                "value": "500"
+              },
+              {
+                "name": "includeUnknownMovieItems",
+                "value": "false"
+              }
+            ]
+          }
+        },
+        "position": [
+          0,
+          480
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "efficiency-shared-movie-queue-snapshot",
+        "name": "Shared Movie Queue Snapshot",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "// Read-only projections. No media policy, credentials or persistent runtime state.\nfunction queueRows(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.records)||!Number.isInteger(p.totalRecords)||p.totalRecords<0))throw new Error('Incomplete queue snapshot');\n const total=pages[0].totalRecords,rows=pages.flatMap(p=>p.records);\n if(pages.some(p=>p.totalRecords!==total)||rows.length<total)throw new Error('Incomplete queue snapshot');\n return rows;\n}\nfunction completionBatches(requests){\n const keys=[...new Set(requests.filter(r=>r.requestKey&&r.state==='registered'&&r.baselineCaptured===true&&r.userId!=='1'&&['discord','telegram'].includes(r.source)).map(r=>r.requestKey))];\n const batches=[];\n for(let i=0;i<keys.length;i+=200)batches.push({conditions:keys.slice(i,i+200).map(key=>({keyName:'requestKey',condition:'eq',keyValue:key}))});\n return batches;\n}\nfunction compactWatched(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.Items)||!Number.isInteger(p.TotalRecordCount)||p.TotalRecordCount<0))throw new Error('Incomplete watched snapshot');\n const total=pages[0].TotalRecordCount,items=pages.flatMap(p=>p.Items);\n if(pages.some(p=>p.TotalRecordCount!==total)||items.length<total)throw new Error('Incomplete watched snapshot');\n return items.map(x=>{\n  if(typeof x.Id!=='string'||!x.Id||typeof x.Path!=='string'||!x.Path||x.UserData?.Played!==true)throw new Error('Invalid watched identity');\n  return {Id:x.Id,Path:x.Path,ParentIndexNumber:x.ParentIndexNumber,IndexNumber:x.IndexNumber,IndexNumberEnd:x.IndexNumberEnd,\n   UserData:{Played:true,LastPlayedDate:x.UserData.LastPlayedDate}};\n });\n}\nif(typeof module!=='undefined')module.exports={queueRows,completionBatches,compactWatched};\n\nconst i=$('Status Queue Context').first().json;const needed=i.selected.some(g=>g.requests[0].mediaType==='movie');return [{json:{...i,movieQueue:needed?queueRows($input.all().map(x=>x.json)):[]}}];"
+        },
+        "position": [
+          270,
+          480
+        ]
+      },
+      {
+        "id": "efficiency-status-needs-tv-queue",
+        "name": "Status Needs TV Queue?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "efficiency-test",
+                "leftValue": "={{ $json.selected.some(g=>g.requests[0].mediaType==='tv') }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "position": [
+          540,
+          480
+        ]
+      },
+      {
+        "id": "efficiency-read-shared-tv-queue",
+        "name": "Read Shared TV Queue",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "parameters": {
+          "method": "GET",
+          "url": "http://192.168.1.10:8989/api/v3/queue",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Api-Key",
+                "value": "__CONFIGURE_PRIVATE_CREDENTIAL__"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 12000,
+            "pagination": {
+              "pagination": {
+                "paginationMode": "updateAParameterInEachRequest",
+                "parameters": {
+                  "parameters": [
+                    {
+                      "type": "qs",
+                      "name": "page",
+                      "value": "={{ $pageCount + 1 }}"
+                    }
+                  ]
+                },
+                "paginationCompleteWhen": "other",
+                "completeExpression": "={{ ($pageCount + 1) * 500 >= $response.body.totalRecords }}",
+                "limitPagesFetched": true,
+                "maxRequests": 20
+              }
+            }
+          },
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "pageSize",
+                "value": "500"
+              },
+              {
+                "name": "includeUnknownSeriesItems",
+                "value": "false"
+              }
+            ]
+          }
+        },
+        "position": [
+          810,
+          480
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "efficiency-shared-tv-queue-snapshot",
+        "name": "Shared TV Queue Snapshot",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "// Read-only projections. No media policy, credentials or persistent runtime state.\nfunction queueRows(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.records)||!Number.isInteger(p.totalRecords)||p.totalRecords<0))throw new Error('Incomplete queue snapshot');\n const total=pages[0].totalRecords,rows=pages.flatMap(p=>p.records);\n if(pages.some(p=>p.totalRecords!==total)||rows.length<total)throw new Error('Incomplete queue snapshot');\n return rows;\n}\nfunction completionBatches(requests){\n const keys=[...new Set(requests.filter(r=>r.requestKey&&r.state==='registered'&&r.baselineCaptured===true&&r.userId!=='1'&&['discord','telegram'].includes(r.source)).map(r=>r.requestKey))];\n const batches=[];\n for(let i=0;i<keys.length;i+=200)batches.push({conditions:keys.slice(i,i+200).map(key=>({keyName:'requestKey',condition:'eq',keyValue:key}))});\n return batches;\n}\nfunction compactWatched(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.Items)||!Number.isInteger(p.TotalRecordCount)||p.TotalRecordCount<0))throw new Error('Incomplete watched snapshot');\n const total=pages[0].TotalRecordCount,items=pages.flatMap(p=>p.Items);\n if(pages.some(p=>p.TotalRecordCount!==total)||items.length<total)throw new Error('Incomplete watched snapshot');\n return items.map(x=>{\n  if(typeof x.Id!=='string'||!x.Id||typeof x.Path!=='string'||!x.Path||x.UserData?.Played!==true)throw new Error('Invalid watched identity');\n  return {Id:x.Id,Path:x.Path,ParentIndexNumber:x.ParentIndexNumber,IndexNumber:x.IndexNumber,IndexNumberEnd:x.IndexNumberEnd,\n   UserData:{Played:true,LastPlayedDate:x.UserData.LastPlayedDate}};\n });\n}\nif(typeof module!=='undefined')module.exports={queueRows,completionBatches,compactWatched};\n\nconst i=$('Shared Movie Queue Snapshot').first().json;const needed=i.selected.some(g=>g.requests[0].mediaType==='tv');return [{json:{...i,tvQueue:needed?queueRows($input.all().map(x=>x.json)):[]}}];"
+        },
+        "position": [
+          1080,
+          480
+        ]
       }
     ],
     "connections": {
@@ -21440,29 +22708,7 @@
         "main": [
           [
             {
-              "node": "One Status Library Read",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "One Status Library Read": {
-        "main": [
-          [
-            {
-              "node": "Read Status Library",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Read Status Library": {
-        "main": [
-          [
-            {
-              "node": "Status Groups",
+              "node": "Status Queue Context",
               "type": "main",
               "index": 0
             }
@@ -21518,6 +22764,97 @@
           [
             {
               "node": "Format Status Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Status Queue Context": {
+        "main": [
+          [
+            {
+              "node": "Status Needs Movie Queue?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Status Needs Movie Queue?": {
+        "main": [
+          [
+            {
+              "node": "Read Shared Movie Queue",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Shared Movie Queue Snapshot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Shared Movie Queue": {
+        "main": [
+          [
+            {
+              "node": "Shared Movie Queue Snapshot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Shared Movie Queue Snapshot": {
+        "main": [
+          [
+            {
+              "node": "Status Needs TV Queue?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Status Needs TV Queue?": {
+        "main": [
+          [
+            {
+              "node": "Read Shared TV Queue",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Shared TV Queue Snapshot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Shared TV Queue": {
+        "main": [
+          [
+            {
+              "node": "Shared TV Queue Snapshot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Shared TV Queue Snapshot": {
+        "main": [
+          [
+            {
+              "node": "Status Groups",
               "type": "main",
               "index": 0
             }
@@ -21745,7 +23082,7 @@
         },
         "position": [
           0,
-          250
+          240
         ]
       },
       {
@@ -21779,7 +23116,7 @@
         },
         "position": [
           270,
-          250
+          240
         ]
       },
       {
@@ -21836,7 +23173,7 @@
         },
         "position": [
           540,
-          250
+          240
         ],
         "alwaysOutputData": true
       },
@@ -21894,7 +23231,7 @@
         },
         "position": [
           810,
-          250
+          240
         ],
         "alwaysOutputData": true
       },
@@ -21904,11 +23241,142 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "parameters": {
-          "jsCode": "// Media presentation metadata derived from native application snapshots.\nconst LOCAL_JELLYFIN_BASE=\"http://192.168.1.10:8096\";\nfunction jellyfinLinks(item,remoteBase,localBase=''){\n if(!item?.Id)return {};\n const suffix='/web/index.html#!/details?id='+encodeURIComponent(item.Id);\n const result={jellyfinUrl:remoteBase+suffix};\n if(localBase&&localBase!==remoteBase)result.localJellyfinUrl=localBase+suffix;\n return result;\n}\nfunction progress(q){\n const total=Number(q.size),left=Number(q.sizeleft);let parts=[];\n if(Number.isFinite(total)&&total>0&&Number.isFinite(left)&&left>=0)parts.push(Math.round(Math.max(0,Math.min(1,(total-left)/total))*100)+'%');\n if(typeof q.timeleft==='string'&&/^[0-9:. ]{1,30}$/.test(q.timeleft))parts.push('ETA '+q.timeleft);\n const quality=q.quality?.quality?.name;if(typeof quality==='string')parts.push(quality.slice(0,100));\n return parts.join(' \u00b7 ');\n}\nfunction poster(media){return (media.images||[]).find(x=>x.coverType==='poster'&&typeof x.remoteUrl==='string'&&/^https:\\/\\/(image\\.tmdb\\.org|artworks\\.thetvdb\\.com)\\//.test(x.remoteUrl))?.remoteUrl;}\nfunction completion(c,records,item,media){\n const key=`file:${c.request.mediaType}:${c.request.mediaId}:${c.fileId}`;\n let v;try{v=JSON.parse(records.find(x=>x.key===key)?.payloadJson||'null');}catch{}\n let expiryText='Expiry check pending.';\n if(v&&v.state==='tracked'&&'/data'+v.path===c.jellyfinPath&&Date.parse(v.importedAt)===Date.parse(c.importedAt)&&Number.isFinite(Date.parse(v.checkedAt))){\n  if(v.identityProtected||!v.expiresAt||['protected claim','unclaimed','unclaimed episode in shared file'].includes(v.reason))expiryText='Protected / kept permanently; no automatic deletion.';\n  else if(Number.isFinite(Date.parse(v.expiresAt)))expiryText='Expiry: '+new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(v.expiresAt));\n  if(Date.now()-Date.parse(v.checkedAt)>30*60000)expiryText+=' (last retention check is stale; dates may change).';\n }\n return {posterUrl:poster(media),...jellyfinLinks(item,'http://100.100.100.100:8096',LOCAL_JELLYFIN_BASE),expiryText,quality:c.quality};\n}\nfunction feedback(r){\n if(r.status==='added')return '\u2705 Request accepted: '+r.title+'\\n'+(r.searchStarted?'\ud83d\udd0e Search started. Checking for an acceptable release; use /status for download updates.':'Search has not been confirmed; use /status for updates.');\n if(r.status==='already_added')return '\u2705 '+r.title+' is already registered. Use /status to see availability, download progress and expiry.';\n if(r.status==='notice'&&r.actionAccepted===true&&/\\bSearch started\\b/i.test(r.text||''))return '\u2705 Request accepted.\\n'+r.text+'\\nUse /status for download quality, progress and expiry.';\n return r.text;\n}\nfunction progressNotice(r,snapshot,notices,now){\n if(!r.requestKey||r.userId==='1'||!['discord','telegram'].includes(r.source)||!Number.isFinite(Date.parse(r.requestedAt)))return null;\n const own=notices.filter(n=>n.requestKey===r.requestKey);\n if(own.some(n=>!n.notificationKey.includes(':progress:')))return null;\n const text=String(snapshot.text||'');\n const downloading=snapshot.progressState==='downloading';\n const waiting=snapshot.progressState==='waiting'&&now-Date.parse(r.requestedAt)>=10*60000;\n if(!downloading&&!waiting)return null;\n const state=downloading?'downloading':'no-release',notificationKey=r.requestKey+':progress:'+state;\n if(own.some(n=>n.notificationKey===notificationKey))return null;\n const label=downloading?'\u2b07\ufe0f Download started.':'\ud83d\udd0e No acceptable release is downloading yet. Snake Media will continue looking.';\n const payload={text:(label+'\\n\\n'+text).slice(0,1800),userId:r.userId,messageId:r.messageId,retentionControls:false};\n return {notificationKey,requestKey:r.requestKey,fileKey:'progress:'+state,source:r.source,destinationId:r.destinationId,payloadJson:JSON.stringify(payload),state:'pending',attempts:0,nextAttemptAt:new Date(now).toISOString(),deliveredAt:null,deliveredMessageId:''};\n}\nfunction completionExists(c,notices){\n const key=c.request.requestKey+':'+(c.mediaType==='tv'?'tv-ready':c.fileKey);\n return notices.some(r=>r.notificationKey===key || (c.mediaType==='tv'&&r.requestKey===c.request.requestKey&&r.state==='delivered'&&!String(r.notificationKey).includes(':progress:')));\n}\nfunction scopedQueue(requests,episodes,queue,records=[]){\n const r=requests[0];\n if(r.mediaType==='movie')return queue.filter(q=>q.movieId===Number(r.mediaId));\n const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]')).map(String));\n const keys=new Set(requests.map(x=>'request:'+x.requestKey));\n for(const row of records){\n  if(!keys.has(row.key))continue;\n  const saved=JSON.parse(row.payloadJson);\n  for(const id of saved.episodeIds||[])ids.add(String(id));\n }\n const seasons=new Set(episodes.filter(e=>ids.has(String(e.id))&&Number.isSafeInteger(e.seasonNumber)&&e.seasonNumber>0).map(e=>e.seasonNumber));\n return queue.filter(q=>q.seriesId===Number(r.mediaId)&&(q.episodeId?ids.has(String(q.episodeId)):Number.isSafeInteger(q.seasonNumber)&&seasons.has(q.seasonNumber)));\n}\nif(typeof module!=='undefined')module.exports={progress,poster,completion,feedback,progressNotice,completionExists,scopedQueue,jellyfinLinks};\n\n// Read-only status projection. Never calculates or changes retention policy.\nfunction command(text){const m=typeof text==='string'&&text.trim().match(/^\\/?status(?:@[A-Za-z0-9_]+)?(?:\\s+(.*))?$/i);return m?(m[1]||'').trim().slice(0,200):null;}\nfunction select(rows,actor){\n if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\\d+$/.test(actor.userId))throw new Error('Invalid status actor');\n const query=String(actor.query||'').toLowerCase();const groups=new Map();\n for(const r of [...rows].sort((a,b)=>Date.parse(b.requestedAt)-Date.parse(a.requestedAt))){\n  if(r.source!==actor.source||r.userId!==actor.userId||r.userId==='1'||r.state!=='registered'||!r.requestKey||!['movie','tv'].includes(r.mediaType)||!/^\\d+$/.test(String(r.mediaId))||!String(r.title).toLowerCase().includes(query))continue;\n  const key=r.mediaType+':'+r.mediaId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);\n }\n const values=[...groups.values()];\n if(!values.length)return [{notice:query?'No requests of yours match that title.':'No requests found for your account on this platform.'}];\n if(query&&values.length>1)return [{notice:'Several matches. Use status with a more specific title:\\n'+values.slice(0,8).map(rs=>'\u2022 '+rs[0].title.slice(0,100)).join('\\n')}];\n return values.slice(0,3).map(requests=>({requests}));\n}\nfunction dateLabel(stamp){return new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(stamp));}\nfunction describe({requests,records,media,episodes,queue,library,now}){\n const r=requests[0],title=String(r.title).replace(/[\\r\\n]/g,' ').slice(0,100),header=(r.mediaType==='movie'?'\ud83c\udfac ':'\ud83d\udcfa ')+title;\n if(!media||media.id!==Number(r.mediaId))return header+'\\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');\n const saved=new Map(records.filter(x=>x.key).map(x=>[x.key,JSON.parse(x.payloadJson)]));\n const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]').map(String)));\n for(const request of requests){const profile=saved.get('request:'+request.requestKey);if(profile)for(const id of profile.episodeIds||[])ids.add(String(id));}\n const items=r.mediaType==='movie'?[{id:r.mediaId,file:media.movieFile,release:media.digitalRelease||media.physicalRelease||media.inCinemas}]:episodes.filter(e=>ids.has(String(e.id))).map(e=>({...e,file:e.episodeFile,release:e.airDateUtc}));\n const paths=new Set(library.filter(x=>x.Id&&x.Path).map(x=>x.Path));\n const counts={available:0,imported:0,downloading:0,queued:0,unreleased:0,waiting:0,removed:0};const files=new Map();\n for(const item of items){\n  if(item.file?.id){files.set(item.file.id,item.file);counts[paths.has('/data'+item.file.path)?'available':'imported']++;continue;}\n  const q=queue.find(q=>r.mediaType==='movie'?q.movieId===Number(r.mediaId):q.seriesId===Number(r.mediaId)&&(q.episodeId===item.id||(!q.episodeId&&q.seasonNumber===item.seasonNumber)));\n  if(q){counts[String(q.status).toLowerCase()==='downloading'?'downloading':'queued']++;continue;}\n  const deleted=r.mediaType==='tv'&&[...saved.entries()].some(([key,v])=>key.startsWith('file:tv:'+r.mediaId+':')&&v.state==='deleted'&&(v.episodeIds||[]).includes(String(item.id)));\n  counts[deleted?'removed':Date.parse(item.release)>now?'unreleased':'waiting']++;\n }\n let status;\n if(r.mediaType==='movie')status=counts.available?'\u2705 Available in Jellyfin':counts.imported?'\ud83d\udce5 Imported; waiting for Jellyfin':counts.downloading?'\u2b07\ufe0f Downloading':counts.queued?'\u23f3 In download queue / awaiting import':counts.unreleased?'\ud83d\udcc5 Awaiting release':'\ud83d\udd0e Waiting for a release';\n else {const labels={available:'available in Jellyfin',imported:'imported; waiting for Jellyfin',downloading:'downloading',queued:'queued / awaiting import',unreleased:'awaiting release',waiting:'waiting for a release',removed:'previously expired'};status=Object.entries(counts).filter(([,v])=>v).map(([k,v])=>v+' '+labels[k]).join(' \u00b7 ')||'Episode metadata pending';}\n let protectedCount=0,pending=0,earliest=null,oldest=Infinity,deferred=0;\n for(const file of files.values()){\n  const v=saved.get(`file:${r.mediaType}:${r.mediaId}:${file.id}`);\n  if(!v||v.state!=='tracked'||v.path!==file.path||Date.parse(v.importedAt)!==Date.parse(file.dateAdded)||!Number.isFinite(Date.parse(v.checkedAt))){pending++;continue;}\n  oldest=Math.min(oldest,Date.parse(v.checkedAt));\n  if(v.identityProtected||!v.expiresAt||v.reason==='protected claim'||v.reason==='unclaimed'||v.reason==='unclaimed episode in shared file'){protectedCount++;continue;}\n  if(!Number.isFinite(Date.parse(v.expiresAt))){pending++;continue;}\n  earliest=Math.min(earliest??Infinity,Date.parse(v.expiresAt));\n  if(v.reason==='currently playing or unresolved active session')deferred++;\n }\n const lines=[header,status];\n if(earliest!==null)lines.push((r.mediaType==='tv'?'Next episode expiry: ':'Expiry: ')+dateLabel(earliest)+(earliest<=now?' (due; cleanup pending)':''));\n if(protectedCount)lines.push(protectedCount+' protected '+(protectedCount===1?'file':'files')+' \u2014 no automatic deletion.');\n if(pending)lines.push('Expiry check pending for '+pending+' '+(pending===1?'file.':'files.'));\n if(!files.size){const days=[...new Set(requests.map(x=>[...saved.entries()].some(([k,e])=>k.startsWith('change:')&&e.version===1&&e.operation==='permanent'&&e.mediaType===r.mediaType&&e.mediaId===String(r.mediaId)&&e.requestKeys?.includes(x.requestKey))?null:x.retentionDays))];lines.push(days.includes(null)?'Permanent/protected request.':days.length===1?`Expiry starts after import (${days[0]} days${r.mediaType==='tv'?' per episode':''}).`:'Expiry starts after import; multiple retention choices apply.');}\n if(Number.isFinite(oldest))lines.push('Retention checked '+dateLabel(oldest)+(now-oldest>30*60000?' \u2014 stale; dates may change.':'.'));\n if(deferred)lines.push('Cleanup deferred for active playback.');\n if(r.mediaType==='tv'&&requests.some(x=>saved.has('request:'+x.requestKey)))lines.push('Future regular seasons monitored.');\n return lines.join('\\n');\n}\nif(typeof module!=='undefined')module.exports={command,select,describe};\n\n\nconst pages=$input.all().map(x=>x.json);if(pages.some(p=>!Array.isArray(p.records)||!Number.isInteger(p.totalRecords))||pages.reduce((n,p)=>n+p.records.length,0)<pages[0].totalRecords)throw new Error('Incomplete queue status');const i=$('Inspect Status Input').first().json;const media=$('Status Media Snapshot').first().json.media;const scope=new Set(i.requests.flatMap(r=>JSON.parse(r.episodeIdsJson||'[]')).map(String));const qs=scopedQueue(i.requests,(i.requests[0].mediaType==='tv'?$('Status Episode Snapshot').first().json.episodes:[]),pages.flatMap(p=>p.records),i.records);const details=qs.slice(0,5).map(q=>progress(q)).filter(Boolean);let result=describe({...i,media:$('Status Media Snapshot').first().json.media,episodes:(i.requests[0].mediaType==='tv'?$('Status Episode Snapshot').first().json.episodes:[]),queue:pages.flatMap(p=>p.records),now:Date.now()});if(details.length)result+='\\n\u2b07\ufe0f '+details.join('\\n');if(result.includes('Waiting for a release')||result.includes('waiting for a release'))result+='\\nNo acceptable release is downloading yet.';const paths=new Set(i.requests[0].mediaType==='movie'?(media?.movieFile?.path?['/data'+media.movieFile.path]:[]):(i.requests[0].mediaType==='tv'?$('Status Episode Snapshot').first().json.episodes:[]).filter(e=>scope.has(String(e.id))).map(e=>'/data'+e.episodeFile?.path));const item=i.library.find(x=>x.Id&&paths.has(x.Path));return [{json:{text:result,progressState:qs.some(q=>String(q.status).toLowerCase()==='downloading')?'downloading':/waiting for a release/i.test(result)?'waiting':null,posterUrl:poster(media||{}),...jellyfinLinks(item,'http://100.100.100.100:8096',LOCAL_JELLYFIN_BASE),requests:i.requests}}];\n"
+          "jsCode": "// Media presentation metadata derived from native application snapshots.\nconst LOCAL_JELLYFIN_BASE=\"http://192.168.1.10:8096\";\nfunction jellyfinLinks(item,remoteBase,localBase=''){\n if(!item?.Id)return {};\n const suffix='/web/index.html#!/details?id='+encodeURIComponent(item.Id);\n const result={jellyfinUrl:remoteBase+suffix};\n if(localBase&&localBase!==remoteBase)result.localJellyfinUrl=localBase+suffix;\n return result;\n}\nfunction progress(q){\n const total=Number(q.size),left=Number(q.sizeleft);let parts=[];\n if(Number.isFinite(total)&&total>0&&Number.isFinite(left)&&left>=0)parts.push(Math.round(Math.max(0,Math.min(1,(total-left)/total))*100)+'%');\n if(typeof q.timeleft==='string'&&/^[0-9:. ]{1,30}$/.test(q.timeleft))parts.push('ETA '+q.timeleft);\n const quality=q.quality?.quality?.name;if(typeof quality==='string')parts.push(quality.slice(0,100));\n return parts.join(' \u00b7 ');\n}\nfunction poster(media){return (media.images||[]).find(x=>x.coverType==='poster'&&typeof x.remoteUrl==='string'&&/^https:\\/\\/(image\\.tmdb\\.org|artworks\\.thetvdb\\.com)\\//.test(x.remoteUrl))?.remoteUrl;}\nfunction completion(c,records,item,media){\n const key=`file:${c.request.mediaType}:${c.request.mediaId}:${c.fileId}`;\n let v;try{v=JSON.parse(records.find(x=>x.key===key)?.payloadJson||'null');}catch{}\n let expiryText='Expiry check pending.';\n if(v&&v.state==='tracked'&&'/data'+v.path===c.jellyfinPath&&Date.parse(v.importedAt)===Date.parse(c.importedAt)&&Number.isFinite(Date.parse(v.checkedAt))){\n  if(v.identityProtected||!v.expiresAt||['protected claim','unclaimed','unclaimed episode in shared file'].includes(v.reason))expiryText='Protected / kept permanently; no automatic deletion.';\n  else if(Number.isFinite(Date.parse(v.expiresAt)))expiryText='Expiry: '+new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(v.expiresAt));\n  if(Date.now()-Date.parse(v.checkedAt)>30*60000)expiryText+=' (last retention check is stale; dates may change).';\n }\n return {posterUrl:poster(media),...jellyfinLinks(item,'http://100.100.100.100:8096',LOCAL_JELLYFIN_BASE),expiryText,quality:c.quality};\n}\nfunction feedback(r){\n if(r.status==='added')return '\u2705 Request accepted: '+r.title+'\\n'+(r.searchStarted?'\ud83d\udd0e Search started. Checking for an acceptable release; use /status for download updates.':'Search has not been confirmed; use /status for updates.');\n if(r.status==='already_added')return '\u2705 '+r.title+' is already registered. Use /status to see availability, download progress and expiry.';\n if(r.status==='notice'&&r.actionAccepted===true&&/\\bSearch started\\b/i.test(r.text||''))return '\u2705 Request accepted.\\n'+r.text+'\\nUse /status for download quality, progress and expiry.';\n return r.text;\n}\nfunction progressNotice(r,snapshot,notices,now){\n if(!r.requestKey||r.userId==='1'||!['discord','telegram'].includes(r.source)||!Number.isFinite(Date.parse(r.requestedAt)))return null;\n const own=notices.filter(n=>n.requestKey===r.requestKey);\n if(own.some(n=>!n.notificationKey.includes(':progress:')))return null;\n const text=String(snapshot.text||'');\n const downloading=snapshot.progressState==='downloading';\n const waiting=snapshot.progressState==='waiting'&&now-Date.parse(r.requestedAt)>=10*60000;\n if(!downloading&&!waiting)return null;\n const state=downloading?'downloading':'no-release',notificationKey=r.requestKey+':progress:'+state;\n if(own.some(n=>n.notificationKey===notificationKey))return null;\n const label=downloading?'\u2b07\ufe0f Download started.':'\ud83d\udd0e No acceptable release is downloading yet. Snake Media will continue looking.';\n const payload={text:(label+'\\n\\n'+text).slice(0,1800),userId:r.userId,messageId:r.messageId,retentionControls:false};\n return {notificationKey,requestKey:r.requestKey,fileKey:'progress:'+state,source:r.source,destinationId:r.destinationId,payloadJson:JSON.stringify(payload),state:'pending',attempts:0,nextAttemptAt:new Date(now).toISOString(),deliveredAt:null,deliveredMessageId:''};\n}\nfunction completionExists(c,notices){\n const key=c.request.requestKey+':'+(c.mediaType==='tv'?'tv-ready':c.fileKey);\n return notices.some(r=>r.notificationKey===key || (c.mediaType==='tv'&&r.requestKey===c.request.requestKey&&r.state==='delivered'&&!String(r.notificationKey).includes(':progress:')));\n}\nfunction scopedQueue(requests,episodes,queue,records=[]){\n const r=requests[0];\n if(r.mediaType==='movie')return queue.filter(q=>q.movieId===Number(r.mediaId));\n const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]')).map(String));\n const keys=new Set(requests.map(x=>'request:'+x.requestKey));\n for(const row of records){\n  if(!keys.has(row.key))continue;\n  const saved=JSON.parse(row.payloadJson);\n  for(const id of saved.episodeIds||[])ids.add(String(id));\n }\n const seasons=new Set(episodes.filter(e=>ids.has(String(e.id))&&Number.isSafeInteger(e.seasonNumber)&&e.seasonNumber>0).map(e=>e.seasonNumber));\n return queue.filter(q=>q.seriesId===Number(r.mediaId)&&(q.episodeId?ids.has(String(q.episodeId)):Number.isSafeInteger(q.seasonNumber)&&seasons.has(q.seasonNumber)));\n}\nif(typeof module!=='undefined')module.exports={progress,poster,completion,feedback,progressNotice,completionExists,scopedQueue,jellyfinLinks};\n\n// Read-only status projection. Never calculates or changes retention policy.\nfunction command(text){const m=typeof text==='string'&&text.trim().match(/^\\/?status(?:@[A-Za-z0-9_]+)?(?:\\s+(.*))?$/i);return m?(m[1]||'').trim().slice(0,200):null;}\nfunction select(rows,actor){\n if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\\d+$/.test(actor.userId))throw new Error('Invalid status actor');\n const query=String(actor.query||'').toLowerCase();const groups=new Map();\n for(const r of [...rows].sort((a,b)=>Date.parse(b.requestedAt)-Date.parse(a.requestedAt))){\n  if(r.source!==actor.source||r.userId!==actor.userId||r.userId==='1'||r.state!=='registered'||!r.requestKey||!['movie','tv'].includes(r.mediaType)||!/^\\d+$/.test(String(r.mediaId))||!String(r.title).toLowerCase().includes(query))continue;\n  const key=r.mediaType+':'+r.mediaId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);\n }\n const values=[...groups.values()];\n if(!values.length)return [{notice:query?'No requests of yours match that title.':'No requests found for your account on this platform.'}];\n if(query&&values.length>1)return [{notice:'Several matches. Use status with a more specific title:\\n'+values.slice(0,8).map(rs=>'\u2022 '+rs[0].title.slice(0,100)).join('\\n')}];\n return values.slice(0,3).map(requests=>({requests}));\n}\nfunction dateLabel(stamp){return new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(stamp));}\nfunction describe({requests,records,media,episodes,queue,library,now}){\n const r=requests[0],title=String(r.title).replace(/[\\r\\n]/g,' ').slice(0,100),header=(r.mediaType==='movie'?'\ud83c\udfac ':'\ud83d\udcfa ')+title;\n if(!media||media.id!==Number(r.mediaId))return header+'\\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');\n const saved=new Map(records.filter(x=>x.key).map(x=>[x.key,JSON.parse(x.payloadJson)]));\n const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]').map(String)));\n for(const request of requests){const profile=saved.get('request:'+request.requestKey);if(profile)for(const id of profile.episodeIds||[])ids.add(String(id));}\n const items=r.mediaType==='movie'?[{id:r.mediaId,file:media.movieFile,release:media.digitalRelease||media.physicalRelease||media.inCinemas}]:episodes.filter(e=>ids.has(String(e.id))).map(e=>({...e,file:e.episodeFile,release:e.airDateUtc}));\n const paths=new Set(library.filter(x=>x.Id&&x.Path).map(x=>x.Path));\n const counts={available:0,imported:0,downloading:0,queued:0,unreleased:0,waiting:0,removed:0};const files=new Map();\n for(const item of items){\n  if(item.file?.id){files.set(item.file.id,item.file);counts[paths.has('/data'+item.file.path)?'available':'imported']++;continue;}\n  const q=queue.find(q=>r.mediaType==='movie'?q.movieId===Number(r.mediaId):q.seriesId===Number(r.mediaId)&&(q.episodeId===item.id||(!q.episodeId&&q.seasonNumber===item.seasonNumber)));\n  if(q){counts[String(q.status).toLowerCase()==='downloading'?'downloading':'queued']++;continue;}\n  const deleted=r.mediaType==='tv'&&[...saved.entries()].some(([key,v])=>key.startsWith('file:tv:'+r.mediaId+':')&&v.state==='deleted'&&(v.episodeIds||[]).includes(String(item.id)));\n  counts[deleted?'removed':Date.parse(item.release)>now?'unreleased':'waiting']++;\n }\n let status;\n if(r.mediaType==='movie')status=counts.available?'\u2705 Available in Jellyfin':counts.imported?'\ud83d\udce5 Imported; waiting for Jellyfin':counts.downloading?'\u2b07\ufe0f Downloading':counts.queued?'\u23f3 In download queue / awaiting import':counts.unreleased?'\ud83d\udcc5 Awaiting release':'\ud83d\udd0e Waiting for a release';\n else {const labels={available:'available in Jellyfin',imported:'imported; waiting for Jellyfin',downloading:'downloading',queued:'queued / awaiting import',unreleased:'awaiting release',waiting:'waiting for a release',removed:'previously expired'};status=Object.entries(counts).filter(([,v])=>v).map(([k,v])=>v+' '+labels[k]).join(' \u00b7 ')||'Episode metadata pending';}\n let protectedCount=0,pending=0,earliest=null,oldest=Infinity,deferred=0;\n for(const file of files.values()){\n  const v=saved.get(`file:${r.mediaType}:${r.mediaId}:${file.id}`);\n  if(!v||v.state!=='tracked'||v.path!==file.path||Date.parse(v.importedAt)!==Date.parse(file.dateAdded)||!Number.isFinite(Date.parse(v.checkedAt))){pending++;continue;}\n  oldest=Math.min(oldest,Date.parse(v.checkedAt));\n  if(v.identityProtected||!v.expiresAt||v.reason==='protected claim'||v.reason==='unclaimed'||v.reason==='unclaimed episode in shared file'){protectedCount++;continue;}\n  if(!Number.isFinite(Date.parse(v.expiresAt))){pending++;continue;}\n  earliest=Math.min(earliest??Infinity,Date.parse(v.expiresAt));\n  if(v.reason==='currently playing or unresolved active session')deferred++;\n }\n const lines=[header,status];\n if(earliest!==null)lines.push((r.mediaType==='tv'?'Next episode expiry: ':'Expiry: ')+dateLabel(earliest)+(earliest<=now?' (due; cleanup pending)':''));\n if(protectedCount)lines.push(protectedCount+' protected '+(protectedCount===1?'file':'files')+' \u2014 no automatic deletion.');\n if(pending)lines.push('Expiry check pending for '+pending+' '+(pending===1?'file.':'files.'));\n if(!files.size){const days=[...new Set(requests.map(x=>[...saved.entries()].some(([k,e])=>k.startsWith('change:')&&e.version===1&&e.operation==='permanent'&&e.mediaType===r.mediaType&&e.mediaId===String(r.mediaId)&&e.requestKeys?.includes(x.requestKey))?null:x.retentionDays))];lines.push(days.includes(null)?'Permanent/protected request.':days.length===1?`Expiry starts after import (${days[0]} days${r.mediaType==='tv'?' per episode':''}).`:'Expiry starts after import; multiple retention choices apply.');}\n if(Number.isFinite(oldest))lines.push('Retention checked '+dateLabel(oldest)+(now-oldest>30*60000?' \u2014 stale; dates may change.':'.'));\n if(deferred)lines.push('Cleanup deferred for active playback.');\n if(r.mediaType==='tv'&&requests.some(x=>saved.has('request:'+x.requestKey)))lines.push('Future regular seasons monitored.');\n return lines.join('\\n');\n}\nif(typeof module!=='undefined')module.exports={command,select,describe};\n\n\nconst pages=$input.all().map(x=>x.json);if(pages.some(p=>!Array.isArray(p.records)||!Number.isInteger(p.totalRecords))||pages.reduce((n,p)=>n+p.records.length,0)<pages[0].totalRecords)throw new Error('Incomplete queue status');const i={...$('Inspect Status Input').first().json,library:$('Status Target Snapshot').first().json.jellyfinLibrary};const media=$('Status Media Snapshot').first().json.media;const scope=new Set(i.requests.flatMap(r=>JSON.parse(r.episodeIdsJson||'[]')).map(String));const qs=scopedQueue(i.requests,(i.requests[0].mediaType==='tv'?$('Status Episode Snapshot').first().json.episodes:[]),pages.flatMap(p=>p.records),i.records);const details=qs.slice(0,5).map(q=>progress(q)).filter(Boolean);let result=describe({...i,media:$('Status Media Snapshot').first().json.media,episodes:(i.requests[0].mediaType==='tv'?$('Status Episode Snapshot').first().json.episodes:[]),queue:pages.flatMap(p=>p.records),now:Date.now()});if(details.length)result+='\\n\u2b07\ufe0f '+details.join('\\n');if(result.includes('Waiting for a release')||result.includes('waiting for a release'))result+='\\nNo acceptable release is downloading yet.';const paths=new Set(i.requests[0].mediaType==='movie'?(media?.movieFile?.path?['/data'+media.movieFile.path]:[]):(i.requests[0].mediaType==='tv'?$('Status Episode Snapshot').first().json.episodes:[]).filter(e=>scope.has(String(e.id))).map(e=>'/data'+e.episodeFile?.path));const item=i.library.find(x=>x.Id&&paths.has(x.Path));return [{json:{text:result,progressState:qs.some(q=>String(q.status).toLowerCase()==='downloading')?'downloading':/waiting for a release/i.test(result)?'waiting':null,posterUrl:poster(media||{}),...jellyfinLinks(item,'http://100.100.100.100:8096',LOCAL_JELLYFIN_BASE),requests:i.requests}}];\n"
         },
         "position": [
           1080,
-          250
+          240
+        ]
+      },
+      {
+        "id": "efficiency-prepare-status-target",
+        "name": "Prepare Status Target",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "// Read-only projections. No media policy, credentials or persistent runtime state.\nfunction queueRows(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.records)||!Number.isInteger(p.totalRecords)||p.totalRecords<0))throw new Error('Incomplete queue snapshot');\n const total=pages[0].totalRecords,rows=pages.flatMap(p=>p.records);\n if(pages.some(p=>p.totalRecords!==total)||rows.length<total)throw new Error('Incomplete queue snapshot');\n return rows;\n}\nfunction completionBatches(requests){\n const keys=[...new Set(requests.filter(r=>r.requestKey&&r.state==='registered'&&r.baselineCaptured===true&&r.userId!=='1'&&['discord','telegram'].includes(r.source)).map(r=>r.requestKey))];\n const batches=[];\n for(let i=0;i<keys.length;i+=200)batches.push({conditions:keys.slice(i,i+200).map(key=>({keyName:'requestKey',condition:'eq',keyValue:key}))});\n return batches;\n}\nfunction compactWatched(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.Items)||!Number.isInteger(p.TotalRecordCount)||p.TotalRecordCount<0))throw new Error('Incomplete watched snapshot');\n const total=pages[0].TotalRecordCount,items=pages.flatMap(p=>p.Items);\n if(pages.some(p=>p.TotalRecordCount!==total)||items.length<total)throw new Error('Incomplete watched snapshot');\n return items.map(x=>{\n  if(typeof x.Id!=='string'||!x.Id||typeof x.Path!=='string'||!x.Path||x.UserData?.Played!==true)throw new Error('Invalid watched identity');\n  return {Id:x.Id,Path:x.Path,ParentIndexNumber:x.ParentIndexNumber,IndexNumber:x.IndexNumber,IndexNumberEnd:x.IndexNumberEnd,\n   UserData:{Played:true,LastPlayedDate:x.UserData.LastPlayedDate}};\n });\n}\nif(typeof module!=='undefined')module.exports={queueRows,completionBatches,compactWatched};\n\nconst r=$('Inspect Status Input').first().json.requests[0],media=$('Status Media Snapshot').first().json.media;return [{json:media?{mediaType:r.mediaType,title:media.title,mediaPath:media.path}:{gone:true}}];"
+        },
+        "position": [
+          1350,
+          240
+        ]
+      },
+      {
+        "id": "efficiency-status-media-indexed",
+        "name": "Status Media Indexed?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "efficiency-test",
+                "leftValue": "={{ !$json.gone }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "position": [
+          1620,
+          240
+        ]
+      },
+      {
+        "id": "efficiency-read-status-target",
+        "name": "Read Status Target",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "snakeTargetLibraryV1"
+          },
+          "workflowInputs": {
+            "mappingMode": "passThrough"
+          },
+          "mode": "once",
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        },
+        "position": [
+          0,
+          480
+        ]
+      },
+      {
+        "id": "efficiency-status-target-snapshot",
+        "name": "Status Target Snapshot",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "// Read-only projections. No media policy, credentials or persistent runtime state.\nfunction queueRows(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.records)||!Number.isInteger(p.totalRecords)||p.totalRecords<0))throw new Error('Incomplete queue snapshot');\n const total=pages[0].totalRecords,rows=pages.flatMap(p=>p.records);\n if(pages.some(p=>p.totalRecords!==total)||rows.length<total)throw new Error('Incomplete queue snapshot');\n return rows;\n}\nfunction completionBatches(requests){\n const keys=[...new Set(requests.filter(r=>r.requestKey&&r.state==='registered'&&r.baselineCaptured===true&&r.userId!=='1'&&['discord','telegram'].includes(r.source)).map(r=>r.requestKey))];\n const batches=[];\n for(let i=0;i<keys.length;i+=200)batches.push({conditions:keys.slice(i,i+200).map(key=>({keyName:'requestKey',condition:'eq',keyValue:key}))});\n return batches;\n}\nfunction compactWatched(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.Items)||!Number.isInteger(p.TotalRecordCount)||p.TotalRecordCount<0))throw new Error('Incomplete watched snapshot');\n const total=pages[0].TotalRecordCount,items=pages.flatMap(p=>p.Items);\n if(pages.some(p=>p.TotalRecordCount!==total)||items.length<total)throw new Error('Incomplete watched snapshot');\n return items.map(x=>{\n  if(typeof x.Id!=='string'||!x.Id||typeof x.Path!=='string'||!x.Path||x.UserData?.Played!==true)throw new Error('Invalid watched identity');\n  return {Id:x.Id,Path:x.Path,ParentIndexNumber:x.ParentIndexNumber,IndexNumber:x.IndexNumber,IndexNumberEnd:x.IndexNumberEnd,\n   UserData:{Played:true,LastPlayedDate:x.UserData.LastPlayedDate}};\n });\n}\nif(typeof module!=='undefined')module.exports={queueRows,completionBatches,compactWatched};\n\nreturn [{json:{jellyfinLibrary:$json.gone?[]:$json.jellyfinLibrary}}];"
+        },
+        "position": [
+          270,
+          480
+        ]
+      },
+      {
+        "id": "efficiency-status-queue-supplied",
+        "name": "Status Queue Supplied?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "efficiency-test",
+                "leftValue": "={{ Array.isArray($('Inspect Status Input').first().json.queue) }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "position": [
+          540,
+          480
+        ]
+      },
+      {
+        "id": "efficiency-use-shared-status-queue",
+        "name": "Use Shared Status Queue",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "// Read-only projections. No media policy, credentials or persistent runtime state.\nfunction queueRows(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.records)||!Number.isInteger(p.totalRecords)||p.totalRecords<0))throw new Error('Incomplete queue snapshot');\n const total=pages[0].totalRecords,rows=pages.flatMap(p=>p.records);\n if(pages.some(p=>p.totalRecords!==total)||rows.length<total)throw new Error('Incomplete queue snapshot');\n return rows;\n}\nfunction completionBatches(requests){\n const keys=[...new Set(requests.filter(r=>r.requestKey&&r.state==='registered'&&r.baselineCaptured===true&&r.userId!=='1'&&['discord','telegram'].includes(r.source)).map(r=>r.requestKey))];\n const batches=[];\n for(let i=0;i<keys.length;i+=200)batches.push({conditions:keys.slice(i,i+200).map(key=>({keyName:'requestKey',condition:'eq',keyValue:key}))});\n return batches;\n}\nfunction compactWatched(pages){\n if(!Array.isArray(pages)||!pages.length||pages.some(p=>!Array.isArray(p?.Items)||!Number.isInteger(p.TotalRecordCount)||p.TotalRecordCount<0))throw new Error('Incomplete watched snapshot');\n const total=pages[0].TotalRecordCount,items=pages.flatMap(p=>p.Items);\n if(pages.some(p=>p.TotalRecordCount!==total)||items.length<total)throw new Error('Incomplete watched snapshot');\n return items.map(x=>{\n  if(typeof x.Id!=='string'||!x.Id||typeof x.Path!=='string'||!x.Path||x.UserData?.Played!==true)throw new Error('Invalid watched identity');\n  return {Id:x.Id,Path:x.Path,ParentIndexNumber:x.ParentIndexNumber,IndexNumber:x.IndexNumber,IndexNumberEnd:x.IndexNumberEnd,\n   UserData:{Played:true,LastPlayedDate:x.UserData.LastPlayedDate}};\n });\n}\nif(typeof module!=='undefined')module.exports={queueRows,completionBatches,compactWatched};\n\nconst queue=$('Inspect Status Input').first().json.queue;return [{json:{records:queue,totalRecords:queue.length}}];"
+        },
+        "position": [
+          810,
+          480
         ]
       }
     ],
@@ -21997,7 +23465,7 @@
         "main": [
           [
             {
-              "node": "Status Movie Queue?",
+              "node": "Prepare Status Target",
               "type": "main",
               "index": 0
             }
@@ -22045,6 +23513,86 @@
         ]
       },
       "Read Status TV Queue": {
+        "main": [
+          [
+            {
+              "node": "Describe Status",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Status Target": {
+        "main": [
+          [
+            {
+              "node": "Status Media Indexed?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Status Media Indexed?": {
+        "main": [
+          [
+            {
+              "node": "Read Status Target",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Status Target Snapshot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Status Target": {
+        "main": [
+          [
+            {
+              "node": "Status Target Snapshot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Status Target Snapshot": {
+        "main": [
+          [
+            {
+              "node": "Status Queue Supplied?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Status Queue Supplied?": {
+        "main": [
+          [
+            {
+              "node": "Use Shared Status Queue",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Status Movie Queue?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Use Shared Status Queue": {
         "main": [
           [
             {

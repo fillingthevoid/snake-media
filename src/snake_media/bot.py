@@ -22,6 +22,7 @@ class SnakeMediaClient(discord.Client):
                          allowed_mentions=discord.AllowedMentions.none())
         self.service = service
         self.notification_task = None
+        self.notification_worker = None
         self.notification_transport = notification_transport
         self.notification_journal = notification_journal
         self.tree = app_commands.CommandTree(self)
@@ -81,6 +82,7 @@ class SnakeMediaClient(discord.Client):
                 is_bot=False, message_id=str(card.id),
                 requested_at=discord.utils.snowflake_time(card.id).isoformat(timespec='milliseconds').replace('+00:00', 'Z'))
             reply = await self.service.handle(incoming, str(self.user.id))
+            self.wake_notifications()
             options = presentation(reply or '⚠️ This request could not be prepared.')
             options.setdefault('view', None)
             await card.edit(**options)
@@ -142,7 +144,12 @@ class SnakeMediaClient(discord.Client):
             worker = NotificationDelivery(self.notification_transport, self.send_notification,
                 self.service.allowed_users, self.service.config.allowed_channel_ids,
                 journal=self.notification_journal)
+            self.notification_worker = worker
             self.notification_task = asyncio.create_task(worker.run(self))
+
+    def wake_notifications(self):
+        if self.notification_worker is not None:
+            self.notification_worker.wake()
 
     async def send_notification(self, channel_id, message_id, text, notice_id=None,
                                 poster_url=None, jellyfin_url=None, local_jellyfin_url=None, nonce=None):
@@ -190,6 +197,8 @@ class SnakeMediaClient(discord.Client):
             reply = await self.service.handle_action(str(interaction.user.id),
                 str(interaction.channel_id), str(interaction.guild_id) if interaction.guild_id else None,
                 match[1], match[2])
+            if getattr(reply, 'action_accepted', False):
+                self.wake_notifications()
             if (getattr(reply, 'action_accepted', False) or getattr(reply, 'clear_controls', False)) and interaction.message:
                 try:
                     await interaction.message.edit(
@@ -219,6 +228,9 @@ class SnakeMediaClient(discord.Client):
                 requested_at=discord.utils.snowflake_time(message.id).isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
             )
             response = await self.service.handle(incoming, str(self.user.id))
+            if response is not None and self.service.command_allowed(incoming.user_id,
+                    incoming.channel_id, message.guild.id if message.guild else None) and not incoming.is_bot:
+                self.wake_notifications()
             if response is not None:
                 if (getattr(response, 'choices', None) or getattr(response, 'jellyfin_url', None)
                         or getattr(response, 'notice_id', None) or getattr(response, 'local_jellyfin_url', None)):
