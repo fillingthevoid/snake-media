@@ -2,19 +2,32 @@
 function parseChange(text){
  if(typeof text!=='string')return null;
  const input=text.trim();if(!/^\/?(?:extend|keep)(?:@[A-Za-z0-9_]+)?(?:\s|$)/i.test(input))return null;
+ const bare=input.match(/^\/?(extend|keep)(?:@[A-Za-z0-9_]+)?$/i);
+ if(bare)return {operation:bare[1].toLowerCase()==='keep'?'permanent':'extend',guided:true};
  let m=input.match(/^\/?extend(?:@[A-Za-z0-9_]+)?\s+(.+?)\s+([0-9]+)\s+days?$/i);
  if(m&&Number(m[2])>=1&&Number(m[2])<=3650)return {operation:'extend',query:m[1].trim(),days:Number(m[2])};
  m=input.match(/^\/?keep(?:@[A-Za-z0-9_]+)?\s+(.+?)\s+permanently$/i);
  if(m)return {operation:'permanent',query:m[1].trim()};
  return {error:'Use extend <title> 7 days (1–3650 whole days), or keep <title> permanently.'};
 }
+function titleKey(text){
+ return String(text).normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase()
+  .replace(/&/g,' and ').replace(/['’]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+}
 function prepareChange(actor,rows){
  if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\d+$/.test(actor.userId))throw Error('Invalid actor');
  const parsed=parseChange(actor.text);if(!parsed||parsed.error)return {notice:parsed?.error||'Not a retention command.'};
- const matches=rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.userId!=='1'&&r.state==='registered'&&r.requestKey&&(!actor.requestKey||r.requestKey===actor.requestKey)&&['movie','tv'].includes(r.mediaType)&&/^\d+$/.test(String(r.mediaId))&&String(r.title).toLowerCase().includes(parsed.query.toLowerCase()));
+ const owned=rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.userId!=='1'&&r.state==='registered'&&r.requestKey&&(!actor.requestKey||r.requestKey===actor.requestKey)&&['movie','tv'].includes(r.mediaType)&&/^\d+$/.test(String(r.mediaId))&&typeof r.title==='string'&&r.title.trim());
+ const query=titleKey(parsed.query||'');
+ let matches=parsed.guided?owned:query?owned.filter(r=>titleKey(r.title).includes(query)):[];
+ if(!parsed.guided&&matches.some(r=>titleKey(r.title)===query))matches=matches.filter(r=>titleKey(r.title)===query);
  const keys=new Set(matches.map(r=>r.mediaType+':'+r.mediaId));
  if(!matches.length)return {notice:'No requests of yours match that title on this platform.'};
- if(keys.size!==1)return {notice:'Several matches. Please use a more specific title:\n'+[...new Set(matches.map(r=>r.title))].slice(0,8).map(t=>'• '+String(t).slice(0,100)).join('\n')};
+ if(parsed.guided||keys.size!==1){
+  const candidates=[...keys].map(key=>{const rs=matches.filter(r=>r.mediaType+':'+r.mediaId===key),r=rs[0];return {source:actor.source,userId:actor.userId,mediaType:r.mediaType,mediaId:String(r.mediaId),title:r.title.slice(0,150),requestKeys:[...new Set(rs.map(r=>r.requestKey))]};});
+  candidates.sort((a,b)=>a.title.localeCompare(b.title)||a.mediaId.localeCompare(b.mediaId));
+  return {guide:{operation:parsed.operation,...(parsed.days?{days:parsed.days}:{}),candidates,page:0}};
+ }
  const r=matches[0];return {change:{...parsed,source:actor.source,userId:actor.userId,requestKeys:[...new Set(matches.map(r=>r.requestKey))],mediaType:r.mediaType,mediaId:String(r.mediaId),title:String(r.title).slice(0,150)}};
 }
 function planChange(change,requests,decisions,records,{pendingId,now}){
@@ -38,13 +51,40 @@ function planChange(change,requests,decisions,records,{pendingId,now}){
  if(!result.files.length)return {notice:'No imported files with a timed expiry need extending. Files already protected stay protected; upcoming episodes keep their existing retention.'};
  return result;
 }
+function guideAction(row,actor,now){
+ if(!row||['source','userId','destinationId'].some(k=>row[k]!==actor[k]))throw Error('Not your request');
+ if(row.state!=='preview'||!Number.isFinite(Date.parse(row.expiresAt))||Date.parse(row.expiresAt)<=now)throw Error('Expired or handled');
+ const ctx=JSON.parse(row.contextJson),g=ctx.retentionGuide;
+ if(!g||!Array.isArray(g.candidates)||!['extend','permanent'].includes(g.operation))throw Error('Invalid guide');
+ if(actor.action==='cancel')return {state:'cancelled',choice:'cancel',contextJson:row.contextJson};
+ const page=actor.action.match(/^retpage_([0-9]{1,3})$/),title=actor.action.match(/^rettitle_([0-9]{1,4})$/);
+ if(page&&g.selected===undefined&&Number(page[1])*8<g.candidates.length)g.page=Number(page[1]);
+ else if(title&&g.selected===undefined&&Number(title[1])>=g.page*8&&Number(title[1])<(g.page+1)*8&&g.candidates[Number(title[1])])g.selected=Number(title[1]);
+ else if(/^retdays_(7|30)$/.test(actor.action)&&g.selected!==undefined&&g.operation==='extend'&&!g.days)g.days=Number(actor.action.slice(8));
+ else throw Error('Stale or invalid guide choice');
+ if(g.selected!==undefined&&(g.operation==='permanent'||g.days)){
+  ctx.retentionChange={...g.candidates[g.selected],operation:g.operation,...(g.operation==='extend'?{days:g.days}:{})};delete ctx.retentionGuide;
+ }
+ return {state:'preview',choice:actor.action,contextJson:JSON.stringify(ctx)};
+}
 function changeCard(row){
  if(row.version)return row;
- const c=JSON.parse(row.contextJson).retentionChange;
- if(!c)return null;
+ const ctx=JSON.parse(row.contextJson),c=ctx.retentionChange,g=ctx.retentionGuide;
+ if(!c&&!g)return null;
  if(row.state==='cancelled')return {version:1,status:'notice',text:'Cancelled. Retention was not changed.'};
  if(row.state!=='preview'||Date.parse(row.expiresAt)<=Date.now())return {version:1,status:'notice',text:'This retention choice expired or was already handled. Send a new command.'};
+ if(g){
+  let text,choices;
+  if(g.selected===undefined){
+   text='Choose one of your requested titles to '+(g.operation==='permanent'?'keep permanently.':'extend.');
+   choices=g.candidates.slice(g.page*8,g.page*8+8).map((r,i)=>({label:((r.mediaType==='tv'?'TV: ':'Movie: ')+r.title).slice(0,80),action:'rettitle_'+(g.page*8+i)}));
+   if(g.page>0)choices.push({label:'Previous',action:'retpage_'+(g.page-1)});
+   if((g.page+1)*8<g.candidates.length)choices.push({label:'Next',action:'retpage_'+(g.page+1)});
+  }else{text=g.candidates[g.selected].title+'\nHow much time would you like to add?\nFor a custom duration, send /extend <title> <days> days.';choices=[{label:'Extend 7 days',action:'retdays_7'},{label:'Extend 30 days',action:'retdays_30'}];}
+  choices.push({label:'Cancel',action:'cancel'});
+  return {version:1,status:'confirmation',text,pendingId:String(row.id),choices};
+ }
  const text=(c.mediaType==='tv'?'📺 ':'🎬 ')+c.title+'\n\n'+(c.operation==='permanent'?'Keep your requests for this title permanently, including future episodes attached to them?':`Add ${c.days} days to each currently imported eligible file’s effective expiry (or now, if later)?\nWatching cannot shorten this extension. Upcoming episodes keep their existing retention.`)+'\n\nNo media will be re-downloaded.';
  return {version:1,status:'confirmation',text,pendingId:String(row.id),choices:[{label:'Confirm',action:'confirm'},{label:'Cancel',action:'cancel'}]};
 }
-if(typeof module!=='undefined')module.exports={parseChange,prepareChange,planChange,changeCard};
+if(typeof module!=='undefined')module.exports={parseChange,prepareChange,planChange,changeCard,guideAction,titleKey};

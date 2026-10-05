@@ -10,6 +10,8 @@ A lightweight Discord front end for an n8n media-request backend. Discord handle
 - TV requests require latest, all or a specific season, followed by one final Confirm.
 - Download updates, release quality, expiry controls and Jellyfin links.
 - `/status` for the caller's requests.
+- `/extend` and `/keep` offer your tracked titles and expiry choices on Discord and Telegram. Custom durations remain available through command arguments.
+- Title matching handles punctuation, accents and “and”/“&”; ambiguous expiry matches offer title buttons.
 - `/serverstatus` for private storage, service availability and Jellyfin sample streaming checks. Requires the optional [host collector and n8n route](n8n/server-health/README.md).
 - Owner-only `/authorize user_id`, synchronizing the bot and n8n allowlists through an optional host helper.
 - Discord Gateway reconnects, bounded HTTP requests and friendly errors.

@@ -15,7 +15,7 @@ test('preview binds only caller requests and refuses ambiguous titles',()=>{
  const out=p.prepareChange(actor,[request,{...request,userId:'9',requestKey:'other'}]);
  a.deepEqual(out.change.requestKeys,[request.requestKey]);
  a.ok(p.prepareChange({...actor,userId:'9'},[request]).notice);
- a.match(p.prepareChange(actor,[request,{...request,mediaId:'9',title:'Example II'}]).notice,/matches/);
+ a.equal(p.prepareChange({...actor,text:'extend Exam 7 days'},[request,{...request,mediaId:'9',title:'Example II'}]).guide.candidates.length,2);
 });
 test('extension uses later of now and effective expiry and replay returns existing event',()=>{
  const c={source:'discord',userId:'2',operation:'extend',days:7,requestKeys:[request.requestKey],mediaType:'movie',mediaId:'8',title:'Example'};

@@ -40,6 +40,12 @@ class SnakeMediaClient(discord.Client):
         self.tree.add_command(app_commands.Command(name='help',
             description='Show request, season, expiry and status instructions.',
             callback=self.help_command))
+        self.tree.add_command(app_commands.Command(name='extend',
+            description='Choose one of your requests and extend its expiry.',
+            callback=self.extend_command))
+        self.tree.add_command(app_commands.Command(name='keep',
+            description='Choose one of your requests to keep permanently.',
+            callback=self.keep_command))
 
     async def help_command(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -51,6 +57,7 @@ class SnakeMediaClient(discord.Client):
                     'New episodes and future seasons download automatically.\n\n'
                     '/status — your downloads, availability and expiry.\n'
                     '/serverstatus — storage, services and Jellyfin streaming.\n\n'
+                    '/extend or /keep — choose a requested title and change its expiry.\n\n'
                     'Movies: 7 days after import. TV: 30 days per episode after import.\n'
                     'Watching can shorten expiry to 7 days; it never extends it.\n'
                     'Include “keep for 14 days” or “keep permanently” in your request to change the default.\n'
@@ -95,6 +102,13 @@ class SnakeMediaClient(discord.Client):
 
     async def server_status_command(self, interaction: discord.Interaction):
         await self.read_command(interaction, 'serverstatus')
+
+    async def extend_command(self, interaction: discord.Interaction, title: str = '',
+                             days: app_commands.Range[int, 1, 3650] = 7):
+        await self.read_command(interaction, f'extend {title.strip()} {days} days' if title.strip() else 'extend')
+
+    async def keep_command(self, interaction: discord.Interaction, title: str = ''):
+        await self.read_command(interaction, f'keep {title.strip()} permanently' if title.strip() else 'keep')
 
     async def read_command(self, interaction: discord.Interaction, text: str):
         await interaction.response.defer(ephemeral=True, thinking=True)
