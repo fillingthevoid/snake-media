@@ -14,7 +14,7 @@ test('completion polling ignores finished requests but keeps progress-only notic
  {requestKey:'progress',notificationKey:'progress:progress:downloading',state:'delivered'}];
  a.deepEqual(pendingRequests(requests,notices).map(r=>r.requestKey),['waiting','progress']);
 });
-test('current workflow filters before library read and retains mutation execution settings',()=>{
+test('current workflow excludes completed work before inspecting events and retains mutation execution settings',()=>{
  const bundle=JSON.parse(require('node:fs').readFileSync(require('node:path').join(__dirname,'../config-templates/n8n-current-media-workflows.json'),'utf8'));
  const scan=bundle.find(w=>w.id==='snakeCompletionScanV1');
  const n=scan.nodes.find(n=>n.name==='Unfinished Requests');
@@ -23,7 +23,7 @@ test('current workflow filters before library read and retains mutation executio
  const inputs={all:()=>[{json:{requestKey:'r',notificationKey:'r:movie:7',state:'delivered'}}]};
  a.deepEqual(run(()=>({all:()=>[{json:r}]}),inputs),[]);
  a.equal(scan.connections['Completion Notices'].main[0][0].node,'Unfinished Requests');
- a.equal(scan.connections['Unfinished Requests'].main[0][0].node,'One Library Read');
+ a.equal(scan.connections['Unfinished Requests'].main[0][0].node,'Recent Download Events');
  a.equal(bundle.find(w=>w.id==='snakeStatusInspectV1').settings.saveDataSuccessExecution,'none');
  for(const id of ['snakeRetentionCoordinatorV1','snakeLockRecoveryV1']){
   const w=bundle.find(w=>w.id===id);if(w)a.notEqual(w.settings.saveDataSuccessExecution,'none');

@@ -4478,107 +4478,6 @@
         ]
       },
       {
-        "id": "bd72ab3b-d32b-54da-ad1f-40683afee34d",
-        "name": "One Library Read",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "parameters": {
-          "jsCode": "return [{json:{}}];"
-        },
-        "position": [
-          540,
-          0
-        ]
-      },
-      {
-        "parameters": {
-          "method": "GET",
-          "url": "http://192.168.1.10:8096/Items",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "Authorization",
-                "value": "__CONFIGURE_PRIVATE_CREDENTIAL__"
-              }
-            ]
-          },
-          "sendQuery": true,
-          "queryParameters": {
-            "parameters": [
-              {
-                "name": "Recursive",
-                "value": "true"
-              },
-              {
-                "name": "IncludeItemTypes",
-                "value": "Movie,Episode"
-              },
-              {
-                "name": "Fields",
-                "value": "Path"
-              },
-              {
-                "name": "Limit",
-                "value": "500"
-              },
-              {
-                "name": "EnableImages",
-                "value": "false"
-              },
-              {
-                "name": "EnableUserData",
-                "value": "false"
-              }
-            ]
-          },
-          "options": {
-            "timeout": 15000,
-            "pagination": {
-              "pagination": {
-                "paginationMode": "updateAParameterInEachRequest",
-                "parameters": {
-                  "parameters": [
-                    {
-                      "type": "qs",
-                      "name": "StartIndex",
-                      "value": "={{ $pageCount * 500 }}"
-                    }
-                  ]
-                },
-                "paginationCompleteWhen": "other",
-                "completeExpression": "={{ $response.body.Items.length < 500 }}",
-                "limitPagesFetched": true,
-                "maxRequests": 100
-              }
-            }
-          }
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.5,
-        "position": [
-          810,
-          0
-        ],
-        "id": "e05b4b8c-b299-544b-8cf0-5725daae275f",
-        "name": "Read Jellyfin Library",
-        "alwaysOutputData": true,
-        "onError": "continueRegularOutput"
-      },
-      {
-        "id": "08dc6cf4-543c-541b-a3b5-d984eedf6164",
-        "name": "Real Requests Only",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "parameters": {
-          "jsCode": "const library=$input.all().flatMap(x=>x.json.Items || []).filter(x=>x.Path&&x.Id).map(x=>({Path:x.Path,Id:x.Id}));return $('Unfinished Requests').all().filter(x=>x.json.baselineCaptured&&x.json.userId!=='1'&&x.json.state==='registered').map(x=>({json:{...x.json,jellyfinLibrary:library}}));"
-        },
-        "position": [
-          1080,
-          0
-        ]
-      },
-      {
         "id": "5c8a094d-77e9-5bd1-b95c-03ddbda7657f",
         "name": "Inspect Each Request",
         "type": "n8n-nodes-base.executeWorkflow",
@@ -4667,6 +4566,83 @@
         "parameters": {
           "jsCode": "// Queue exclusions let healthy recipients advance past deferred notices.\nfunction queueBatch(rows,excluded=[]){\n const seen=new Set(),skip=new Set(excluded),notifications=[];\n for(const r of rows){\n  if(!r.notificationKey||/:tv:\\d+:episode:\\d+$/.test(r.notificationKey)||seen.has(r.notificationKey)||skip.has(r.notificationKey))continue;\n  seen.add(r.notificationKey);\n  try{\n   const payload=JSON.parse(r.payloadJson);\n   if(!payload||typeof payload!=='object'||Array.isArray(payload))continue;\n   notifications.push({id:String(r.id),notificationKey:r.notificationKey,destinationId:r.destinationId,payload});\n  }catch{}\n  if(notifications.length===10)break;\n }\n return {version:1,notifications};\n}\nfunction pendingRequests(requests,notices){\n const finished=new Set(notices.filter(n=>['pending','delivered'].includes(n.state)&&\n  typeof n.notificationKey==='string'&&!n.notificationKey.includes(':progress:')).map(n=>n.requestKey));\n return requests.filter(r=>r.baselineCaptured&&r.userId!=='1'&&r.state==='registered'&&\n  ['discord','telegram'].includes(r.source)&&!finished.has(r.requestKey));\n}\nif(typeof module!=='undefined')module.exports={queueBatch,pendingRequests};\n\nreturn pendingRequests($('Tracked Requests').all().map(x=>x.json),$input.all().map(x=>x.json)).map(json=>({json}));"
         }
+      },
+      {
+        "name": "Recent Download Events",
+        "id": "tracking-recent-download-events",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "CONFIGURE_IMPORT_EVENTS_TABLE",
+            "cachedResultName": "snake_media_import_events"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "receivedAt",
+                "condition": "gt",
+                "keyValue": "={{ $now.minus({hours:24}).toISO() }}"
+              }
+            ]
+          },
+          "options": {},
+          "returnAll": true
+        },
+        "alwaysOutputData": true
+      },
+      {
+        "name": "Affected Requests",
+        "id": "tracking-affected-requests",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "function normalizeEvent(body,kind,now){\n if(body?.eventType==='Test')return null;\n if(!['movie','tv'].includes(kind)||!Number.isFinite(now)||!['Grab','Download'].includes(body?.eventType))throw new Error('Invalid media event');\n const id=x=>Number.isSafeInteger(x)&&x>0;\n const media=kind==='movie'?body.movie:body.series;\n if(!id(media?.id))throw new Error('Invalid event media ID');\n const downloadId=body.downloadId??'';\n if(typeof downloadId!=='string'||downloadId.length>200||!/^[A-Za-z0-9_.-]*$/.test(downloadId))throw new Error('Invalid download ID');\n const episodes=kind==='tv'?body.episodes:[];\n if(!Array.isArray(episodes)||episodes.length>5000||(kind==='tv'&&!episodes.length)||episodes.some(e=>!id(e?.id)))throw new Error('Invalid event episodes');\n const file=kind==='movie'?body.movieFile:body.episodeFile;\n if(body.eventType==='Download'&&!id(file?.id))throw new Error('Invalid imported file ID');\n if(body.eventType==='Grab'&&!downloadId)throw new Error('Missing download ID');\n const episodeIds=[...new Set(episodes.map(e=>String(e.id)))].sort((a,b)=>Number(a)-Number(b));\n const receivedAt=new Date(now).toISOString(),fileId=body.eventType==='Download'?String(file.id):'';\n return {eventKey:`${kind}:${media.id}:${body.eventType}:${fileId||downloadId}`,mediaType:kind,mediaId:String(media.id),fileId,\n  episodeIdsJson:JSON.stringify(episodeIds),state:body.eventType==='Download'?'imported':'downloading',\n  payloadJson:JSON.stringify({eventType:body.eventType,downloadId}),\n  importedAt:body.eventType==='Download'?receivedAt:null,receivedAt};\n}\nfunction affectedRequests(requests,events,now){\n const fallback=new Date(now).getUTCMinutes()%15===0;\n return requests.filter(r=>{\n  const requested=Date.parse(r.requestedAt);\n  if(!Number.isFinite(requested)||requested>now+60000)return false;\n  if(fallback||now-requested<15*60000)return true;\n  let scope;try{scope=new Set(JSON.parse(r.episodeIdsJson||'[]').map(String));}catch{return false;}\n  return events.some(e=>{\n   const received=Date.parse(e.receivedAt);\n   if(!Number.isFinite(received)||received<now-30*60000||received>now+60000||received<requested-60000||\n       e.mediaType!==r.mediaType||e.mediaId!==r.mediaId||!['downloading','imported'].includes(e.state))return false;\n   if(r.mediaType==='movie')return true;\n   try{return JSON.parse(e.episodeIdsJson).some(id=>scope.has(String(id)));}catch{return false;}\n  });\n });\n}\nfunction libraryRows(pages){\n if(!Array.isArray(pages)||pages.some(p=>!Array.isArray(p?.Items)))throw new Error('Jellyfin snapshot unavailable');\n const rows=pages.flatMap(p=>p.Items),total=Math.max(0,...pages.map(p=>Number(p.TotalRecordCount)||0));\n if(rows.length<total)throw new Error('Incomplete Jellyfin snapshot');\n return rows;\n}\nfunction libraryPath(path){\n if(typeof path!=='string'||!/^\\/(movies|tv)\\/[^/]/.test(path)||path.split('/').some(p=>p==='..'||p==='.')||/[\\x00-\\x1f]/.test(path))throw new Error('Invalid media directory');\n return '/data'+path.replace(/\\/$/,'');\n}\nfunction targetRoot(kind,path,pages){\n const root=libraryPath(path);\n const matches=libraryRows(pages).filter(x=>x?.Path===root&&typeof x.Id==='string'&&x.Id);\n const ids=[...new Set(matches.map(x=>x.Id))];\n if(ids.length>1)throw new Error('Ambiguous Jellyfin directory');\n return ids[0]||null;\n}\nfunction targetFiles(path,pages){\n const root=libraryPath(path)+'/';\n return libraryRows(pages).filter(x=>typeof x?.Id==='string'&&x.Id&&typeof x.Path==='string'&&x.Path.startsWith(root))\n  .map(x=>({Id:x.Id,Path:x.Path}));\n}\nif(typeof module!=='undefined')module.exports={normalizeEvent,affectedRequests,targetRoot,targetFiles};\n\nreturn affectedRequests($('Unfinished Requests').all().map(x=>x.json),$input.all().map(x=>x.json),Date.now()).map(json=>({json}));"
+        }
+      },
+      {
+        "name": "Prune Old Download Events",
+        "id": "tracking-prune-old-download-events",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "deleteRows",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "CONFIGURE_IMPORT_EVENTS_TABLE",
+            "cachedResultName": "snake_media_import_events"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "receivedAt",
+                "condition": "lt",
+                "keyValue": "={{ $now.minus({days:7}).toISO() }}"
+              }
+            ]
+          },
+          "options": {}
+        }
       }
     ],
     "connections": {
@@ -4675,6 +4651,11 @@
           [
             {
               "node": "Tracked Requests",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Prune Old Download Events",
               "type": "main",
               "index": 0
             }
@@ -4686,44 +4667,6 @@
           [
             {
               "node": "Completion Notices",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "One Library Read": {
-        "main": [
-          [
-            {
-              "node": "Read Jellyfin Library",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Read Jellyfin Library": {
-        "main": [
-          [
-            {
-              "node": "Real Requests Only",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Real Requests Only": {
-        "main": [
-          [
-            {
-              "node": "Inspect Each Request",
-              "type": "main",
-              "index": 0
-            },
-            {
-              "node": "Inspect Each Progress",
               "type": "main",
               "index": 0
             }
@@ -4745,7 +4688,34 @@
         "main": [
           [
             {
-              "node": "One Library Read",
+              "node": "Recent Download Events",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Recent Download Events": {
+        "main": [
+          [
+            {
+              "node": "Affected Requests",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Affected Requests": {
+        "main": [
+          [
+            {
+              "node": "Inspect Each Request",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Inspect Each Progress",
               "type": "main",
               "index": 0
             }
@@ -6161,7 +6131,7 @@
             "parameters": [
               {
                 "name": "seriesId",
-                "value": "={{ $json.mediaId }}"
+                "value": "={{ $('Inspect Request').first().json.mediaId }}"
               },
               {
                 "name": "includeEpisodeFile",
@@ -6190,7 +6160,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "parameters": {
-          "jsCode": "const r=$('Inspect Request').first().json;\nif(!r.baselineCaptured || !r.requestKey || r.userId==='1' || !['discord','telegram'].includes(r.source))return [];\nconst before=new Set(JSON.parse(r.preexistingFileIdsJson));\nconst scope=new Set(JSON.parse(r.episodeIdsJson));\nconst requested=Date.parse(r.requestedAt);\nif(!Number.isFinite(requested))return [];\nconst candidates=[];\nlet items=$input.all();\nlet downloadCount=0,remainingCount=0;\nif(r.mediaType==='tv') {\n const selected=items.filter(x=>scope.has(String(x.json.id)));\n // An incomplete API response must not move the notification to a later episode.\n if(new Set(selected.map(x=>String(x.json.id))).size!==scope.size)return [];\n const downloads=selected.filter(({json:e})=>!before.has(String(e.episodeFile?.id ?? e.episodeFileId)));\n if(downloads.some(({json:e})=>!Number.isSafeInteger(e.seasonNumber)||!Number.isSafeInteger(e.episodeNumber)))return [];\n downloads.sort((a,b)=>a.json.seasonNumber-b.json.seasonNumber||a.json.episodeNumber-b.json.episodeNumber||a.json.id-b.json.id);\n downloadCount=downloads.length;\n remainingCount=downloads.slice(1).filter(({json:e})=>!e.episodeFile?.path || !(r.jellyfinLibrary||[]).some(x=>x.Id&&x.Path==='/data'+e.episodeFile.path)).length;\n items=downloads.slice(0,1);\n}\nfor(const item of items) {\n const e=item.json;\n const f=r.mediaType==='movie'?e.movieFile:e.episodeFile;\n if(!f || !Number.isSafeInteger(f.id) || f.id<1 || before.has(String(f.id)))continue;\n if(r.mediaType==='tv' && !scope.has(String(e.id)))continue;\n const imported=Date.parse(f.dateAdded);\n if(!Number.isFinite(imported) || imported<requested || imported>Date.now()+60000)continue;\n const prefix=r.mediaType==='movie'?'/movies/':'/tv/';\n if(typeof f.path!=='string' || !f.path.startsWith(prefix) || f.path.includes('/../'))continue;\n const fileKey=r.mediaType==='movie'?`movie:${r.mediaId}`:`tv:${r.mediaId}:episode:${e.id}`;\n const label=r.mediaType==='movie'?r.title:`${r.title} \u2014 S${String(e.seasonNumber).padStart(2,'0')}E${String(e.episodeNumber).padStart(2,'0')}`;\n const {jellyfinLibrary,...originalRequest}=r;\n const jellyfinItems=(jellyfinLibrary||[]).filter(x=>x.Path==='/data'+f.path);\n candidates.push({json:{quality:f.quality?.quality?.name,jellyfinItems,request:originalRequest,fileKey,fileId:String(f.id),importedAt:new Date(imported).toISOString(),jellyfinPath:'/data'+f.path,label,downloadCount,remainingCount,providerId:r.mediaType==='movie'?`tmdb.${r.externalId}`:`tvdb.${e.tvdbId}`,mediaType:r.mediaType}});\n}\nreturn candidates;\n"
+          "jsCode": "const target=$('Prepare Library Target').first().json;const r={...target.request,jellyfinLibrary:$input.first().json.jellyfinLibrary};\nif(!r.baselineCaptured || !r.requestKey || r.userId==='1' || !['discord','telegram'].includes(r.source))return [];\nconst before=new Set(JSON.parse(r.preexistingFileIdsJson));\nconst scope=new Set(JSON.parse(r.episodeIdsJson));\nconst requested=Date.parse(r.requestedAt);\nif(!Number.isFinite(requested))return [];\nconst candidates=[];\nlet items=target.mediaSnapshot.map(json=>({json}));\nlet downloadCount=0,remainingCount=0;\nif(r.mediaType==='tv') {\n const selected=items.filter(x=>scope.has(String(x.json.id)));\n // An incomplete API response must not move the notification to a later episode.\n if(new Set(selected.map(x=>String(x.json.id))).size!==scope.size)return [];\n const downloads=selected.filter(({json:e})=>!before.has(String(e.episodeFile?.id ?? e.episodeFileId)));\n if(downloads.some(({json:e})=>!Number.isSafeInteger(e.seasonNumber)||!Number.isSafeInteger(e.episodeNumber)))return [];\n downloads.sort((a,b)=>a.json.seasonNumber-b.json.seasonNumber||a.json.episodeNumber-b.json.episodeNumber||a.json.id-b.json.id);\n downloadCount=downloads.length;\n remainingCount=downloads.slice(1).filter(({json:e})=>!e.episodeFile?.path || !(r.jellyfinLibrary||[]).some(x=>x.Id&&x.Path==='/data'+e.episodeFile.path)).length;\n items=downloads.slice(0,1);\n}\nfor(const item of items) {\n const e=item.json;\n const f=r.mediaType==='movie'?e.movieFile:e.episodeFile;\n if(!f || !Number.isSafeInteger(f.id) || f.id<1 || before.has(String(f.id)))continue;\n if(r.mediaType==='tv' && !scope.has(String(e.id)))continue;\n const imported=Date.parse(f.dateAdded);\n if(!Number.isFinite(imported) || imported<requested || imported>Date.now()+60000)continue;\n const prefix=r.mediaType==='movie'?'/movies/':'/tv/';\n if(typeof f.path!=='string' || !f.path.startsWith(prefix) || f.path.includes('/../'))continue;\n const fileKey=r.mediaType==='movie'?`movie:${r.mediaId}`:`tv:${r.mediaId}:episode:${e.id}`;\n const label=r.mediaType==='movie'?r.title:`${r.title} \u2014 S${String(e.seasonNumber).padStart(2,'0')}E${String(e.episodeNumber).padStart(2,'0')}`;\n const {jellyfinLibrary,...originalRequest}=r;\n const jellyfinItems=(jellyfinLibrary||[]).filter(x=>x.Path==='/data'+f.path);\n candidates.push({json:{quality:f.quality?.quality?.name,jellyfinItems,request:originalRequest,fileKey,fileId:String(f.id),importedAt:new Date(imported).toISOString(),jellyfinPath:'/data'+f.path,label,downloadCount,remainingCount,providerId:r.mediaType==='movie'?`tmdb.${r.externalId}`:`tvdb.${e.tvdbId}`,mediaType:r.mediaType}});\n}\nreturn candidates;\n"
         },
         "position": [
           1080,
@@ -6220,6 +6190,75 @@
           1350,
           0
         ]
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "={{ 'http://192.168.1.10:8989/api/v3/series/'+$json.mediaId }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Api-Key",
+                "value": "__CONFIGURE_PRIVATE_CREDENTIAL__"
+              }
+            ]
+          },
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": []
+          },
+          "options": {
+            "timeout": 15000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          400,
+          200
+        ],
+        "id": "tracking-read-requested-series",
+        "name": "Read Requested Series",
+        "alwaysOutputData": true,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "name": "Prepare Library Target",
+        "id": "tracking-prepare-library-target",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const request=$('Inspect Request').first().json;const media=request.mediaType==='movie'?$input.first().json:$('Read Requested Series').first().json;if(typeof media.title!=='string'||!media.title.trim()||typeof media.path!=='string')throw new Error('Media target unavailable');return [{json:{request,mediaType:request.mediaType,title:media.title,mediaPath:media.path,mediaSnapshot:$input.all().map(x=>x.json)}}];"
+        }
+      },
+      {
+        "name": "Read Target Library",
+        "id": "tracking-read-target-library",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "snakeTargetLibraryV1"
+          },
+          "workflowInputs": {
+            "mappingMode": "passThrough"
+          },
+          "mode": "once",
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        }
       }
     ],
     "connections": {
@@ -6245,7 +6284,7 @@
           ],
           [
             {
-              "node": "Read Requested Episodes",
+              "node": "Read Requested Series",
               "type": "main",
               "index": 0
             }
@@ -6256,7 +6295,7 @@
         "main": [
           [
             {
-              "node": "Imported Candidates",
+              "node": "Prepare Library Target",
               "type": "main",
               "index": 0
             }
@@ -6267,7 +6306,7 @@
         "main": [
           [
             {
-              "node": "Imported Candidates",
+              "node": "Prepare Library Target",
               "type": "main",
               "index": 0
             }
@@ -6279,6 +6318,39 @@
           [
             {
               "node": "Queue Verified Candidate",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Requested Series": {
+        "main": [
+          [
+            {
+              "node": "Read Requested Episodes",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Library Target": {
+        "main": [
+          [
+            {
+              "node": "Read Target Library",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Target Library": {
+        "main": [
+          [
+            {
+              "node": "Imported Candidates",
               "type": "main",
               "index": 0
             }
@@ -24903,5 +24975,1030 @@
     },
     "active": false,
     "pinData": {}
+  },
+  {
+    "id": "snakeSonarrEventsV1",
+    "name": "Snake Media - Sonarr Download Events",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "snake-media-sonarr-events",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "tracking-sonarr-event",
+        "name": "Download Event",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "notesInFlow": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "CONFIGURE_HTTPHEADERAUTH",
+            "name": "Configure httpHeaderAuth"
+          }
+        },
+        "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication.",
+        "webhookId": "snake-sonarr-events-v1"
+      },
+      {
+        "name": "Normalize Download Event",
+        "id": "tracking-normalize-download-event",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "function normalizeEvent(body,kind,now){\n if(body?.eventType==='Test')return null;\n if(!['movie','tv'].includes(kind)||!Number.isFinite(now)||!['Grab','Download'].includes(body?.eventType))throw new Error('Invalid media event');\n const id=x=>Number.isSafeInteger(x)&&x>0;\n const media=kind==='movie'?body.movie:body.series;\n if(!id(media?.id))throw new Error('Invalid event media ID');\n const downloadId=body.downloadId??'';\n if(typeof downloadId!=='string'||downloadId.length>200||!/^[A-Za-z0-9_.-]*$/.test(downloadId))throw new Error('Invalid download ID');\n const episodes=kind==='tv'?body.episodes:[];\n if(!Array.isArray(episodes)||episodes.length>5000||(kind==='tv'&&!episodes.length)||episodes.some(e=>!id(e?.id)))throw new Error('Invalid event episodes');\n const file=kind==='movie'?body.movieFile:body.episodeFile;\n if(body.eventType==='Download'&&!id(file?.id))throw new Error('Invalid imported file ID');\n if(body.eventType==='Grab'&&!downloadId)throw new Error('Missing download ID');\n const episodeIds=[...new Set(episodes.map(e=>String(e.id)))].sort((a,b)=>Number(a)-Number(b));\n const receivedAt=new Date(now).toISOString(),fileId=body.eventType==='Download'?String(file.id):'';\n return {eventKey:`${kind}:${media.id}:${body.eventType}:${fileId||downloadId}`,mediaType:kind,mediaId:String(media.id),fileId,\n  episodeIdsJson:JSON.stringify(episodeIds),state:body.eventType==='Download'?'imported':'downloading',\n  payloadJson:JSON.stringify({eventType:body.eventType,downloadId}),\n  importedAt:body.eventType==='Download'?receivedAt:null,receivedAt};\n}\nfunction affectedRequests(requests,events,now){\n const fallback=new Date(now).getUTCMinutes()%15===0;\n return requests.filter(r=>{\n  const requested=Date.parse(r.requestedAt);\n  if(!Number.isFinite(requested)||requested>now+60000)return false;\n  if(fallback||now-requested<15*60000)return true;\n  let scope;try{scope=new Set(JSON.parse(r.episodeIdsJson||'[]').map(String));}catch{return false;}\n  return events.some(e=>{\n   const received=Date.parse(e.receivedAt);\n   if(!Number.isFinite(received)||received<now-30*60000||received>now+60000||received<requested-60000||\n       e.mediaType!==r.mediaType||e.mediaId!==r.mediaId||!['downloading','imported'].includes(e.state))return false;\n   if(r.mediaType==='movie')return true;\n   try{return JSON.parse(e.episodeIdsJson).some(id=>scope.has(String(id)));}catch{return false;}\n  });\n });\n}\nfunction libraryRows(pages){\n if(!Array.isArray(pages)||pages.some(p=>!Array.isArray(p?.Items)))throw new Error('Jellyfin snapshot unavailable');\n const rows=pages.flatMap(p=>p.Items),total=Math.max(0,...pages.map(p=>Number(p.TotalRecordCount)||0));\n if(rows.length<total)throw new Error('Incomplete Jellyfin snapshot');\n return rows;\n}\nfunction libraryPath(path){\n if(typeof path!=='string'||!/^\\/(movies|tv)\\/[^/]/.test(path)||path.split('/').some(p=>p==='..'||p==='.')||/[\\x00-\\x1f]/.test(path))throw new Error('Invalid media directory');\n return '/data'+path.replace(/\\/$/,'');\n}\nfunction targetRoot(kind,path,pages){\n const root=libraryPath(path);\n const matches=libraryRows(pages).filter(x=>x?.Path===root&&typeof x.Id==='string'&&x.Id);\n const ids=[...new Set(matches.map(x=>x.Id))];\n if(ids.length>1)throw new Error('Ambiguous Jellyfin directory');\n return ids[0]||null;\n}\nfunction targetFiles(path,pages){\n const root=libraryPath(path)+'/';\n return libraryRows(pages).filter(x=>typeof x?.Id==='string'&&x.Id&&typeof x.Path==='string'&&x.Path.startsWith(root))\n  .map(x=>({Id:x.Id,Path:x.Path}));\n}\nif(typeof module!=='undefined')module.exports={normalizeEvent,affectedRequests,targetRoot,targetFiles};\n\nconst event=normalizeEvent($input.first().json.body,'tv',Date.now());return [{json:event||{ignored:true}}];"
+        }
+      },
+      {
+        "name": "Store Event?",
+        "id": "tracking-store-event",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "tracking-condition",
+                "leftValue": "={{ Boolean($json.eventKey) }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "name": "Store Download Event",
+        "id": "tracking-store-download-event",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "upsert",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "CONFIGURE_IMPORT_EVENTS_TABLE",
+            "cachedResultName": "snake_media_import_events"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "eventKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.eventKey }}"
+              }
+            ]
+          },
+          "options": {},
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "eventKey": "={{ $json.eventKey }}",
+              "mediaType": "={{ $json.mediaType }}",
+              "mediaId": "={{ $json.mediaId }}",
+              "fileId": "={{ $json.fileId }}",
+              "episodeIdsJson": "={{ $json.episodeIdsJson }}",
+              "state": "={{ $json.state }}",
+              "payloadJson": "={{ $json.payloadJson }}",
+              "importedAt": "={{ $json.importedAt }}",
+              "receivedAt": "={{ $json.receivedAt }}"
+            },
+            "schema": [
+              {
+                "id": "eventKey",
+                "displayName": "eventKey",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "mediaType",
+                "displayName": "mediaType",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "mediaId",
+                "displayName": "mediaId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "fileId",
+                "displayName": "fileId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "episodeIdsJson",
+                "displayName": "episodeIdsJson",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "state",
+                "displayName": "state",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "payloadJson",
+                "displayName": "payloadJson",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "importedAt",
+                "displayName": "importedAt",
+                "type": "date",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "receivedAt",
+                "displayName": "receivedAt",
+                "type": "date",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Event Response",
+        "id": "tracking-event-response",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ {accepted:true} }}",
+          "options": {
+            "responseCode": 200
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Download Event": {
+        "main": [
+          [
+            {
+              "node": "Normalize Download Event",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Download Event": {
+        "main": [
+          [
+            {
+              "node": "Store Event?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Store Event?": {
+        "main": [
+          [
+            {
+              "node": "Store Download Event",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Event Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Store Download Event": {
+        "main": [
+          [
+            {
+              "node": "Event Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "executionTimeout": 120,
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none"
+    }
+  },
+  {
+    "id": "snakeRadarrEventsV1",
+    "name": "Snake Media - Radarr Download Events",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "snake-media-radarr-events",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "tracking-radarr-event",
+        "name": "Download Event",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "notesInFlow": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "CONFIGURE_HTTPHEADERAUTH",
+            "name": "Configure httpHeaderAuth"
+          }
+        },
+        "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication.",
+        "webhookId": "snake-radarr-events-v1"
+      },
+      {
+        "name": "Normalize Download Event",
+        "id": "tracking-normalize-download-event",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "function normalizeEvent(body,kind,now){\n if(body?.eventType==='Test')return null;\n if(!['movie','tv'].includes(kind)||!Number.isFinite(now)||!['Grab','Download'].includes(body?.eventType))throw new Error('Invalid media event');\n const id=x=>Number.isSafeInteger(x)&&x>0;\n const media=kind==='movie'?body.movie:body.series;\n if(!id(media?.id))throw new Error('Invalid event media ID');\n const downloadId=body.downloadId??'';\n if(typeof downloadId!=='string'||downloadId.length>200||!/^[A-Za-z0-9_.-]*$/.test(downloadId))throw new Error('Invalid download ID');\n const episodes=kind==='tv'?body.episodes:[];\n if(!Array.isArray(episodes)||episodes.length>5000||(kind==='tv'&&!episodes.length)||episodes.some(e=>!id(e?.id)))throw new Error('Invalid event episodes');\n const file=kind==='movie'?body.movieFile:body.episodeFile;\n if(body.eventType==='Download'&&!id(file?.id))throw new Error('Invalid imported file ID');\n if(body.eventType==='Grab'&&!downloadId)throw new Error('Missing download ID');\n const episodeIds=[...new Set(episodes.map(e=>String(e.id)))].sort((a,b)=>Number(a)-Number(b));\n const receivedAt=new Date(now).toISOString(),fileId=body.eventType==='Download'?String(file.id):'';\n return {eventKey:`${kind}:${media.id}:${body.eventType}:${fileId||downloadId}`,mediaType:kind,mediaId:String(media.id),fileId,\n  episodeIdsJson:JSON.stringify(episodeIds),state:body.eventType==='Download'?'imported':'downloading',\n  payloadJson:JSON.stringify({eventType:body.eventType,downloadId}),\n  importedAt:body.eventType==='Download'?receivedAt:null,receivedAt};\n}\nfunction affectedRequests(requests,events,now){\n const fallback=new Date(now).getUTCMinutes()%15===0;\n return requests.filter(r=>{\n  const requested=Date.parse(r.requestedAt);\n  if(!Number.isFinite(requested)||requested>now+60000)return false;\n  if(fallback||now-requested<15*60000)return true;\n  let scope;try{scope=new Set(JSON.parse(r.episodeIdsJson||'[]').map(String));}catch{return false;}\n  return events.some(e=>{\n   const received=Date.parse(e.receivedAt);\n   if(!Number.isFinite(received)||received<now-30*60000||received>now+60000||received<requested-60000||\n       e.mediaType!==r.mediaType||e.mediaId!==r.mediaId||!['downloading','imported'].includes(e.state))return false;\n   if(r.mediaType==='movie')return true;\n   try{return JSON.parse(e.episodeIdsJson).some(id=>scope.has(String(id)));}catch{return false;}\n  });\n });\n}\nfunction libraryRows(pages){\n if(!Array.isArray(pages)||pages.some(p=>!Array.isArray(p?.Items)))throw new Error('Jellyfin snapshot unavailable');\n const rows=pages.flatMap(p=>p.Items),total=Math.max(0,...pages.map(p=>Number(p.TotalRecordCount)||0));\n if(rows.length<total)throw new Error('Incomplete Jellyfin snapshot');\n return rows;\n}\nfunction libraryPath(path){\n if(typeof path!=='string'||!/^\\/(movies|tv)\\/[^/]/.test(path)||path.split('/').some(p=>p==='..'||p==='.')||/[\\x00-\\x1f]/.test(path))throw new Error('Invalid media directory');\n return '/data'+path.replace(/\\/$/,'');\n}\nfunction targetRoot(kind,path,pages){\n const root=libraryPath(path);\n const matches=libraryRows(pages).filter(x=>x?.Path===root&&typeof x.Id==='string'&&x.Id);\n const ids=[...new Set(matches.map(x=>x.Id))];\n if(ids.length>1)throw new Error('Ambiguous Jellyfin directory');\n return ids[0]||null;\n}\nfunction targetFiles(path,pages){\n const root=libraryPath(path)+'/';\n return libraryRows(pages).filter(x=>typeof x?.Id==='string'&&x.Id&&typeof x.Path==='string'&&x.Path.startsWith(root))\n  .map(x=>({Id:x.Id,Path:x.Path}));\n}\nif(typeof module!=='undefined')module.exports={normalizeEvent,affectedRequests,targetRoot,targetFiles};\n\nconst event=normalizeEvent($input.first().json.body,'movie',Date.now());return [{json:event||{ignored:true}}];"
+        }
+      },
+      {
+        "name": "Store Event?",
+        "id": "tracking-store-event",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "tracking-condition",
+                "leftValue": "={{ Boolean($json.eventKey) }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "name": "Store Download Event",
+        "id": "tracking-store-download-event",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "upsert",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "CONFIGURE_IMPORT_EVENTS_TABLE",
+            "cachedResultName": "snake_media_import_events"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "eventKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.eventKey }}"
+              }
+            ]
+          },
+          "options": {},
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "eventKey": "={{ $json.eventKey }}",
+              "mediaType": "={{ $json.mediaType }}",
+              "mediaId": "={{ $json.mediaId }}",
+              "fileId": "={{ $json.fileId }}",
+              "episodeIdsJson": "={{ $json.episodeIdsJson }}",
+              "state": "={{ $json.state }}",
+              "payloadJson": "={{ $json.payloadJson }}",
+              "importedAt": "={{ $json.importedAt }}",
+              "receivedAt": "={{ $json.receivedAt }}"
+            },
+            "schema": [
+              {
+                "id": "eventKey",
+                "displayName": "eventKey",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "mediaType",
+                "displayName": "mediaType",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "mediaId",
+                "displayName": "mediaId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "fileId",
+                "displayName": "fileId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "episodeIdsJson",
+                "displayName": "episodeIdsJson",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "state",
+                "displayName": "state",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "payloadJson",
+                "displayName": "payloadJson",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "importedAt",
+                "displayName": "importedAt",
+                "type": "date",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "receivedAt",
+                "displayName": "receivedAt",
+                "type": "date",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Event Response",
+        "id": "tracking-event-response",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ {accepted:true} }}",
+          "options": {
+            "responseCode": 200
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Download Event": {
+        "main": [
+          [
+            {
+              "node": "Normalize Download Event",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Normalize Download Event": {
+        "main": [
+          [
+            {
+              "node": "Store Event?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Store Event?": {
+        "main": [
+          [
+            {
+              "node": "Store Download Event",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Event Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Store Download Event": {
+        "main": [
+          [
+            {
+              "node": "Event Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "executionTimeout": 120,
+      "saveDataErrorExecution": "none",
+      "saveDataSuccessExecution": "none"
+    }
+  },
+  {
+    "id": "snakeTargetLibraryV1",
+    "name": "Snake Media - Read Target Library",
+    "nodes": [
+      {
+        "name": "Target Input",
+        "id": "tracking-target-input",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "inputSource": "passthrough"
+        }
+      },
+      {
+        "name": "Target Movie?",
+        "id": "tracking-target-movie",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "tracking-condition",
+                "leftValue": "={{ $json.mediaType==='movie' }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "http://192.168.1.10:8096/Items",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "__CONFIGURE_PRIVATE_CREDENTIAL__"
+              }
+            ]
+          },
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "SearchTerm",
+                "value": "={{ $json.title }}"
+              },
+              {
+                "name": "Recursive",
+                "value": "true"
+              },
+              {
+                "name": "Fields",
+                "value": "Path"
+              },
+              {
+                "name": "EnableImages",
+                "value": "false"
+              },
+              {
+                "name": "EnableUserData",
+                "value": "false"
+              },
+              {
+                "name": "Limit",
+                "value": "100"
+              },
+              {
+                "name": "IncludeItemTypes",
+                "value": "Movie"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 15000,
+            "pagination": {
+              "pagination": {
+                "paginationMode": "updateAParameterInEachRequest",
+                "parameters": {
+                  "parameters": [
+                    {
+                      "type": "qs",
+                      "name": "StartIndex",
+                      "value": "={{ $pageCount * 100 }}"
+                    }
+                  ]
+                },
+                "paginationCompleteWhen": "other",
+                "completeExpression": "={{ ($pageCount + 1) * 100 >= $response.body.TotalRecordCount }}",
+                "limitPagesFetched": true,
+                "maxRequests": 100
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          400,
+          0
+        ],
+        "id": "tracking-read-target-movies",
+        "name": "Read Target Movies"
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "http://192.168.1.10:8096/Items",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "__CONFIGURE_PRIVATE_CREDENTIAL__"
+              }
+            ]
+          },
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "SearchTerm",
+                "value": "={{ $json.title }}"
+              },
+              {
+                "name": "Recursive",
+                "value": "true"
+              },
+              {
+                "name": "Fields",
+                "value": "Path"
+              },
+              {
+                "name": "EnableImages",
+                "value": "false"
+              },
+              {
+                "name": "EnableUserData",
+                "value": "false"
+              },
+              {
+                "name": "Limit",
+                "value": "100"
+              },
+              {
+                "name": "IncludeItemTypes",
+                "value": "Series"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 15000,
+            "pagination": {
+              "pagination": {
+                "paginationMode": "updateAParameterInEachRequest",
+                "parameters": {
+                  "parameters": [
+                    {
+                      "type": "qs",
+                      "name": "StartIndex",
+                      "value": "={{ $pageCount * 100 }}"
+                    }
+                  ]
+                },
+                "paginationCompleteWhen": "other",
+                "completeExpression": "={{ ($pageCount + 1) * 100 >= $response.body.TotalRecordCount }}",
+                "limitPagesFetched": true,
+                "maxRequests": 100
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          400,
+          0
+        ],
+        "id": "tracking-read-target-series",
+        "name": "Read Target Series"
+      },
+      {
+        "name": "Select Series Root",
+        "id": "tracking-select-series-root",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "function normalizeEvent(body,kind,now){\n if(body?.eventType==='Test')return null;\n if(!['movie','tv'].includes(kind)||!Number.isFinite(now)||!['Grab','Download'].includes(body?.eventType))throw new Error('Invalid media event');\n const id=x=>Number.isSafeInteger(x)&&x>0;\n const media=kind==='movie'?body.movie:body.series;\n if(!id(media?.id))throw new Error('Invalid event media ID');\n const downloadId=body.downloadId??'';\n if(typeof downloadId!=='string'||downloadId.length>200||!/^[A-Za-z0-9_.-]*$/.test(downloadId))throw new Error('Invalid download ID');\n const episodes=kind==='tv'?body.episodes:[];\n if(!Array.isArray(episodes)||episodes.length>5000||(kind==='tv'&&!episodes.length)||episodes.some(e=>!id(e?.id)))throw new Error('Invalid event episodes');\n const file=kind==='movie'?body.movieFile:body.episodeFile;\n if(body.eventType==='Download'&&!id(file?.id))throw new Error('Invalid imported file ID');\n if(body.eventType==='Grab'&&!downloadId)throw new Error('Missing download ID');\n const episodeIds=[...new Set(episodes.map(e=>String(e.id)))].sort((a,b)=>Number(a)-Number(b));\n const receivedAt=new Date(now).toISOString(),fileId=body.eventType==='Download'?String(file.id):'';\n return {eventKey:`${kind}:${media.id}:${body.eventType}:${fileId||downloadId}`,mediaType:kind,mediaId:String(media.id),fileId,\n  episodeIdsJson:JSON.stringify(episodeIds),state:body.eventType==='Download'?'imported':'downloading',\n  payloadJson:JSON.stringify({eventType:body.eventType,downloadId}),\n  importedAt:body.eventType==='Download'?receivedAt:null,receivedAt};\n}\nfunction affectedRequests(requests,events,now){\n const fallback=new Date(now).getUTCMinutes()%15===0;\n return requests.filter(r=>{\n  const requested=Date.parse(r.requestedAt);\n  if(!Number.isFinite(requested)||requested>now+60000)return false;\n  if(fallback||now-requested<15*60000)return true;\n  let scope;try{scope=new Set(JSON.parse(r.episodeIdsJson||'[]').map(String));}catch{return false;}\n  return events.some(e=>{\n   const received=Date.parse(e.receivedAt);\n   if(!Number.isFinite(received)||received<now-30*60000||received>now+60000||received<requested-60000||\n       e.mediaType!==r.mediaType||e.mediaId!==r.mediaId||!['downloading','imported'].includes(e.state))return false;\n   if(r.mediaType==='movie')return true;\n   try{return JSON.parse(e.episodeIdsJson).some(id=>scope.has(String(id)));}catch{return false;}\n  });\n });\n}\nfunction libraryRows(pages){\n if(!Array.isArray(pages)||pages.some(p=>!Array.isArray(p?.Items)))throw new Error('Jellyfin snapshot unavailable');\n const rows=pages.flatMap(p=>p.Items),total=Math.max(0,...pages.map(p=>Number(p.TotalRecordCount)||0));\n if(rows.length<total)throw new Error('Incomplete Jellyfin snapshot');\n return rows;\n}\nfunction libraryPath(path){\n if(typeof path!=='string'||!/^\\/(movies|tv)\\/[^/]/.test(path)||path.split('/').some(p=>p==='..'||p==='.')||/[\\x00-\\x1f]/.test(path))throw new Error('Invalid media directory');\n return '/data'+path.replace(/\\/$/,'');\n}\nfunction targetRoot(kind,path,pages){\n const root=libraryPath(path);\n const matches=libraryRows(pages).filter(x=>x?.Path===root&&typeof x.Id==='string'&&x.Id);\n const ids=[...new Set(matches.map(x=>x.Id))];\n if(ids.length>1)throw new Error('Ambiguous Jellyfin directory');\n return ids[0]||null;\n}\nfunction targetFiles(path,pages){\n const root=libraryPath(path)+'/';\n return libraryRows(pages).filter(x=>typeof x?.Id==='string'&&x.Id&&typeof x.Path==='string'&&x.Path.startsWith(root))\n  .map(x=>({Id:x.Id,Path:x.Path}));\n}\nif(typeof module!=='undefined')module.exports={normalizeEvent,affectedRequests,targetRoot,targetFiles};\n\nreturn [{json:{parentId:targetRoot('tv',$('Target Input').first().json.mediaPath,$input.all().map(x=>x.json))}}];"
+        }
+      },
+      {
+        "name": "Series Indexed?",
+        "id": "tracking-series-indexed",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "tracking-condition",
+                "leftValue": "={{ Boolean($json.parentId) }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "http://192.168.1.10:8096/Items",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "__CONFIGURE_PRIVATE_CREDENTIAL__"
+              }
+            ]
+          },
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "Recursive",
+                "value": "true"
+              },
+              {
+                "name": "Fields",
+                "value": "Path"
+              },
+              {
+                "name": "EnableImages",
+                "value": "false"
+              },
+              {
+                "name": "EnableUserData",
+                "value": "false"
+              },
+              {
+                "name": "Limit",
+                "value": "500"
+              },
+              {
+                "name": "IncludeItemTypes",
+                "value": "Episode"
+              },
+              {
+                "name": "ParentId",
+                "value": "={{ $json.parentId }}"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 15000,
+            "pagination": {
+              "pagination": {
+                "paginationMode": "updateAParameterInEachRequest",
+                "parameters": {
+                  "parameters": [
+                    {
+                      "type": "qs",
+                      "name": "StartIndex",
+                      "value": "={{ $pageCount * 500 }}"
+                    }
+                  ]
+                },
+                "paginationCompleteWhen": "other",
+                "completeExpression": "={{ ($pageCount + 1) * 500 >= $response.body.TotalRecordCount }}",
+                "limitPagesFetched": true,
+                "maxRequests": 100
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [
+          400,
+          0
+        ],
+        "id": "tracking-read-series-files",
+        "name": "Read Series Files"
+      },
+      {
+        "name": "Target File Snapshot",
+        "id": "tracking-target-file-snapshot",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "function normalizeEvent(body,kind,now){\n if(body?.eventType==='Test')return null;\n if(!['movie','tv'].includes(kind)||!Number.isFinite(now)||!['Grab','Download'].includes(body?.eventType))throw new Error('Invalid media event');\n const id=x=>Number.isSafeInteger(x)&&x>0;\n const media=kind==='movie'?body.movie:body.series;\n if(!id(media?.id))throw new Error('Invalid event media ID');\n const downloadId=body.downloadId??'';\n if(typeof downloadId!=='string'||downloadId.length>200||!/^[A-Za-z0-9_.-]*$/.test(downloadId))throw new Error('Invalid download ID');\n const episodes=kind==='tv'?body.episodes:[];\n if(!Array.isArray(episodes)||episodes.length>5000||(kind==='tv'&&!episodes.length)||episodes.some(e=>!id(e?.id)))throw new Error('Invalid event episodes');\n const file=kind==='movie'?body.movieFile:body.episodeFile;\n if(body.eventType==='Download'&&!id(file?.id))throw new Error('Invalid imported file ID');\n if(body.eventType==='Grab'&&!downloadId)throw new Error('Missing download ID');\n const episodeIds=[...new Set(episodes.map(e=>String(e.id)))].sort((a,b)=>Number(a)-Number(b));\n const receivedAt=new Date(now).toISOString(),fileId=body.eventType==='Download'?String(file.id):'';\n return {eventKey:`${kind}:${media.id}:${body.eventType}:${fileId||downloadId}`,mediaType:kind,mediaId:String(media.id),fileId,\n  episodeIdsJson:JSON.stringify(episodeIds),state:body.eventType==='Download'?'imported':'downloading',\n  payloadJson:JSON.stringify({eventType:body.eventType,downloadId}),\n  importedAt:body.eventType==='Download'?receivedAt:null,receivedAt};\n}\nfunction affectedRequests(requests,events,now){\n const fallback=new Date(now).getUTCMinutes()%15===0;\n return requests.filter(r=>{\n  const requested=Date.parse(r.requestedAt);\n  if(!Number.isFinite(requested)||requested>now+60000)return false;\n  if(fallback||now-requested<15*60000)return true;\n  let scope;try{scope=new Set(JSON.parse(r.episodeIdsJson||'[]').map(String));}catch{return false;}\n  return events.some(e=>{\n   const received=Date.parse(e.receivedAt);\n   if(!Number.isFinite(received)||received<now-30*60000||received>now+60000||received<requested-60000||\n       e.mediaType!==r.mediaType||e.mediaId!==r.mediaId||!['downloading','imported'].includes(e.state))return false;\n   if(r.mediaType==='movie')return true;\n   try{return JSON.parse(e.episodeIdsJson).some(id=>scope.has(String(id)));}catch{return false;}\n  });\n });\n}\nfunction libraryRows(pages){\n if(!Array.isArray(pages)||pages.some(p=>!Array.isArray(p?.Items)))throw new Error('Jellyfin snapshot unavailable');\n const rows=pages.flatMap(p=>p.Items),total=Math.max(0,...pages.map(p=>Number(p.TotalRecordCount)||0));\n if(rows.length<total)throw new Error('Incomplete Jellyfin snapshot');\n return rows;\n}\nfunction libraryPath(path){\n if(typeof path!=='string'||!/^\\/(movies|tv)\\/[^/]/.test(path)||path.split('/').some(p=>p==='..'||p==='.')||/[\\x00-\\x1f]/.test(path))throw new Error('Invalid media directory');\n return '/data'+path.replace(/\\/$/,'');\n}\nfunction targetRoot(kind,path,pages){\n const root=libraryPath(path);\n const matches=libraryRows(pages).filter(x=>x?.Path===root&&typeof x.Id==='string'&&x.Id);\n const ids=[...new Set(matches.map(x=>x.Id))];\n if(ids.length>1)throw new Error('Ambiguous Jellyfin directory');\n return ids[0]||null;\n}\nfunction targetFiles(path,pages){\n const root=libraryPath(path)+'/';\n return libraryRows(pages).filter(x=>typeof x?.Id==='string'&&x.Id&&typeof x.Path==='string'&&x.Path.startsWith(root))\n  .map(x=>({Id:x.Id,Path:x.Path}));\n}\nif(typeof module!=='undefined')module.exports={normalizeEvent,affectedRequests,targetRoot,targetFiles};\n\nreturn [{json:{jellyfinLibrary:targetFiles($('Target Input').first().json.mediaPath,$input.all().map(x=>x.json))}}];"
+        }
+      },
+      {
+        "name": "Empty Target Snapshot",
+        "id": "tracking-empty-target-snapshot",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "jsCode": "return [{json:{jellyfinLibrary:[]}}];"
+        }
+      }
+    ],
+    "connections": {
+      "Target Input": {
+        "main": [
+          [
+            {
+              "node": "Target Movie?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Target Movie?": {
+        "main": [
+          [
+            {
+              "node": "Read Target Movies",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Read Target Series",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Target Movies": {
+        "main": [
+          [
+            {
+              "node": "Target File Snapshot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Target Series": {
+        "main": [
+          [
+            {
+              "node": "Select Series Root",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Select Series Root": {
+        "main": [
+          [
+            {
+              "node": "Series Indexed?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Series Indexed?": {
+        "main": [
+          [
+            {
+              "node": "Read Series Files",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Empty Target Snapshot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Series Files": {
+        "main": [
+          [
+            {
+              "node": "Target File Snapshot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "active": false,
+    "settings": {
+      "executionOrder": "v1",
+      "executionTimeout": 120,
+      "saveDataErrorExecution": "all",
+      "saveDataSuccessExecution": "none"
+    }
   }
 ]

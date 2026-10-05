@@ -37,9 +37,10 @@ def patch_workflows(workflows):
     def edge(name): return {'main':[[{'node':name,'type':'main','index':0}]]}
     scan['connections']['Tracked Requests']=edge('Completion Notices')
     scan['connections']['Completion Notices']=edge('Unfinished Requests')
-    scan['connections']['Unfinished Requests']=edge('One Library Read')
-    code=nodes['Real Requests Only']['parameters']['jsCode']
-    nodes['Real Requests Only']['parameters']['jsCode']=code.replace("$('Tracked Requests').all()","$('Unfinished Requests').all()")
+    if 'Real Requests Only' in nodes:
+        scan['connections']['Unfinished Requests']=edge('One Library Read')
+        code=nodes['Real Requests Only']['parameters']['jsCode']
+        nodes['Real Requests Only']['parameters']['jsCode']=code.replace("$('Tracked Requests').all()","$('Unfinished Requests').all()")
 
     # This workflow only reads snapshots and formats status. Retain all errors.
     # Mutation coordinators, notification writers and recovery proof are untouched.
