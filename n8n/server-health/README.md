@@ -47,5 +47,24 @@ GPU utilization and VRAM come from nvidia-smi. Upload is the sum of transmitted
 bytes on active physical network interfaces over a two-second sample. It includes
 all host/container traffic leaving those interfaces, including LAN and VPN
 transport. Virtual Docker and Tailscale interfaces are excluded to avoid double
-counting. Reports are cached for up to 60 seconds. Optional metrics fail to
-unavailable rather than zero. This measures current traffic, not uplink capacity.
+counting. Service/GPU checks are cached for up to 60 seconds. CPU and network readings
+refresh independently. Optional metrics fail to unavailable rather than zero.
+This measures actual traffic, not uplink capacity.
+
+
+CPU usage is an aggregate percentage across all logical cores from Linux counter
+changes; load average is separately labeled. I/O wait is excluded from busy CPU
+usage, and guest counters are not counted twice. Memory also shows a percentage.
+GPU temperature, encoding and decoding percentages appear where supported by
+nvidia-smi. An unavailable optional reading does not hide valid base GPU data.
+
+`tools/performance_metrics.py` samples counters every two seconds in a single
+background thread. It retains only a minute of observations in memory. Upload
+also shows an elapsed-time weighted one-minute average. After collector restart,
+interface changes, counter resets or failed reads, that average warms up again.
+Stale or invalid readings say unavailable rather than reporting a false zero.
+No additional dependency or writable volume is needed. Deploy this module beside
+`server_health.py`; both Discord and Telegram use the shared report formatter.
+
+Measurement references: [Linux CPU accounting](https://docs.kernel.org/admin-guide/cpu-load.html)
+and [NVIDIA monitoring fields](https://docs.nvidia.com/deploy/nvidia-smi/index.html).

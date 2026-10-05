@@ -15,6 +15,7 @@ import threading
 import time
 import urllib.request
 from urllib.parse import urlencode
+from performance_metrics import PerformanceSampler
 
 SERVICES = ('Jellyfin','Radarr','Sonarr','Prowlarr','SABnzbd','qBittorrent','n8n')
 log = logging.getLogger('snake_health')
@@ -103,17 +104,26 @@ def storage_probe():
 
 def parse_gpu(output):
     row = next(csv.reader(output.strip().splitlines()))
-    if len(row) != 4: raise ValueError('gpu_invalid')
+    if len(row) not in (4,7): raise ValueError('gpu_invalid')
     name = row[0].strip()
-    utilization, used, total = map(float, row[1:])
+    utilization, used, total = map(float, row[1:4])
     if not re.fullmatch(r'[A-Za-z0-9 ()._-]{1,100}', name) or not all(math.isfinite(n) for n in (utilization, used, total)) or not 0 <= utilization <= 100 or not 0 <= used <= total or total <= 0:
         raise ValueError('gpu_invalid')
-    return {'available':True,'name':name,'utilizationPercent':utilization,'memoryUsedMiB':used,'memoryTotalMiB':total}
+    def optional(index, maximum):
+        try:
+            value=float(row[index])
+            return value if math.isfinite(value) and 0<=value<=maximum else None
+        except (IndexError,ValueError):return None
+    return {'available':True,'name':name,'utilizationPercent':utilization,'memoryUsedMiB':used,'memoryTotalMiB':total,
+        'temperatureC':optional(4,150),'encoderPercent':optional(5,100),'decoderPercent':optional(6,100)}
 
 
 def gpu_probe():
     try:
-        output = subprocess.check_output(['nvidia-smi','--query-gpu=name,utilization.gpu,memory.used,memory.total','--format=csv,noheader,nounits'], timeout=3, text=True)
+        try:
+            output = subprocess.check_output(['nvidia-smi','--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu,utilization.encoder,utilization.decoder','--format=csv,noheader,nounits'], timeout=3, text=True,stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError:
+            output = subprocess.check_output(['nvidia-smi','--query-gpu=name,utilization.gpu,memory.used,memory.total','--format=csv,noheader,nounits'], timeout=3, text=True,stderr=subprocess.DEVNULL)
         return parse_gpu(output)
     except Exception:
         return {'available':False}
@@ -125,18 +135,6 @@ def upload_rate(before, after, seconds):
     return (after-before)*8/seconds/1000000
 
 
-def network_probe():
-    try:
-        interfaces = sorted(p.name for p in Path('/sys/class/net').iterdir() if (p/'device').exists() and (p/'operstate').read_text().strip()=='up')
-        if not interfaces or any(not re.fullmatch(r'[A-Za-z0-9_.-]{1,32}', n) for n in interfaces): raise ValueError('network_unavailable')
-        def counters(): return {n:int(Path('/sys/class/net',n,'statistics/tx_bytes').read_text()) for n in interfaces}
-        before=counters();start=time.monotonic();time.sleep(2);after=counters();seconds=time.monotonic()-start
-        rate=sum(upload_rate(before[n],after[n],seconds) for n in interfaces)
-        return {'available':True,'interface':', '.join(interfaces),'uploadMbps':rate,'sampleSeconds':seconds}
-    except Exception:
-        return {'available':False}
-
-
 def collect(config):
     start=int(time.time()*1000)
     mem={line.split(':')[0]:int(line.split()[1])*1024 for line in Path('/proc/meminfo').read_text().splitlines() if line.startswith(('MemTotal:','MemAvailable:'))}
@@ -146,19 +144,20 @@ def collect(config):
         playback=pool.submit(playback_probe,config)
         storage=pool.submit(storage_probe)
         gpu=pool.submit(gpu_probe)
-        network=pool.submit(network_probe)
-        return {'version':1,'checkedAt':start,'host':host,'storage':storage.result(),'services':{s:f.result() for s,f in service.items()},'playback':playback.result(),'gpu':gpu.result(),'network':network.result()}
+        return {'version':1,'checkedAt':start,'host':host,'storage':storage.result(),'services':{s:f.result() for s,f in service.items()},'playback':playback.result(),'gpu':gpu.result()}
 
 
 class Collector:
     def __init__(self,config):
         self.config=config;self.lock=threading.Lock();self.cached=None;self.when=0
+        self.performance=PerformanceSampler();self.performance.start()
 
     def read(self):
         with self.lock:
             if self.cached is None or time.monotonic()-self.when>=60:
                 self.cached=collect(self.config);self.when=time.monotonic()
-            return self.cached
+            readings=self.performance.snapshot()
+            return {**self.cached,'host':{**self.cached['host'],'cpu':readings['cpu']},'network':readings['network']}
 
 
 class Handler(BaseHTTPRequestHandler):

@@ -7,3 +7,24 @@ test('failed checks, no media and stale data cannot claim healthy playback',()=>
 test('unknown sessions or overloaded host cannot report all checks passed',()=>{const f=fixture();f.playback.active=null;assert.doesNotMatch(report(f,110000),/Server checks passed/);f.playback.active=0;f.host.load1=10;assert.match(report(f,110000),/high CPU/i);f.storage.disks=[null];assert.match(report(f,110000),/unavailable/i)});
 
 test('GPU and upload distinguish unavailable from idle and label server traffic',()=>{const f=fixture();f.gpu={available:true,name:'NVIDIA GeForce GTX 1070',utilizationPercent:12,memoryUsedMiB:1024,memoryTotalMiB:8192};f.network={available:true,interface:'enp1s0',uploadMbps:8,sampleSeconds:2};const s=report(f,110000);assert.match(s,/GPU.*1070.*12%/);assert.match(s,/VRAM.*1.0.*8.0/);assert.match(s,/Server upload.*8.00 Mbps/);assert.match(s,/LAN/);f.gpu.available=false;f.network.uploadMbps=-1;const missing=report(f,110000);assert.match(missing,/GPU.*unavailable/);assert.match(missing,/Server upload.*unavailable/);f.gpu={available:true,name:'GTX 1070',utilizationPercent:0,memoryUsedMiB:0,memoryTotalMiB:8192};f.network.uploadMbps=0;assert.match(report(f,110000),/GPU.*0%/);assert.match(report(f,110000),/upload.*0.00 Mbps/);});
+
+
+test('CPU percent is independent of load average and samples have clear units',()=>{
+ const f=fixture();f.host.cpu={available:true,usagePercent:12.5,sampleSeconds:2};
+ f.gpu={available:true,name:'GTX 1070',utilizationPercent:0,memoryUsedMiB:0,memoryTotalMiB:8192,temperatureC:36,encoderPercent:20,decoderPercent:40};
+ f.network={available:true,uploadMbps:8,sampleSeconds:2,uploadAverageMbps:4,averageSeconds:60};
+ const s=report(f,110000);assert.match(s,/CPU: 12.5%.*4 cores/);assert.match(s,/Load average.*0.20/);
+ assert.match(s,/36°C/);assert.match(s,/Encode: 20%.*Decode: 40%/);
+ assert.match(s,/1.minute average: 4.00 Mbps/);assert.match(s,/10 seconds ago/);
+ f.host.cpu.usagePercent=95;assert.match(report(f,110000),/CPU usage above 90%/);
+});
+
+test('missing performance data never means zero and average is labeled warming up',()=>{
+ const f=fixture();f.host.cpu={available:false};f.network={available:true,uploadMbps:0,sampleSeconds:2,uploadAverageMbps:null,averageSeconds:0};
+ f.gpu={available:true,name:'GTX 1070',utilizationPercent:0,memoryUsedMiB:0,memoryTotalMiB:8192,temperatureC:null,encoderPercent:null,decoderPercent:null};
+ const s=report(f,110000);assert.match(s,/CPU: usage unavailable/);assert.match(s,/upload: 0.00 Mbps/);
+ assert.match(s,/average: warming up/);assert.match(s,/Temperature: unavailable/);assert.match(s,/Encode: unavailable/);
+ f.network.uploadAverageMbps=-1;f.network.averageSeconds=60;assert.match(report(f,110000),/average: unavailable/);
+ f.host.cpu={available:true,usagePercent:101,sampleSeconds:2};assert.match(report(f,110000),/CPU: usage unavailable/);
+ f.network.uploadAverageMbps=0;assert.match(report(f,110000),/average: 0.00 Mbps/);
+});

@@ -1,10 +1,12 @@
 import importlib.util
+import sys
 from pathlib import Path
 import unittest
 import threading
 import urllib.request
 import urllib.error
 from unittest.mock import AsyncMock
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"tools"))
 
 from snake_media.bot import SnakeMediaClient
 from snake_media.service import RequestService
