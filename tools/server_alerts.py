@@ -12,7 +12,7 @@ import urllib.error
 import urllib.request
 
 import alert_policy as policy
-from alert_probes import health_facts, backup_probe, n8n_probe
+from alert_probes import health_facts, backup_probe, n8n_probe, notification_probe
 
 LOG = logging.getLogger('snake-alerts')
 
@@ -57,10 +57,18 @@ def observations(snapshot, ops, backup, owner, users, issues, now):
         facts[key] = request['healthy']
         recipients[key] = [owner]
         titles[key] = request['title']
+    notifications = ops.get('notifications', {'available': False, 'notices': {}})
+    facts['monitor:notifications'] = notifications['available']
+    recipients['monitor:notifications'] = [owner]
+    for identifier, notice in notifications['notices'].items():
+        key = 'notification:' + identifier
+        facts[key] = notice['healthy']
+        recipients[key] = [owner]
+        titles[key] = notice['source'].capitalize() + ' — ' + notice['title']
     # A missing database or pruned record cannot establish a recovery.
     for row in issues.values():
         key, user = row['key'], row['recipient']
-        if key.startswith('request:') and key not in facts:
+        if key.startswith(('request:', 'notification:')) and key not in facts:
             facts[key] = None
             recipients[key] = [owner]
     return facts, recipients, titles
@@ -73,6 +81,7 @@ LABELS = {'backup': 'Encrypted server backup is failed or overdue.',
           'playback:sample': 'The Jellyfin media streaming check failed.',
           'monitor:health': 'Server health readings are unavailable or stale.',
           'monitor:metadata': 'Media request health could not be checked.'}
+LABELS['monitor:notifications'] = 'Completion message delivery could not be checked.'
 
 
 def render(events, titles):
@@ -80,7 +89,11 @@ def render(events, titles):
     for event in events:
         key = event['key']
         recovery = event['kind'] == 'recovery'
-        if key.startswith('request:'):
+        if key.startswith('notification:'):
+            title = titles.get(key, 'Completion message')
+            text = (title + ': completion message delivery is confirmed.' if recovery else
+                    title + ': completion message is still undelivered after 15 minutes. Delivery retries continue.')
+        elif key.startswith('request:'):
             title = titles.get(key, 'Your request')
             text = (title + ': no longer appears stuck. Check /status for its current progress.' if recovery
                     else title + ': confirmation is taking longer than expected. Check /status before submitting it again.')
@@ -224,6 +237,9 @@ def main():
         state = load_state(path)
         now = time.time()
         ops = n8n_probe(args.database, now, users)
+        observed_ids = [row['key'].split(':', 1)[1] for row in state['issues'].values()
+                        if row['key'].startswith('notification:')]
+        ops['notifications'] = notification_probe(args.database, now, observed_ids)
         facts, recipients, titles = observations(health_snapshot(args.health_config), ops,
             backup_probe(args.backup_dir, now), owner, users, state['issues'], now)
         events = policy.observe(state['issues'], facts, recipients, now)

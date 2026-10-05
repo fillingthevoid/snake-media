@@ -63,6 +63,59 @@ def timestamp(value):
     return (dt if dt.tzinfo else dt.replace(tzinfo=datetime.timezone.utc)).timestamp()
 
 
+def notification_probe(database, now, observed_ids=(), stuck_seconds=900, limit=2000):
+    """Inspect overdue delivery, without reading message payloads or changing retries."""
+    unavailable = {'available': False, 'notices': {}}
+    try:
+        if not math.isfinite(now) or not 1 <= limit <= 2000 or stuck_seconds < 300:
+            raise ValueError('invalid_notification_probe')
+        watched = {str(i) for i in observed_ids if re.fullmatch(r'[1-9][0-9]{0,15}', str(i))}
+        if len(watched) > 2000:
+            raise ValueError('too_many_observed_notices')
+        with closing(sqlite3.connect(Path(database).resolve().as_uri()+'?mode=ro', uri=True, timeout=5)) as db:
+            db.execute('BEGIN')
+            def table(name):
+                rows = db.execute('SELECT id FROM data_table WHERE name=?', (name,)).fetchall()
+                if len(rows) != 1 or not re.fullmatch(r'[A-Za-z0-9_]+', rows[0][0]):
+                    raise ValueError('unknown_table')
+                return '"data_table_user_' + rows[0][0] + '"'
+            notices, requests = table('snake_media_notifications'), table('snake_media_requests')
+            query = ('SELECT n.id,n.source,n.state,n.createdAt,r.userId,r.title,r.source,r.state,r.baselineCaptured '
+                     'FROM ' + notices + ' n JOIN ' + requests + ' r ON n.requestKey=r.requestKey WHERE ')
+            pending = db.execute(query + "n.state='pending' ORDER BY n.id LIMIT ?", (limit + 1,)).fetchall()
+            if len(pending) > limit:
+                raise ValueError('notification_probe_overflow')
+            previous = db.execute(query + "n.state<>'pending' AND n.id IN (" + ','.join('?' for _ in watched) + ')', tuple(watched)).fetchall() if watched else []
+            result = {}
+            seen = set()
+            for identifier, source, state, created, user, title, request_source, request_state, baseline in pending + previous:
+                identifier = str(identifier)
+                if identifier in seen:
+                    # A duplicate request key cannot prove ownership or delivery.
+                    result.pop(identifier, None)
+                    continue
+                seen.add(identifier)
+                if (source not in ('discord', 'telegram') or source != request_source or
+                    request_state != 'registered' or baseline != 1 or user == '1' or
+                    not isinstance(user, str) or not re.fullmatch(r'[1-9][0-9]{0,19}', user)):
+                    continue
+                healthy = None
+                if state == 'delivered':
+                    healthy = True
+                elif state == 'pending':
+                    try:
+                        age = now - timestamp(created)
+                        if age >= 0:
+                            healthy = age < stuck_seconds
+                    except (ValueError, TypeError, AttributeError):
+                        pass
+                result[identifier] = {'source': source, 'title': ' '.join(str(title).split())[:100], 'healthy': healthy}
+            db.rollback()
+            return {'available': True, 'notices': result}
+    except Exception:
+        return unavailable
+
+
 def n8n_probe(database, now, users, stuck_seconds=900):
     unavailable={'available':False,'lock':None,'requests':{}}
     try:

@@ -5,9 +5,14 @@ encrypted backups, and stalled request operations every five minutes. It runs
 independently of n8n so an n8n outage can still be reported. No inbound port is added.
 
 All problems go to the owner’s Discord DMs, including a confirmation stuck for over
-15 minutes. Normal waiting for
-a release or a future episode does not trigger an alert. Telegram alerts are not
-included in this monitor.
+15 minutes. Completion notices for Discord and Telegram that remain pending for 15 minutes
+are also checked. Alerts identify the platform and title; delivery retries continue.
+Two healthy observations after recorded delivery confirm recovery. A missing record
+or unavailable tracking database does not imply delivery. The probe reads at most
+2,000 pending records plus previously observed IDs and never reads message payloads.
+Normal waiting for
+a release or a future episode does not trigger an alert. All alerts are delivered
+through the owner's Discord DMs.
 
 Two consecutive failed checks trigger an alert. Reminders are limited to once
 every four hours per issue. Two healthy checks trigger a recovery message only
