@@ -2,10 +2,59 @@ import unittest
 from snake_media.notifications import NotificationDelivery
 
 class DeliveryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_failed_send_cools_down_without_losing_its_retry(self):
+        class Transport:
+            async def poll(self,exclude=()):
+                row={'notificationKey':'bad','destinationId':'333',
+                     'payload':{'userId':'111','messageId':'444','text':'Ready'}}
+                return [] if 'bad' in exclude else [row]
+            async def acknowledge(self,*args): pass
+        attempts=[]; now=[0]
+        async def send(*args): attempts.append(now[0]);raise OSError('offline')
+        delivery=NotificationDelivery(Transport(),send,{'111'},{'333'},clock=lambda:now[0])
+        with self.assertLogs('snake_media',level='WARNING'): await delivery.tick()
+        now[0]=30;await delivery.tick()
+        now[0]=60
+        with self.assertLogs('snake_media',level='WARNING'): await delivery.tick()
+        now[0]=120;await delivery.tick()
+        now[0]=180
+        with self.assertLogs('snake_media',level='WARNING'): await delivery.tick()
+        self.assertEqual(attempts,[0,60,180])
+
+    async def test_failed_first_send_does_not_block_later_notice(self):
+        class Transport:
+            async def poll(self,exclude=()):
+                return [{'notificationKey':key,'destinationId':'333','payload':
+                         {'userId':'111','messageId':message,'text':'Ready'}}
+                        for key,message in [('bad','444'),('good','445')]]
+            async def acknowledge(self,*args): pass
+        sent=[]
+        async def send(channel,message,text):
+            if message=='444': raise OSError('unavailable')
+            sent.append(message);return '555'
+        delivery=NotificationDelivery(Transport(),send,{'111'},{'333'})
+        with self.assertLogs('snake_media',level='WARNING'): await delivery.tick()
+        self.assertEqual(sent,['445'])
+
+    async def test_failed_old_ack_does_not_block_new_delivery(self):
+        class Transport:
+            async def poll(self,exclude=()):
+                return [{'notificationKey':'new','destinationId':'333',
+                         'payload':{'userId':'111','messageId':'445','text':'Ready'}}]
+            async def acknowledge(self,key,message):
+                if key=='old': raise OSError('unavailable')
+        sent=[]
+        async def send(channel,message,text): sent.append(message);return '555'
+        delivery=NotificationDelivery(Transport(),send,{'111'},{'333'})
+        delivery.pending_acks['old']='554'
+        with self.assertLogs('snake_media',level='WARNING'): await delivery.tick()
+        self.assertEqual(sent,['445'])
+        self.assertEqual(delivery.pending_acks,{'old':'554'})
+
     async def test_successful_send_is_not_repeated_when_ack_fails(self):
         class Transport:
             calls=0
-            async def poll(self): return [{'notificationKey':'k','destinationId':'333','payload':{'userId':'111','messageId':'444','text':'Ready'}}]
+            async def poll(self,exclude=()): return [{'notificationKey':'k','destinationId':'333','payload':{'userId':'111','messageId':'444','text':'Ready'}}]
             async def acknowledge(self,key,message_id):
                 self.calls+=1
                 if self.calls==1: raise OSError('network')
@@ -18,7 +67,7 @@ class DeliveryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_removed_users_and_unapproved_channels_never_receive_messages(self):
         class Transport:
-            async def poll(self):return [{'notificationKey':'k','destinationId':'666','payload':{'userId':'111','messageId':'444','text':'Ready'}},{'notificationKey':'l','destinationId':'333','payload':{'userId':'222','messageId':'444','text':'Ready'}}]
+            async def poll(self,exclude=()):return [{'notificationKey':'k','destinationId':'666','payload':{'userId':'111','messageId':'444','text':'Ready'}},{'notificationKey':'l','destinationId':'333','payload':{'userId':'222','messageId':'444','text':'Ready'}}]
             async def acknowledge(self,*args):pass
         sent=[]
         async def send(*args):sent.append(args)

@@ -4571,7 +4571,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "parameters": {
-          "jsCode": "const library=$input.all().flatMap(x=>x.json.Items || []).filter(x=>x.Path&&x.Id).map(x=>({Path:x.Path,Id:x.Id}));return $('Tracked Requests').all().filter(x=>x.json.baselineCaptured&&x.json.userId!=='1'&&x.json.state==='registered').map(x=>({json:{...x.json,jellyfinLibrary:library}}));"
+          "jsCode": "const library=$input.all().flatMap(x=>x.json.Items || []).filter(x=>x.Path&&x.Id).map(x=>({Path:x.Path,Id:x.Id}));return $('Unfinished Requests').all().filter(x=>x.json.baselineCaptured&&x.json.userId!=='1'&&x.json.state==='registered').map(x=>({json:{...x.json,jellyfinLibrary:library}}));"
         },
         "position": [
           1080,
@@ -4628,6 +4628,45 @@
         ],
         "alwaysOutputData": true,
         "onError": "continueRegularOutput"
+      },
+      {
+        "id": "read-completion-notices",
+        "name": "Completion Notices",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "HZ2inujBfAj6zwDl"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": []
+          },
+          "options": {},
+          "returnAll": true
+        },
+        "position": [
+          420,
+          0
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "unfinished-requests",
+        "name": "Unfinished Requests",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          640,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// Queue exclusions let healthy recipients advance past deferred notices.\nfunction queueBatch(rows,excluded=[]){\n const seen=new Set(),skip=new Set(excluded),notifications=[];\n for(const r of rows){\n  if(!r.notificationKey||/:tv:\\d+:episode:\\d+$/.test(r.notificationKey)||seen.has(r.notificationKey)||skip.has(r.notificationKey))continue;\n  seen.add(r.notificationKey);\n  try{\n   const payload=JSON.parse(r.payloadJson);\n   if(!payload||typeof payload!=='object'||Array.isArray(payload))continue;\n   notifications.push({id:String(r.id),notificationKey:r.notificationKey,destinationId:r.destinationId,payload});\n  }catch{}\n  if(notifications.length===10)break;\n }\n return {version:1,notifications};\n}\nfunction pendingRequests(requests,notices){\n const finished=new Set(notices.filter(n=>['pending','delivered'].includes(n.state)&&\n  typeof n.notificationKey==='string'&&!n.notificationKey.includes(':progress:')).map(n=>n.requestKey));\n return requests.filter(r=>r.baselineCaptured&&r.userId!=='1'&&r.state==='registered'&&\n  ['discord','telegram'].includes(r.source)&&!finished.has(r.requestKey));\n}\nif(typeof module!=='undefined')module.exports={queueBatch,pendingRequests};\n\nreturn pendingRequests($('Tracked Requests').all().map(x=>x.json),$input.all().map(x=>x.json)).map(json=>({json}));"
+        }
       }
     ],
     "connections": {
@@ -4646,7 +4685,7 @@
         "main": [
           [
             {
-              "node": "One Library Read",
+              "node": "Completion Notices",
               "type": "main",
               "index": 0
             }
@@ -4685,6 +4724,28 @@
             },
             {
               "node": "Inspect Each Progress",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Completion Notices": {
+        "main": [
+          [
+            {
+              "node": "Unfinished Requests",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Unfinished Requests": {
+        "main": [
+          [
+            {
+              "node": "One Library Read",
               "type": "main",
               "index": 0
             }
@@ -5712,7 +5773,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "parameters": {
-          "jsCode": "const b=$input.first().json.body; if(b?.action==='poll')return [{json:{action:'poll'}}]; if(b?.action==='ack' && typeof b.notificationKey==='string' && b.notificationKey.startsWith('discord:') && b.notificationKey.length<=300 && typeof b.messageId==='string' && /^[1-9][0-9]{0,19}$/.test(b.messageId))return [{json:b}]; throw new Error('Invalid queue action');"
+          "jsCode": "const b=$input.first().json.body; if(b?.action==='poll'){const keys=b.excludeNotificationKeys||[];if(!Array.isArray(keys)||keys.length>1000||keys.some(k=>typeof k!=='string'||!k.length||k.length>300))throw new Error('Invalid queue exclusions');return [{json:{action:'poll',excludeNotificationKeys:keys}}];}if(b?.action==='ack'&&typeof b.notificationKey==='string'&&b.notificationKey.startsWith('discord:')&&b.notificationKey.length<=300&&typeof b.messageId==='string'&&/^[1-9][0-9]{0,19}$/.test(b.messageId))return [{json:b}];throw new Error('Invalid queue action');"
         },
         "position": [
           270,
@@ -5796,7 +5857,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "parameters": {
-          "jsCode": "const seen=new Set(); const notifications=[];\nfor(const {json:r} of $input.all()) {\n if(!r.notificationKey || /:tv:\\d+:episode:\\d+$/.test(r.notificationKey) || seen.has(r.notificationKey))continue;\n seen.add(r.notificationKey);\n try{notifications.push({id:String(r.id),notificationKey:r.notificationKey,destinationId:r.destinationId,payload:JSON.parse(r.payloadJson)});}catch{}\n if(notifications.length===10)break;\n}\nreturn [{json:{version:1,notifications}}];\n"
+          "jsCode": "// Queue exclusions let healthy recipients advance past deferred notices.\nfunction queueBatch(rows,excluded=[]){\n const seen=new Set(),skip=new Set(excluded),notifications=[];\n for(const r of rows){\n  if(!r.notificationKey||/:tv:\\d+:episode:\\d+$/.test(r.notificationKey)||seen.has(r.notificationKey)||skip.has(r.notificationKey))continue;\n  seen.add(r.notificationKey);\n  try{\n   const payload=JSON.parse(r.payloadJson);\n   if(!payload||typeof payload!=='object'||Array.isArray(payload))continue;\n   notifications.push({id:String(r.id),notificationKey:r.notificationKey,destinationId:r.destinationId,payload});\n  }catch{}\n  if(notifications.length===10)break;\n }\n return {version:1,notifications};\n}\nfunction pendingRequests(requests,notices){\n const finished=new Set(notices.filter(n=>['pending','delivered'].includes(n.state)&&\n  typeof n.notificationKey==='string'&&!n.notificationKey.includes(':progress:')).map(n=>n.requestKey));\n return requests.filter(r=>r.baselineCaptured&&r.userId!=='1'&&r.state==='registered'&&\n  ['discord','telegram'].includes(r.source)&&!finished.has(r.requestKey));\n}\nif(typeof module!=='undefined')module.exports={queueBatch,pendingRequests};\n\nreturn [{json:queueBatch($input.all().map(x=>x.json),$('Validate Queue Action').first().json.excludeNotificationKeys||[])}];"
         },
         "position": [
           1080,
@@ -21925,7 +21986,9 @@
     },
     "settings": {
       "executionOrder": "v1",
-      "executionTimeout": 120
+      "executionTimeout": 120,
+      "saveDataSuccessExecution": "none",
+      "saveDataErrorExecution": "all"
     }
   },
   {

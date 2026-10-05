@@ -2,7 +2,8 @@
 import asyncio
 import json
 import logging
-from collections import deque
+import time
+from collections import deque, OrderedDict
 import aiohttp
 
 log = logging.getLogger('snake_media')
@@ -31,8 +32,10 @@ class NotificationTransport:
             if not isinstance(data,dict) or data.get('version')!=1: raise ValueError('notification_contract_error')
             return data
 
-    async def poll(self):
-        data=await self._post({'action':'poll'})
+    async def poll(self,exclude=()):
+        body={'action':'poll'}
+        if exclude: body['excludeNotificationKeys']=list(exclude)[:1000]
+        data=await self._post(body)
         rows=data.get('notifications')
         if not isinstance(rows,list) or len(rows)>10: raise ValueError('notification_batch_error')
         return rows
@@ -42,11 +45,19 @@ class NotificationTransport:
         if data.get('acknowledged') is not True: raise ValueError('notification_ack_error')
 
 class NotificationDelivery:
-    def __init__(self,transport,send,users,channels,journal=None):
+    def __init__(self,transport,send,users,channels,journal=None,clock=time.monotonic):
         self.transport,self.send,self.users,self.channels=transport,send,users,channels
         self.journal=journal
         self.pending_acks=journal.pending() if journal is not None else {}
         self.delivered=deque(maxlen=1000)
+        self.clock=clock
+        self.retries=OrderedDict()
+
+    def _defer(self,key):
+        attempts=self.retries.get(key,(0,0))[0]+1
+        self.retries[key]=(min(attempts,5),self.clock()+min(900,60*2**min(attempts-1,4)))
+        self.retries.move_to_end(key)
+        while len(self.retries)>1000: self.retries.popitem(last=False)
 
     async def _acknowledge(self,key,message_id):
         if self.journal is not None:
@@ -57,18 +68,33 @@ class NotificationDelivery:
         del self.pending_acks[key]
 
     async def tick(self):
-        try:
-            for key,message_id in list(self.pending_acks.items()):
+        for key,message_id in list(self.pending_acks.items()):
+            try:
                 await self._acknowledge(key,message_id)
-            for row in await self.transport.poll():
+            except Exception as exc:
+                log.warning('Notification acknowledgement deferred error_type=%s',type(exc).__name__)
+        try:
+            excluded=list(self.pending_acks)+[key for key,(_,due) in self.retries.items() if due>self.clock()]
+            rows=await self.transport.poll(exclude=excluded[:1000])
+        except Exception as exc:
+            log.warning('Notification polling deferred error_type=%s',type(exc).__name__)
+            return
+        for row in rows:
+            key=None
+            try:
                 if not isinstance(row,dict): continue
                 key=row.get('notificationKey'); channel=row.get('destinationId'); payload=row.get('payload')
                 if not isinstance(key,str) or not 1<=len(key)<=300 or not isinstance(payload,dict): continue
+                if self.retries.get(key,(0,0))[1]>self.clock(): continue
                 if key in self.delivered or (self.journal is not None and self.journal.get(key)): continue
-                if payload.get('userId') not in self.users or channel not in self.channels: continue
+                if payload.get('userId') not in self.users or channel not in self.channels:
+                    self._defer(key)
+                    continue
                 message=payload.get('messageId'); text=payload.get('text')
-                if not isinstance(message,str) or not message.isascii() or not message.isdigit(): continue
-                if not isinstance(text,str) or not 1<=len(text)<=1800: continue
+                if (not isinstance(message,str) or not message.isascii() or not message.isdigit()
+                        or not isinstance(text,str) or not 1<=len(text)<=1800):
+                    self._defer(key)
+                    continue
                 notice_id=str(row.get('id',''))
                 options={}
                 if (payload.get('retentionControls') is not False and notice_id.isascii()
@@ -80,9 +106,11 @@ class NotificationDelivery:
                 sent=await self.send(channel,message,text,**options)
                 self.delivered.append(key)
                 self.pending_acks[key]=str(sent)
+                self.retries.pop(key,None)
                 await self._acknowledge(key,str(sent))
-        except Exception as exc:
-            log.warning('Notification delivery deferred error_type=%s',type(exc).__name__)
+            except Exception as exc:
+                if key is not None and key not in self.pending_acks: self._defer(key)
+                log.warning('Notification delivery deferred error_type=%s',type(exc).__name__)
 
     async def run(self,client):
         while not client.is_closed():
