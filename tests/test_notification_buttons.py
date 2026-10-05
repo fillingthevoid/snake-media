@@ -13,7 +13,10 @@ class NoticeButtonTests(unittest.IsolatedAsyncioTestCase):
         transport=SimpleNamespace(poll=AsyncMock(return_value=[{'id':'12','notificationKey':'k','destinationId':'333','payload':{'userId':'111','messageId':'444','text':'Ready'}}]),acknowledge=AsyncMock())
         send=AsyncMock(return_value='555')
         await NotificationDelivery(transport,send,{'111'},{'333'}).tick()
-        send.assert_awaited_once_with('333','444','Ready',notice_id='12')
+        send.assert_awaited_once()
+        self.assertEqual(send.await_args.args, ('333','444','Ready'))
+        self.assertEqual(send.await_args.kwargs['notice_id'], '12')
+        self.assertRegex(send.await_args.kwargs['nonce'], r'^[0-9a-f]{24}$')
         client=SnakeMediaClient(RequestService(config(),SimpleNamespace()))
         channel=SimpleNamespace(send=AsyncMock(return_value=SimpleNamespace(id=555)))
         client.get_channel=lambda _:channel

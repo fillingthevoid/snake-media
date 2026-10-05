@@ -145,7 +145,7 @@ class SnakeMediaClient(discord.Client):
             self.notification_task = asyncio.create_task(worker.run(self))
 
     async def send_notification(self, channel_id, message_id, text, notice_id=None,
-                                poster_url=None, jellyfin_url=None, local_jellyfin_url=None):
+                                poster_url=None, jellyfin_url=None, local_jellyfin_url=None, nonce=None):
         channel = self.get_channel(int(channel_id)) or await self.fetch_channel(int(channel_id))
         reference = discord.MessageReference(message_id=int(message_id), channel_id=int(channel_id),
                                              fail_if_not_exists=False)
@@ -153,7 +153,8 @@ class SnakeMediaClient(discord.Client):
                            poster_url, jellyfin_url, notice_id, local_jellyfin_url)
         options = presentation(reply)
         options.setdefault('view', None)
-        message = await channel.send(reference=reference, **options)
+        # discord.py enforces supplied nonce uniqueness for Discord's recent window.
+        message = await channel.send(reference=reference, nonce=nonce, **options)
         log.info('Completion notice delivered channel_id=%s', channel_id)
         return str(message.id)
 

@@ -70,7 +70,7 @@ class PersistentRetryTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'state.sqlite3'
             transport = SimpleNamespace(poll=AsyncMock(return_value=[row('bad'), row('good')]), acknowledge=AsyncMock())
-            async def send(channel, message, text):
+            async def send(channel, message, text, **options):
                 if calls[0] == 0:
                     calls[0] += 1
                     raise OSError('offline')

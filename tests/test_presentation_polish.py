@@ -113,7 +113,7 @@ class PresentationTransportTests(unittest.IsolatedAsyncioTestCase):
         transport=SimpleNamespace(poll=AsyncMock(return_value=[{'id':'12','notificationKey':'d:2:3:progress:downloading','destinationId':'4','payload':{'userId':'2','messageId':'3','text':'Download started: 75%','retentionControls':False}}]),acknowledge=AsyncMock())
         send=AsyncMock(return_value='5')
         await NotificationDelivery(transport,send,{'2'},{'4'}).tick()
-        send.assert_awaited_once_with('4','3','Download started: 75%')
+        send.assert_awaited_once_with('4','3','Download started: 75%',nonce=send.await_args.kwargs['nonce'])
     async def test_public_jellyfin_links_and_owned_expiry_metadata_are_retained(self):
         reply=format_result({'version':1,'status':'notice','text':'Expired','clearControls':True,'jellyfinUrl':'https://jellyfin.example.com/web/index.html#!/details?id=abc'})
         self.assertTrue(reply.clear_controls)
@@ -128,7 +128,7 @@ class PresentationTransportTests(unittest.IsolatedAsyncioTestCase):
         transport=SimpleNamespace(poll=AsyncMock(return_value=[{'id':'12','notificationKey':'d:2:3:tv-ready','destinationId':'4','payload':payload}]),acknowledge=AsyncMock())
         send=AsyncMock(return_value='5')
         await NotificationDelivery(transport,send,{'2'},{'4'}).tick()
-        send.assert_awaited_once_with('4','3',payload['text'],notice_id='12',poster_url=payload['posterUrl'],jellyfin_url=payload['jellyfinUrl'])
+        send.assert_awaited_once_with('4','3',payload['text'],nonce=send.await_args.kwargs['nonce'],notice_id='12',poster_url=payload['posterUrl'],jellyfin_url=payload['jellyfinUrl'])
 
 class DualJellyfinLinkTests(unittest.IsolatedAsyncioTestCase):
     async def test_status_and_completion_offer_local_and_tailscale_links(self):

@@ -19,9 +19,12 @@ includes these changes.
   Initial acknowledgement of a new delivery also uses the three-second timeout.
   Pending receipts are retained across restarts; the poll exclusion contract
   remains limited to 1,000 keys.
-- Durable receipts still retry backend acknowledgement without resending a
-  successfully delivered message. A crash before receipt storage can still cause
-  a duplicate; delivery is not guaranteed exactly once.
+- Durable receipts retry backend acknowledgement without resending a successfully
+  delivered message. A stable Discord nonce also reduces duplicates when acceptance
+  precedes a crash or receipt write. Discord checks nonce uniqueness for only the
+  past few minutes; longer outages without a saved receipt can still produce a
+  duplicate. Delivery is not guaranteed exactly once. See the
+  [Discord message API](https://docs.discord.com/developers/resources/message#create-message).
 - Completion polling excludes requests with an existing completion notice before
   loading Jellyfin. Progress-only notices do not count as completion. Requests,
   future episode monitoring, retention records and status commands remain intact.

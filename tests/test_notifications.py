@@ -10,7 +10,7 @@ class DeliveryTests(unittest.IsolatedAsyncioTestCase):
                 return [] if 'bad' in exclude else [row]
             async def acknowledge(self,*args): pass
         attempts=[]; now=[0]
-        async def send(*args): attempts.append(now[0]);raise OSError('offline')
+        async def send(*args, **options): attempts.append(now[0]);raise OSError('offline')
         delivery=NotificationDelivery(Transport(),send,{'111'},{'333'},clock=lambda:now[0])
         with self.assertLogs('snake_media',level='WARNING'): await delivery.tick()
         now[0]=30;await delivery.tick()
@@ -29,7 +29,7 @@ class DeliveryTests(unittest.IsolatedAsyncioTestCase):
                         for key,message in [('bad','444'),('good','445')]]
             async def acknowledge(self,*args): pass
         sent=[]
-        async def send(channel,message,text):
+        async def send(channel,message,text, **options):
             if message=='444': raise OSError('unavailable')
             sent.append(message);return '555'
         delivery=NotificationDelivery(Transport(),send,{'111'},{'333'})
@@ -44,7 +44,7 @@ class DeliveryTests(unittest.IsolatedAsyncioTestCase):
             async def acknowledge(self,key,message):
                 if key=='old': raise OSError('unavailable')
         sent=[]
-        async def send(channel,message,text): sent.append(message);return '555'
+        async def send(channel,message,text, **options): sent.append(message);return '555'
         delivery=NotificationDelivery(Transport(),send,{'111'},{'333'})
         delivery.pending_acks['old']='554'
         with self.assertLogs('snake_media',level='WARNING'): await delivery.tick()
@@ -59,7 +59,7 @@ class DeliveryTests(unittest.IsolatedAsyncioTestCase):
                 self.calls+=1
                 if self.calls==1: raise OSError('network')
         sent=[]
-        async def send(channel,message,text):sent.append((channel,message,text));return '555'
+        async def send(channel,message,text, **options):sent.append((channel,message,text));return '555'
         d=NotificationDelivery(Transport(),send,{'111'},{'333'})
         with self.assertLogs('snake_media',level='WARNING'): await d.tick()
         await d.tick()
@@ -70,7 +70,7 @@ class DeliveryTests(unittest.IsolatedAsyncioTestCase):
             async def poll(self,exclude=()):return [{'notificationKey':'k','destinationId':'666','payload':{'userId':'111','messageId':'444','text':'Ready'}},{'notificationKey':'l','destinationId':'333','payload':{'userId':'222','messageId':'444','text':'Ready'}}]
             async def acknowledge(self,*args):pass
         sent=[]
-        async def send(*args):sent.append(args)
+        async def send(*args, **options):sent.append(args)
         await NotificationDelivery(Transport(),send,{'111'},{'333'}).tick()
         self.assertEqual(sent,[])
 

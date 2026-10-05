@@ -1,5 +1,6 @@
 """Outbound notification transport and Discord delivery; n8n decides availability."""
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -134,7 +135,12 @@ class NotificationDelivery:
                     self._defer(key)
                     continue
                 notice_id=str(row.get('id',''))
-                options={}
+                # Stable across restarts: Discord reuses a recent message with
+                # this nonce if acceptance preceded a crash/receipt write.
+                # Include destination so a moved notice cannot reuse another channel's ID.
+                nonce=hashlib.sha256(json.dumps(['snake-media-notice-v1',channel,key],
+                                              separators=(',',':')).encode('utf-8')).hexdigest()[:24]
+                options={'nonce':nonce}
                 if (payload.get('retentionControls') is not False and notice_id.isascii()
                         and notice_id.isdigit() and 0<int(notice_id)<10**16):
                     options['notice_id']=notice_id
