@@ -45,19 +45,34 @@ class NotificationTransport:
         if data.get('acknowledged') is not True: raise ValueError('notification_ack_error')
 
 class NotificationDelivery:
-    def __init__(self,transport,send,users,channels,journal=None,clock=time.monotonic):
+    def __init__(self,transport,send,users,channels,journal=None,clock=time.monotonic,wall_clock=time.time):
         self.transport,self.send,self.users,self.channels=transport,send,users,channels
         self.journal=journal
         self.pending_acks=journal.pending() if journal is not None else {}
         self.delivered=deque(maxlen=1000)
-        self.clock=clock
+        self.clock,self.wall_clock=clock,wall_clock
         self.retries=OrderedDict()
+        if journal is not None:
+            wall_now, runtime_now = wall_clock(), clock()
+            for key, (attempts, due) in journal.retries().items():
+                # Saved wall time survives process restarts. Cap clock corrections
+                # at the existing maximum delay, then use monotonic time at runtime.
+                self.retries[key] = (attempts, runtime_now + max(0, min(900, due - wall_now)))
 
     def _defer(self,key):
         attempts=self.retries.get(key,(0,0))[0]+1
-        self.retries[key]=(min(attempts,5),self.clock()+min(900,60*2**min(attempts-1,4)))
+        delay=min(900,60*2**min(attempts-1,4))
+        self.retries[key]=(min(attempts,5),self.clock()+delay)
         self.retries.move_to_end(key)
         while len(self.retries)>1000: self.retries.popitem(last=False)
+        if self.journal is not None:
+            try:
+                now=self.wall_clock()
+                self.journal.defer(key,min(attempts,5),now+delay,now)
+            except Exception as exc:
+                # Keep the in-memory delay and other recipients moving when
+                # private state is temporarily unwritable.
+                log.warning('Notification retry storage deferred error_type=%s',type(exc).__name__)
 
     async def _acknowledge(self,key,message_id):
         if self.journal is not None:
