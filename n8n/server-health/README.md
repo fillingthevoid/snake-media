@@ -27,7 +27,7 @@ reports older than two minutes and returns a friendly error on failed collection
 
 The report includes load, memory, uptime, disk capacity, mount checks, service
 endpoint availability and active playback count. A read-only Jellyfin library
-query chooses an existing local video and requests exactly bytes 0–4095 through
+query chooses an existing local video and requests exactly bytes 0â€“4095 through
 `/Videos/{id}/stream?Static=true`. Only an exact HTTP206 range response with a
 video/binary content type and the expected bytes passes. No playback progress is
 reported, media is never marked watched, and no transcode is started.
@@ -42,3 +42,10 @@ Verify unauthenticated collector requests return 403, n8n can reach it through
 the private bridge, the media webhook rejects unauthorized users, and slash
 commands synchronize after rebuilding the bot. Existing media requests and
 retention workflows stay on their previous routes.
+
+GPU utilization and VRAM come from nvidia-smi. Upload is the sum of transmitted
+bytes on active physical network interfaces over a two-second sample. It includes
+all host/container traffic leaving those interfaces, including LAN and VPN
+transport. Virtual Docker and Tailscale interfaces are excluded to avoid double
+counting. Reports are cached for up to 60 seconds. Optional metrics fail to
+unavailable rather than zero. This measures current traffic, not uplink capacity.

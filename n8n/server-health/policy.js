@@ -10,6 +10,10 @@ function report(r,now=Date.now()){
  const activeKnown=Number.isInteger(r.playback.active)&&r.playback.active>=0;
  const problems=highLoad||highMemory||!activeKnown||SERVICES.some(s=>r.services[s]!==true)||r.storage.guard!==true||r.playback.sample!=='ok'||disks.some(d=>!num(d.freeGiB)||!num(d.totalGiB)||d.freeGiB<50);
  const lines=[(problems?'⚠️ Checks need attention':'✅ Server checks passed'),`CPU load: ${h.load1.toFixed(2)} / ${h.cores} cores · Memory: ${h.memoryUsed.toFixed(1)} / ${h.memoryTotal.toFixed(1)} GiB`,`Uptime: ${Math.floor(h.uptimeHours)} hours`,'',r.storage.guard===true?'💾 Storage mounts verified':'⚠️ Storage mount check failed'];
+ const g=r.gpu,n=r.network;
+ const gpuOk=g?.available===true&&typeof g.name==='string'&&/^[A-Za-z0-9 ()._-]{1,100}$/.test(g.name)&&[g.utilizationPercent,g.memoryUsedMiB,g.memoryTotalMiB].every(num)&&g.utilizationPercent<=100&&g.memoryTotalMiB>0&&g.memoryUsedMiB<=g.memoryTotalMiB;
+ const networkOk=n?.available===true&&num(n.uploadMbps)&&num(n.sampleSeconds)&&n.sampleSeconds>0&&n.sampleSeconds<=10;
+ lines.splice(3,0,gpuOk?`GPU: ${g.name} · ${g.utilizationPercent.toFixed(0)}% · VRAM: ${(g.memoryUsedMiB/1024).toFixed(1)} / ${(g.memoryTotalMiB/1024).toFixed(1)} GiB`:'GPU: usage unavailable',networkOk?`Server upload: ${n.uploadMbps.toFixed(2)} Mbps (${n.sampleSeconds.toFixed(0)}s sample; includes LAN traffic)`:'Server upload: usage unavailable');
  if(highLoad)lines.splice(3,0,'⚠️ High CPU load');
  if(highMemory)lines.splice(3,0,'⚠️ Memory usage above 90%');
  for(const d of disks)lines.push(num(d.freeGiB)&&num(d.totalGiB)?`${d.freeGiB<50?'⚠️ ':''}${d.label}: ${Math.floor(d.freeGiB)} / ${Math.floor(d.totalGiB)} GiB free`:`${d.label}: capacity unavailable`);
