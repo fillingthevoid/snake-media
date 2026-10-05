@@ -1,0 +1,16 @@
+[Unit]
+Description=Snake Media private server alerts
+After=network-online.target snake-server-health.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=media
+ExecStart=/usr/bin/python3 /opt/snake-media/tools/server_alerts.py --env-file /etc/snake-media/bot.env --health-config /etc/snake-media/health.json --database /srv/n8n/database.sqlite --backup-dir /srv/backups/archives --state /var/lib/snake-media-alerts/state.json
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/snake-media-alerts
+TimeoutStartSec=90

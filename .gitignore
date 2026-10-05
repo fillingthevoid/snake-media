@@ -13,6 +13,7 @@ __pycache__/
 *.jpg
 data/
 state/
+alert-state/
 admin-config/
 admin-runtime/
 backups/

@@ -125,6 +125,10 @@ docker compose up -d --build            # rebuild and update
 
 Keep a private backup of `.env` and app state. Never upload private n8n exports: HTTP node headers can contain API credentials even when n8n credential records are excluded.
 
+## Optional private server alerts
+
+See [server alerts](docs/ALERTS.md) for the independent host monitor and its setup.
+
 ## Development
 
 ```sh
