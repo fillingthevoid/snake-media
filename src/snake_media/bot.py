@@ -202,10 +202,16 @@ class SnakeMediaClient(discord.Client):
             if (getattr(reply, 'action_accepted', False) or getattr(reply, 'clear_controls', False)) and interaction.message:
                 try:
                     await interaction.message.edit(
-                        **edit_presentation(reply, interaction.message.embeds))
+                        **edit_presentation(reply, interaction.message.embeds,
+                            getattr(interaction.message, 'components', ())))
                 except discord.HTTPException as exc:
                     log.warning('Confirmation card edit failed error_type=%s', type(exc).__name__)
                 else:
+                    if (match[2].startswith(('notice_', 'ret'))
+                            or getattr(reply, 'retention_updated', False)):
+                        await interaction.followup.send(ephemeral=True, content=str(reply),
+                            allowed_mentions=discord.AllowedMentions.none())
+                        return
                     try:
                         await interaction.delete_original_response()
                     except discord.HTTPException:

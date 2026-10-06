@@ -72,6 +72,7 @@ def format_result(data: object) -> str:
         reply = MediaReply(escape_mentions(escape_markdown(text)), data.get('posterUrl'),
                            data.get('jellyfinUrl'), data.get('noticeId'), data.get('localJellyfinUrl'))
         reply.action_accepted = data.get('actionAccepted') is True
+        reply.retention_updated = data.get('retentionUpdated') is True
         reply.clear_controls = data.get('clearControls') is True and data.get('busy') is not True
         if status == 'confirmation':
             pending = data.get('pendingId')

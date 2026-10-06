@@ -52,9 +52,24 @@ def presentation(reply):
     return options
 
 
-def edit_presentation(reply, existing_embeds):
+def edit_presentation(reply, existing_embeds, existing_components=()):
     options = presentation(reply)
     options.setdefault('view', None)  # Edits must explicitly clear terminal controls.
+    if not getattr(reply, 'choices', None):
+        links = []
+        for button in getattr(options.get('view'), 'children', ()):
+            if button.url:
+                links.append((button.label, button.url))
+        for row in existing_components:
+            for button in getattr(row, 'children', ()):
+                url = getattr(button, 'url', None)
+                if url and (getattr(button, 'label', None), url) not in links:
+                    links.append((getattr(button, 'label', None) or 'Open in Jellyfin', url))
+        if links:
+            view = discord.ui.View(timeout=None)
+            for label, url in links[:25]:
+                view.add_item(discord.ui.Button(label=label, url=url))
+            options['view'] = view
     if not options['embed'] and existing_embeds:
         embed = existing_embeds[0].copy()
         embed.description = str(reply)
