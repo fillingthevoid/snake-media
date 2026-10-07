@@ -9,6 +9,24 @@ from snake_media.delivery_journal import DeliveryJournal
 ROW={'notificationKey':'original','destinationId':'333','payload':{'userId':'111','messageId':'444','text':'Ready'}}
 
 class JournalTests(unittest.IsolatedAsyncioTestCase):
+    async def test_compaction_preserves_pending_receipts_and_duplicate_protection(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'delivery.sqlite3'
+            with DeliveryJournal(path) as journal:
+                journal.record('original', '555')
+                journal.acknowledge('original', now=100)
+                journal.record('pending', '666')
+                journal.record('recent', '777')
+                journal.acknowledge('recent', now=300)
+                self.assertEqual(journal.compact(before=200), 1)
+                self.assertEqual(journal.pending(), {'pending': '666'})
+                self.assertEqual(journal.get('recent'), '777')
+            transport = SimpleNamespace(poll=AsyncMock(return_value=[ROW]), acknowledge=AsyncMock())
+            send = AsyncMock()
+            with DeliveryJournal(path) as journal:
+                await NotificationDelivery(transport, send, {'111'}, {'333'}, journal=journal).tick()
+            send.assert_not_awaited()
+
     async def test_ack_failure_restart_retries_ack_without_resending(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'delivery.sqlite3'

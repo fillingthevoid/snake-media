@@ -2,6 +2,7 @@ import asyncio
 import logging
 import signal
 from contextlib import AsyncExitStack
+from pathlib import Path
 
 from .bot import SnakeMediaClient
 from .config import Config, ConfigError
@@ -9,6 +10,7 @@ from .service import RequestService, TestBackend
 from .n8n_client import N8NClient
 from .notifications import NotificationTransport
 from .delivery_journal import DeliveryJournal
+from .card_registry import CardRegistry
 
 log = logging.getLogger("snake_media")
 
@@ -44,15 +46,17 @@ async def run(config: Config):
             backend = TestBackend()
             notifications = None
             journal = None
+            cards = None
             if config.bot_mode == 'n8n':
                 backend = await stack.enter_async_context(N8NClient(
                     config.n8n_webhook_url, config.n8n_webhook_secret,
                     config.n8n_timeout_seconds))
+                cards = stack.enter_context(CardRegistry(Path(config.notification_state_path).with_name('cards.sqlite3')))
                 if config.n8n_notifications_url:
                     journal = stack.enter_context(DeliveryJournal(config.notification_state_path))
                     notifications = await stack.enter_async_context(NotificationTransport(
                         config.n8n_notifications_url, config.n8n_webhook_secret))
-            await serve(SnakeMediaClient(RequestService(config, backend), notifications, journal),
+            await serve(SnakeMediaClient(RequestService(config, backend), notifications, journal, cards),
                         config.discord_token, stop)
     finally:
         for sig in registered:

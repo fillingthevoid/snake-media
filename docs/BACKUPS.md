@@ -50,6 +50,18 @@ The server private configuration contains `appdata`, `output`, `identity_file` (
 
 ## Restore carefully
 
+### Isolated restore drill
+
+```sh
+sudo python3 tools/restore_drill.py --config /private/backup-config.json --report /private/restore-report.json
+```
+
+This verifies the latest encrypted archive, starts each recovered application using an existing local image, and checks that n8n can decrypt its recovered credentials. Disposable containers use isolated writable copies, no network, and no production media mounts. The drill disables workflows in the recovered copy and removes its containers afterward. It does not test remote playback or downloads.
+
+The server configuration can include an explicit `private_files` map of archive names to runtime file paths. Use it for the bot environment, Compose file, transport databases, authorization state and host service settings. SQLite files are copied through an online database snapshot. Recovery keys must remain outside that map. n8n's custom nodes are included with its application data.
+
+### Live recovery
+
 1. Choose a verified archive and recover the age identity. Check the archive against its `.sha256` file.
 2. On a private recovery machine with age installed, decrypt and extract into a new private directory:
 

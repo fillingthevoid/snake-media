@@ -30,10 +30,12 @@ class EfficiencyOverlayTests(unittest.TestCase):
     def test_tracking_is_scoped_and_retention_safety_reads_remain(self):
         workflows = {w['id']: w for w in self.patch()}
         scan = {n['name']: n for n in workflows['snakeCompletionScanV1']['nodes']}
-        self.assertEqual(scan['Tracked Requests']['parameters']['filters']['conditions'], [
-            {'keyName':'state','condition':'eq','keyValue':'registered'},
-            {'keyName':'baselineCaptured','condition':'isTrue'},
-            {'keyName':'userId','condition':'neq','keyValue':'1'}])
+        self.assertEqual(scan['Read Pending Completion Index']['parameters']['filters']['conditions'], [
+            {'keyName':'state','condition':'eq','keyValue':'pending'}])
+        scoped = scan['Tracked Requests']['parameters']['filters']['conditions']
+        self.assertEqual(len(scoped), 200)
+        self.assertTrue(all(c['keyName']=='requestKey' and c['condition']=='eq' for c in scoped))
+        self.assertEqual(scan['Tracked Requests']['parameters']['matchType'], 'anyCondition')
         self.assertEqual(scan['Recent Download Events']['parameters']['filters']['conditions'][0]['keyValue'], '={{ $now.minus({minutes:30}).toISO() }}')
         conditions=scan['Completion Notices']['parameters']['filters']['conditions']
         self.assertIsInstance(conditions,list)

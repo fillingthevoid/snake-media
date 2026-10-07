@@ -1,6 +1,7 @@
 """Durable Discord delivery receipts; contains no credentials or media policy."""
 import sqlite3
 import math
+import time
 
 
 class DeliveryJournal:
@@ -14,6 +15,14 @@ class DeliveryJournal:
             self.connection.execute('CREATE TABLE IF NOT EXISTS retries '
                                     '(notification_key TEXT PRIMARY KEY, attempts INTEGER NOT NULL, '
                                     'retry_at REAL NOT NULL, updated_at REAL NOT NULL)')
+            columns = {row[1] for row in self.connection.execute('PRAGMA table_info(receipts)')}
+            if 'acknowledged_at' not in columns:
+                self.connection.execute('ALTER TABLE receipts ADD COLUMN acknowledged_at REAL')
+            # Unknown legacy ages start their retention period on migration.
+            self.connection.execute('UPDATE receipts SET acknowledged_at=? '
+                                    'WHERE acknowledged=1 AND acknowledged_at IS NULL', (time.time(),))
+            self.connection.execute('CREATE TABLE IF NOT EXISTS delivered_keys '
+                                    '(notification_key TEXT PRIMARY KEY)')
             self.connection.commit()
         except Exception:
             self.connection.close()
@@ -28,7 +37,10 @@ class DeliveryJournal:
     def get(self, key):
         row = self.connection.execute('SELECT message_id FROM receipts WHERE notification_key=?',
                                       (key,)).fetchone()
-        return row[0] if row else None
+        if row:
+            return row[0]
+        old = self.connection.execute('SELECT 1 FROM delivered_keys WHERE notification_key=?', (key,)).fetchone()
+        return 'acknowledged' if old else None
 
     def pending(self):
         return dict(self.connection.execute('SELECT notification_key,message_id FROM receipts '
@@ -36,6 +48,8 @@ class DeliveryJournal:
 
     def record(self, key, message_id):
         with self.connection:
+            if self.connection.execute('SELECT 1 FROM delivered_keys WHERE notification_key=?', (key,)).fetchone():
+                return
             old = self.get(key)
             if old is not None and old != message_id:
                 raise ValueError('delivery_receipt_conflict')
@@ -68,6 +82,19 @@ class DeliveryJournal:
             self.connection.execute('DELETE FROM retries WHERE notification_key NOT IN '
                                     '(SELECT notification_key FROM retries ORDER BY updated_at DESC,rowid DESC LIMIT 1000)')
 
-    def acknowledge(self, key):
+    def acknowledge(self, key, now=None):
         with self.connection:
-            self.connection.execute('UPDATE receipts SET acknowledged=1 WHERE notification_key=?', (key,))
+            self.connection.execute('UPDATE receipts SET acknowledged=1,acknowledged_at=COALESCE(acknowledged_at,?) '
+                                    'WHERE notification_key=?', (time.time() if now is None else now, key))
+
+    def compact(self, before, limit=200):
+        """Discard old message IDs while retaining permanent delivery keys."""
+        if not math.isfinite(before) or not isinstance(limit, int) or not 1 <= limit <= 200:
+            raise ValueError('invalid_compaction_window')
+        with self.connection:
+            keys = [row[0] for row in self.connection.execute(
+                'SELECT notification_key FROM receipts WHERE acknowledged=1 AND acknowledged_at<? '
+                'ORDER BY acknowledged_at LIMIT ?', (before, limit))]
+            self.connection.executemany('INSERT OR IGNORE INTO delivered_keys VALUES (?)', [(key,) for key in keys])
+            self.connection.executemany('DELETE FROM receipts WHERE notification_key=? AND acknowledged=1', [(key,) for key in keys])
+        return len(keys)

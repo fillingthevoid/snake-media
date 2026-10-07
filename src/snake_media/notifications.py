@@ -59,6 +59,7 @@ class NotificationDelivery:
         self.queued_acks=set(self.pending_acks)
         self.delivered=deque(maxlen=1000)
         self.clock,self.wall_clock=clock,wall_clock
+        self.next_compaction = 0
         self.retries=OrderedDict()
         if journal is not None:
             wall_now, runtime_now = wall_clock(), clock()
@@ -111,6 +112,12 @@ class NotificationDelivery:
         del self.pending_acks[key]
 
     async def tick(self):
+        if self.journal is not None and self.clock() >= self.next_compaction:
+            self.next_compaction = self.clock() + 21600
+            try:
+                self.journal.compact(before=self.wall_clock() - 90 * 86400)
+            except Exception as exc:
+                log.warning('Notification history compaction deferred error_type=%s', type(exc).__name__)
         # Restore/rotate retry work separately from exclusion order. Each old
         # receipt gets a turn, without copying or draining the entire backlog.
         if len(self.pending_acks)>len(self.queued_acks):
@@ -156,7 +163,7 @@ class NotificationDelivery:
                 # Include destination so a moved notice cannot reuse another channel's ID.
                 nonce=hashlib.sha256(json.dumps(['snake-media-notice-v1',channel,key],
                                               separators=(',',':')).encode('utf-8')).hexdigest()[:24]
-                options={'nonce':nonce}
+                options={'nonce':nonce, 'owner_id':payload['userId']}
                 if (payload.get('retentionControls') is not False and notice_id.isascii()
                         and notice_id.isdigit() and 0<int(notice_id)<10**16):
                     options['notice_id']=notice_id

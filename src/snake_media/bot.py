@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import time
 
 import discord
 from discord import app_commands
@@ -14,7 +15,7 @@ log = logging.getLogger("snake_media")
 
 
 class SnakeMediaClient(discord.Client):
-    def __init__(self, service: RequestService, notification_transport=None, notification_journal=None):
+    def __init__(self, service: RequestService, notification_transport=None, notification_journal=None, card_registry=None):
         intents = discord.Intents.none()
         intents.guilds = True
         intents.guild_messages = True
@@ -25,6 +26,8 @@ class SnakeMediaClient(discord.Client):
         self.notification_worker = None
         self.notification_transport = notification_transport
         self.notification_journal = notification_journal
+        self.card_registry = card_registry
+        self.card_cleanup_task = None
         self.tree = app_commands.CommandTree(self)
         self.tree.add_command(app_commands.Command(name='authorize',
             description='Owner only: authorize a Discord account in Snake Media.',
@@ -86,6 +89,7 @@ class SnakeMediaClient(discord.Client):
             options = presentation(reply or '⚠️ This request could not be prepared.')
             options.setdefault('view', None)
             await card.edit(**options)
+            self.remember_card(reply, card, str(interaction.user.id), str(interaction.channel_id))
             await interaction.followup.send('Your request: '+card.jump_url, ephemeral=True)
         except Exception as exc:
             log.error('Slash request failed error_type=%s', type(exc).__name__)
@@ -124,6 +128,8 @@ class SnakeMediaClient(discord.Client):
             **presentation(reply or 'Use Snake Media in an authorized server channel.'))
 
     async def setup_hook(self):
+        if self.card_registry is not None:
+            self.card_cleanup_task = asyncio.create_task(self.run_card_cleanup())
         guilds = set()
         for channel_id in self.service.config.allowed_channel_ids:
             try:
@@ -152,7 +158,7 @@ class SnakeMediaClient(discord.Client):
             self.notification_worker.wake()
 
     async def send_notification(self, channel_id, message_id, text, notice_id=None,
-                                poster_url=None, jellyfin_url=None, local_jellyfin_url=None, nonce=None):
+                                poster_url=None, jellyfin_url=None, local_jellyfin_url=None, nonce=None, owner_id=None):
         channel = self.get_channel(int(channel_id)) or await self.fetch_channel(int(channel_id))
         reference = discord.MessageReference(message_id=int(message_id), channel_id=int(channel_id),
                                              fail_if_not_exists=False)
@@ -162,14 +168,60 @@ class SnakeMediaClient(discord.Client):
         options.setdefault('view', None)
         # discord.py enforces supplied nonce uniqueness for Discord's recent window.
         message = await channel.send(reference=reference, nonce=nonce, **options)
+        if owner_id:
+            self.remember_card(reply, message, owner_id, channel_id)
         log.info('Completion notice delivered channel_id=%s', channel_id)
         return str(message.id)
 
     async def close(self):
+        if self.card_cleanup_task:
+            self.card_cleanup_task.cancel()
+            await asyncio.gather(self.card_cleanup_task, return_exceptions=True)
         if self.notification_task:
             self.notification_task.cancel()
             await asyncio.gather(self.notification_task, return_exceptions=True)
         await super().close()
+
+    def remember_card(self, reply, message, owner, destination):
+        if self.card_registry is None or message is None:
+            return
+        group = ('pending:' + str(reply.pending_id) if getattr(reply, 'choices', None)
+                 else 'notice:' + str(reply.notice_id) if getattr(reply, 'notice_id', None) else None)
+        if group:
+            try:
+                self.card_registry.remember(group, destination, str(message.id), owner)
+            except Exception as exc:
+                log.warning('Card reference storage deferred error_type=%s', type(exc).__name__)
+
+    async def run_card_cleanup(self):
+        while not self.is_closed():
+            await self.wait_until_ready()
+            try:
+                await self.cleanup_cards()
+            except Exception as exc:
+                log.warning('Related card cleanup retry error_type=%s', type(exc).__name__)
+            await asyncio.sleep(60)
+
+    async def cleanup_cards(self):
+        if self.card_registry is None:
+            return
+        self.card_registry.compact(time.time() - 90 * 86400)
+        for row in self.card_registry.pending(time.time()):
+            destination, ident = row['destination_id'], row['message_id']
+            try:
+                channel = self.get_channel(int(destination)) or await self.fetch_channel(int(destination))
+                message = await asyncio.wait_for(channel.fetch_message(int(ident)), timeout=10)
+                if message.author.id != self.user.id:
+                    self.card_registry.finish(destination, ident)
+                    continue
+                options = edit_presentation('', [], message.components)
+                await asyncio.wait_for(message.edit(view=options['view']), timeout=10)
+                self.card_registry.finish(destination, ident)
+            except discord.NotFound:
+                self.card_registry.finish(destination, ident)
+            except Exception as exc:
+                self.card_registry.defer(destination, ident, time.time())
+                log.warning('Related card cleanup deferred error_type=%s', type(exc).__name__)
 
     async def on_ready(self):
         log.info("Connected to Discord bot_id=%s mode=%s", self.user.id,
@@ -200,6 +252,20 @@ class SnakeMediaClient(discord.Client):
             if getattr(reply, 'action_accepted', False):
                 self.wake_notifications()
             if (getattr(reply, 'action_accepted', False) or getattr(reply, 'clear_controls', False)) and interaction.message:
+                if self.card_registry is not None:
+                    try:
+                        group = ('notice:' if match[2].startswith('notice_') else 'pending:') + match[1]
+                        owner, destination = str(interaction.user.id), str(interaction.channel_id)
+                        current = str(interaction.message.id)
+                        self.card_registry.remember(group, destination, current, owner)
+                        if getattr(reply, 'choices', None):
+                            self.card_registry.link(group, 'pending:' + str(reply.pending_id), owner, destination)
+                        self.card_registry.consume(group, owner, destination, current)
+                        self.remember_card(reply, interaction.message, owner, destination)
+                        if not getattr(reply, 'choices', None):
+                            self.card_registry.forget(destination, current)
+                    except Exception as exc:
+                        log.warning('Related card update deferred error_type=%s', type(exc).__name__)
                 try:
                     await interaction.message.edit(
                         **edit_presentation(reply, interaction.message.embeds,
@@ -242,10 +308,11 @@ class SnakeMediaClient(discord.Client):
                         or getattr(response, 'notice_id', None) or getattr(response, 'local_jellyfin_url', None)):
                     options = presentation(response)
                     try:
-                        await message.reply(mention_author=False, **options)
+                        sent = await message.reply(mention_author=False, **options)
                     except discord.Forbidden:
                         options.update(content=str(response), embed=None)
-                        await message.reply(mention_author=False, **options)
+                        sent = await message.reply(mention_author=False, **options)
+                    self.remember_card(response, sent, incoming.user_id, incoming.channel_id)
                     return
                 poster = getattr(response, 'poster_url', None)
                 if poster:

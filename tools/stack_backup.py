@@ -55,6 +55,30 @@ def private_json(path, value):
     os.chmod(path, 0o600)
 
 
+def snapshot_runtime(config, stage):
+    """Capture explicitly configured private files; never recovery identities."""
+    files = config.get('private_files', {})
+    identity = Path(config['identity_file']).resolve()
+    target = Path(stage) / 'runtime'
+    target.mkdir(mode=0o700, exist_ok=True)
+    for name, source in files.items():
+        relative = Path(name)
+        path = Path(source)
+        if (relative.is_absolute() or '..' in relative.parts or path.is_symlink()
+                or not path.is_file() or path.resolve() == identity):
+            raise ValueError('invalid_private_backup_file')
+        output = target / relative
+        output.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if path.suffix in {'.sqlite', '.sqlite3', '.db'}:
+            snapshot_database(path, output)
+        else:
+            initial = digest(path)
+            shutil.copyfile(path, output)
+            if digest(path) != initial:
+                raise ValueError('private_configuration_changed_during_backup')
+        output.chmod(0o600)
+
+
 def sanitize_workflows(workflows, secrets=()):
     known = set(s for s in secrets if isinstance(s, str) and len(s) >= 8)
     identities = {}
@@ -258,10 +282,11 @@ def backup(config, public_output=None):
                 if not key:
                     raise ValueError('n8n_encryption_key_missing')
                 (target / 'encryption-key.txt').write_text(key, encoding='utf-8')
-                for extra in ['nodes', 'binaryData']:
+                for extra in ['nodes', 'binaryData', 'custom']:
                     if (source / extra).exists():
                         shutil.copytree(source / extra, target / extra, symlinks=False)
             print('Snapshot checked:', app, flush=True)
+        snapshot_runtime(config, stage)
         manifest = build_manifest(stage)
         private_json(stage / 'manifest.json', {'format': 1, 'createdAt': stamp, 'files': manifest})
         compressed = Path(directory) / 'snapshot.tar.gz'

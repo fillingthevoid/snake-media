@@ -129,6 +129,12 @@ Keep a private backup of `.env` and app state. Never upload private n8n exports:
 
 See [download tracking](n8n/download-tracking/README.md) for authenticated Sonarr/Radarr import events and targeted Jellyfin availability checks shared by Discord and Telegram.
 
+## Completion and button maintenance
+
+The [maintenance overlay](n8n/maintenance/README.md) keeps the frequent availability check focused on requests awaiting their first notification. A daily repair reconciles that list. Original requests and expiry records remain available for future episodes.
+
+Accepted choices clear related tracked cards in Discord and Telegram. Cleanup retries preserve Jellyfin links and do not delay the confirmation reply. Transport receipts and retired choice payloads are compacted after their safety windows; notification deduplication keys remain intact.
+
 ## Optional private server alerts
 
 See [server alerts](docs/ALERTS.md) for the independent host monitor and its setup.
@@ -148,7 +154,7 @@ On PowerShell, use `$env:PYTHONPATH='src'` before running Python tests. Tests us
 
 ## Known limits
 
-- Telegram poster messages can retain old confirmation controls; stale actions are still checked by the backend.
+- Related card cleanup covers tracked public messages. Older cards with unavailable history and Discord ephemeral messages may retain controls; the backend still checks stale actions and ownership.
 - Media expiry is a backend feature. Preview retention decisions and protect existing/shared files before enabling deletion.
 - Use the [maintained workflow bundle and tool](docs/CURRENT-WORKFLOWS.md). Other
   workflow templates are historical migrations and test fixtures. Configure

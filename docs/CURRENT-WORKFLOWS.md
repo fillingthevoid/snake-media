@@ -7,6 +7,7 @@ sanitized reference: credentials, users, service addresses, native tables and
 webhook authentication must be configured before deployment.
 Install the [Telegram control editor](../n8n/button-feedback/README.md) before
 importing this bundle so poster cards can remove handled callback buttons.
+Create and backfill the [completion index](../n8n/maintenance/README.md) and configure its table binding before enabling scheduled completion checks. Install both files supplied with the Telegram control editor for durable related-card cleanup.
 
 Earlier JSON files and builders in `n8n/` are historical migration examples and
 regression fixtures. Their existence does not make them additional active

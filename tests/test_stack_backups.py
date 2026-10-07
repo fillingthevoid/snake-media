@@ -8,6 +8,26 @@ import unittest
 
 
 class StackBackupTests(unittest.TestCase):
+    def test_private_runtime_snapshot_captures_sqlite_and_refuses_recovery_keys(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            state = root / 'state.sqlite3'
+            with closing(sqlite3.connect(state)) as db:
+                db.execute('create table sample(value text)')
+                db.execute("insert into sample values ('receipt')")
+                db.commit()
+            identity = root / 'identity.age'
+            identity.write_text('private recovery identity')
+            target = root / 'snapshot'
+            target.mkdir()
+            config = {'identity_file': str(identity), 'private_files': {'bot-state.sqlite3': str(state)}}
+            self.backup.snapshot_runtime(config, target)
+            with closing(sqlite3.connect(target / 'runtime/bot-state.sqlite3')) as saved:
+                self.assertEqual(saved.execute('select value from sample').fetchall(), [('receipt',)])
+            config['private_files']['key'] = str(identity)
+            with self.assertRaises(ValueError):
+                self.backup.snapshot_runtime(config, target)
+
     @classmethod
     def setUpClass(cls):
         path = Path(__file__).resolve().parents[1] / 'tools/stack_backup.py'
