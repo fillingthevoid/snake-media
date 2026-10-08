@@ -124,7 +124,7 @@ def patch_workflows(workflows, remote_base='', local_base=''):
         code('Recommendation Generation Context', 'return [{json:$json}];'),
         table('Read Recommendation History', requests_id, filters=[
             eq('source', '={{ $json.row.source }}'), eq('userId', '={{ $json.row.userId }}'), eq('state', 'registered')]),
-        code('Prepare Recommendation Prompt', "const row=$('Recommendation Generation Context').first().json.row,r=JSON.parse(row.contextJson).recommendation;const g=generation(row,$input.all().map(x=>x.json),r.type,r.genre);return [{json:{row,type:r.type,genre:r.genre,...g}}];"),
+        code('Prepare Recommendation Prompt', "const row=$('Recommendation Generation Context').first().json.row,r=JSON.parse(row.contextJson).recommendation;const g=generation(row,$input.all().map(x=>x.json),r.type,r.genre,r.seen||[]);return [{json:{row,type:r.type,genre:r.genre,...g}}];"),
         code('Recommendation Candidates', "const p=$('Prepare Recommendation Prompt').first().json,cs=suggestions($json);return (cs.length?cs:[null]).map(candidate=>({json:{...p,candidate}}));"),
         node('Recommendation Batches', 'splitInBatches', {'batchSize': 1, 'options': {}}, typeVersion=3),
         condition('Recommendation Candidate?', '$json.candidate!==null'),
@@ -240,7 +240,7 @@ def patch_workflows(workflows, remote_base='', local_base=''):
         ]
         command_if = next(n for n in platform['nodes'] if n['name']=='Recommendation Callback?')
         # IF expressions do not share Code node globals.
-        command_if['parameters']['conditions']['conditions'][0]['leftValue'] = '={{ /^rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel)$/.test($json.action) }}'
+        command_if['parameters']['conditions']['conditions'][0]['leftValue'] = '={{ /^rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more)$/.test($json.action) }}'
         entry = 'Confirmation Callback?' if source=='discord' else 'Telegram Command Reply?'
         connect(platform, entry, 'Recommendation Command?', 1)
         connect(platform, 'Recommendation Command?', 'Prepare Recommendation Actor')

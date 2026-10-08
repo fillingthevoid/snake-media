@@ -1,0 +1,14 @@
+{
+  "help": {
+    "text": "Snake Media\n\n/request <title> — request a movie or show.\n/recommend — find something to watch.\n/status — My requests, progress and expiry.\n\nChoose a button below. More details: Seasons & expiry or /serverstatus.",
+    "choices": [{"label":"Request","action":"request"},{"label":"Recommend","action":"recommend"},{"label":"My requests","action":"status"},{"label":"Seasons & expiry","action":"expiry"},{"label":"Server status","action":"serverstatus"}]
+  },
+  "request": {
+    "text": "Send /request followed by a title, or a plain media request.\nExample: /request The Matrix from 1999\n\nReview the poster before confirming. For TV, choose the season(s) you want.",
+    "choices": [{"label":"Recommend","action":"recommend"},{"label":"My requests","action":"status"},{"label":"Help","action":"help"}]
+  },
+  "expiry": {
+    "text": "TV: choose Latest season, All seasons or a specific season, then Confirm. New episodes and future regular seasons are monitored.\n\nMovies: 7 days after import. TV: 30 days per episode after import. Watching can shorten expiry to 7 days; it never extends it.\n\nUse /extend or /keep to choose an existing request. Download cards also have expiry buttons. Include \"keep for 14 days\" or \"keep permanently\" in a new request to change its default.",
+    "choices": [{"label":"Extend","action":"extend"},{"label":"Keep permanently","action":"keep"},{"label":"My requests","action":"status"},{"label":"Help","action":"help"}]
+  }
+}

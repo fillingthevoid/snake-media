@@ -10,7 +10,7 @@ def build(rows,parent,bot_username):
     old=w['connections']['Telegram Command Reply?']['main'][1]
     if old!=[{'node':'Parse Status Command','type':'main','index':0}]:raise ValueError('Unknown command route')
     prepare=next(n for n in w['nodes'] if n['name']=='Prepare Request')
-    prepare['parameters']['jsCode']=(ROOT/'policy.js').read_text(encoding='utf-8-sig')+'\nreturn prepare($json,'+json.dumps(bot_username)+');'
+    prepare['parameters']['jsCode']='const SNAKE_COMMAND_MENU='+json.dumps(json.loads((ROOT.parent.parent/'src/snake_media/command_menu.json').read_text(encoding='utf-8')))+';\n'+(ROOT/'policy.js').read_text(encoding='utf-8-sig')+'\nreturn prepare($json,'+json.dumps(bot_username)+');'
     for i,name in enumerate(names):
         n=copy.deepcopy(next(n for n in discord['nodes'] if n['name']==name));n['id']=str(uuid.uuid4());n['position']=[810+i*270,1250]
         if name=='Parse Server Health Command':n['parameters']['jsCode']="const p=$json;return [{json:{...p,serverHealthCommand:typeof p.text==='string'&&/^\\/?serverstatus\\s*$/i.test(p.text.trim())}}];"

@@ -10,6 +10,7 @@ from .service import RequestService
 from .notifications import NotificationDelivery
 from .confirmations import CUSTOM_ID, presentation, edit_presentation, notification_view
 from .n8n_client import MediaReply
+from .command_menu import menu_text, menu_choices, NAVIGATION
 
 log = logging.getLogger("snake_media")
 
@@ -55,22 +56,24 @@ class SnakeMediaClient(discord.Client):
             callback=self.keep_command))
 
     async def help_command(self, interaction: discord.Interaction):
+        await self.menu_command(interaction, 'help')
+
+    async def menu_command(self, interaction, section):
+        if section in ('recommend', 'status', 'serverstatus', 'extend', 'keep'):
+            await self.read_command(interaction, section)
+            return
         await interaction.response.defer(ephemeral=True, thinking=True)
         if not self.service.command_allowed(str(interaction.user.id), str(interaction.channel_id), interaction.guild_id):
             text = "⛔ This Discord account isn't authorized to use Snake Media here."
+            view = None
         else:
-            text = ('Use /request title: The Matrix from 1999, or mention me with a request.\n'
-                    'TV: choose Latest season, All seasons or a specific season, then Confirm.\n'
-                    'New episodes and future seasons download automatically.\n\n'
-                    '/status — your downloads, availability and expiry.\n'
-                    '/recommend — choose Movie or TV and a genre for personal suggestions.\n'
-                    '/serverstatus — storage, services and Jellyfin streaming.\n\n'
-                    '/extend or /keep — choose a requested title and change its expiry.\n\n'
-                    'Movies: 7 days after import. TV: 30 days per episode after import.\n'
-                    'Watching can shorten expiry to 7 days; it never extends it.\n'
-                    'Include “keep for 14 days” or “keep permanently” in your request to change the default.\n'
-                    'Download cards have buttons to extend expiry or keep media permanently.')
-        await interaction.followup.send(text, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+            text = menu_text(section)
+            view = discord.ui.View(timeout=None)
+            for choice in menu_choices(section):
+                view.add_item(discord.ui.Button(label=choice['label'],
+                    custom_id='snake_menu:'+choice['action'], style=discord.ButtonStyle.secondary))
+        await interaction.followup.send(text, ephemeral=True, view=view,
+                                        allowed_mentions=discord.AllowedMentions.none())
 
     async def request_command(self, interaction: discord.Interaction, title: app_commands.Range[str, 1, 1600]):
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -247,6 +250,17 @@ class SnakeMediaClient(discord.Client):
 
     async def on_interaction(self, interaction):
         if interaction.type != discord.InteractionType.component:
+            return
+        custom_id = (interaction.data or {}).get('custom_id', '')
+        if isinstance(custom_id, str) and custom_id.startswith('snake_menu:'):
+            section = custom_id[len('snake_menu:'):]
+            if section in NAVIGATION:
+                try:
+                    await self.menu_command(interaction, section)
+                except Exception as exc:
+                    log.error('Menu navigation failed error_type=%s', type(exc).__name__)
+                    if interaction.response.is_done():
+                        await interaction.followup.send('⚠️ This menu could not be opened. Try its slash command.', ephemeral=True)
             return
         match = CUSTOM_ID.fullmatch((interaction.data or {}).get('custom_id', ''))
         if not match:

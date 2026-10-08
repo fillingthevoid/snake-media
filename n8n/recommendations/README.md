@@ -4,6 +4,8 @@
 
 Available titles include Jellyfin links when configured. Choosing a suggestion enters the ordinary poster confirmation; TV still requires an explicit season choice. Browsing never adds media or starts downloads.
 
+The [menu overlay](../menu-simplification/README.md) adds Change genre and More suggestions. It excludes titles already shown in the menu, limits generation to five sets and groups Telegram genres into three columns.
+
 The shared `snakeRecommendV1` workflow reads only the caller's registered requests on that platform, newest first. It uses up to 40 distinct titles as preferences. Only titles and media types go to the existing AI model. New accounts receive genre-based suggestions. AI output is checked against Radarr/Sonarr metadata; unavailable services never become an availability claim.
 
 Menus expire after 30 minutes. Choices check user, platform and destination, then atomically claim the saved state. Recommendation processing uses its own pending row and does not take the global media lock.

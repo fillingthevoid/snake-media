@@ -7,7 +7,7 @@ def build(source,bot_username):
     if not bot_username or not all(c.isalnum() or c=='_' for c in bot_username):raise ValueError('Invalid bot username')
     w=copy.deepcopy(source)
     def node(name):return next(n for n in w['nodes'] if n['name']==name)
-    node('Prepare Request')['parameters']['jsCode']=(ROOT/'policy.js').read_text(encoding='utf-8-sig')+'\nreturn prepare($json,'+json.dumps(bot_username)+');'
+    node('Prepare Request')['parameters']['jsCode']='const SNAKE_COMMAND_MENU='+json.dumps(json.loads((ROOT.parent.parent/'src/snake_media/command_menu.json').read_text(encoding='utf-8')))+';\n'+(ROOT/'policy.js').read_text(encoding='utf-8-sig')+'\nreturn prepare($json,'+json.dumps(bot_username)+');'
     existing=w['connections']['Confirmation Callback?']['main'][1]
     if existing!=[{'node':'Parse Status Command','type':'main','index':0}]:raise ValueError('Unknown Telegram command route')
     template=copy.deepcopy(node('Status Command?'));template.update(id=str(uuid.uuid4()),name='Telegram Command Reply?',position=[1080,250])
