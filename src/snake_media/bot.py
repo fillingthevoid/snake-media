@@ -297,6 +297,11 @@ class SnakeMediaClient(discord.Client):
                 match[1], match[2])
             if getattr(reply, 'action_accepted', False):
                 self.wake_notifications()
+            if (getattr(reply, 'action_accepted', False)
+                    and getattr(reply, 'preserve_original_controls', False)):
+                sent = await interaction.followup.send(ephemeral=True, wait=True, **presentation(reply))
+                self.remember_card(reply, sent, str(interaction.user.id), str(interaction.channel_id))
+                return
             if (getattr(reply, 'action_accepted', False) or getattr(reply, 'clear_controls', False)) and interaction.message:
                 if self.card_registry is not None:
                     try:

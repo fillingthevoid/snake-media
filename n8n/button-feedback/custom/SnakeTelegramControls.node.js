@@ -74,7 +74,7 @@ class SnakeTelegramControls {
     }catch{}
     output.push({json:{telegramRelatedCardsCleared:completed},pairedItem:{item:index}});continue;
    }
-   if(reply.busy===true||!(reply.actionAccepted===true||reply.clearControls===true)){
+   if(reply.busy===true||reply.preserveOriginalControls===true||!(reply.actionAccepted===true||reply.clearControls===true)){
     output.push({...item,pairedItem:{item:index}});continue;
    }
    let cleared=false,phase='invalid_message',errorCode=null,message=null;

@@ -8,7 +8,7 @@ function run(id,name,input,refs={}){
 test('owned download preview acknowledges selection but denied notice never clears controls',()=>{
  const owned={version:1,status:'confirmation',text:'Preview',pendingId:'15',choices:[{label:'Confirm',action:'confirm'}]};
  const r=run('snakeNoticeRetentionPreviewV1','Notice Result',owned,{'Resolve Notice Owner':{source:'discord',text:'extend Example 7 days'}});
- assert.equal(r.actionAccepted,true);assert.match(r.text,/Selected/);assert.match(r.text,/Confirm/);
+ assert.equal(r.actionAccepted,true);assert.equal(r.preserveOriginalControls,true);assert.match(r.text,/Selected/);assert.match(r.text,/Confirm/);
  const denied=run('snakeNoticeRetentionPreviewV1','Notice Result',{version:1,status:'notice',text:'Denied'},{'Resolve Notice Owner':{version:1,status:'notice'}});
  assert.notEqual(denied.actionAccepted,true);assert.notEqual(denied.clearControls,true);
 });
@@ -34,6 +34,7 @@ test('Telegram text and photo callbacks enter the safe markup editor',()=>{
  const expression=gate.slice(3,-2);
  const evaluate=(reply,message)=>new Function('$json','$','return '+expression)(reply,()=>({first:()=>({json:{callback_query:{message}}})}));
  assert.equal(evaluate({actionAccepted:true},{message_id:10,photo:[{}]}),true);
+ assert.equal(evaluate({actionAccepted:true,preserveOriginalControls:true},{message_id:10,photo:[{}]}),false);
  assert.equal(evaluate({actionAccepted:true,busy:true},{message_id:10,text:'Card'}),false);
  assert.equal(evaluate({},{message_id:10,text:'Card'}),false);
  assert.equal(w.nodes.find(n=>n.name==='Clear Telegram Text Controls').type,'CUSTOM.snakeTelegramControls');
@@ -51,6 +52,7 @@ test('Telegram markup editing removes callbacks on text/photos, keeps links, and
   ctx.helpers.httpRequest=async()=>{throw Object.assign(Error('400 - Bad Request: message is not modified'),{statusCode:400});};
   const unchanged=await node.execute.call(ctx);assert.equal(unchanged[0][0].json.telegramControlsCleared,true);
   calls.length=0;ctx.getInputData=()=>[{json:{actionAccepted:true,busy:true}}];await node.execute.call(ctx);assert.equal(calls.length,0);
+  ctx.getInputData=()=>[{json:{actionAccepted:true,preserveOriginalControls:true}}];await node.execute.call(ctx);assert.equal(calls.length,0);
   ctx.getInputData=()=>[{json:{text:'Denied'}}];ctx.helpers.httpRequest=async options=>{calls.push(options);return {ok:true};};
   await node.execute.call(ctx);assert.equal(calls.length,0);
   ctx.getInputData=()=>[{json:{actionAccepted:true}}];ctx.getNodeParameter=()=>({...message,message_id:0});

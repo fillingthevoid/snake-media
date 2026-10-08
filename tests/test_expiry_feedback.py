@@ -10,6 +10,30 @@ from test_core import config
 
 
 class ExpiryFeedbackTests(unittest.IsolatedAsyncioTestCase):
+    async def test_repeat_expiry_choices_leave_original_card_and_registry_available(self):
+        import tempfile
+        from pathlib import Path
+        from snake_media.card_registry import CardRegistry
+        with tempfile.TemporaryDirectory() as folder,CardRegistry(Path(folder)/'cards.sqlite3') as cards:
+            cards.remember('notice:12','333','100','111')
+            replies=[format_result({'version':1,'status':'confirmation','text':'Confirm expiry choice.',
+                'pendingId':str(p),'choices':[{'label':'Confirm','action':'confirm'}],
+                'actionAccepted':True,'preserveOriginalControls':True}) for p in [13,14]]
+            backend=SimpleNamespace(action=AsyncMock(side_effect=replies));client=SnakeMediaClient(RequestService(config(),backend),card_registry=cards)
+            i=SimpleNamespace(type=discord.InteractionType.component,data={'custom_id':'snake:12:notice_7'},
+                user=SimpleNamespace(id=111),channel_id=333,guild_id=444,
+                response=SimpleNamespace(defer=AsyncMock()),followup=SimpleNamespace(send=AsyncMock(return_value=SimpleNamespace(id=101))),
+                message=SimpleNamespace(id=100,embeds=[],components=[],edit=AsyncMock()),delete_original_response=AsyncMock())
+            try:
+                for _ in replies:await client.on_interaction(i)
+                i.message.edit.assert_not_awaited();self.assertEqual(i.followup.send.await_count,2)
+                self.assertEqual([c.kwargs['view'].children[0].custom_id for c in i.followup.send.await_args_list],['snake:13:confirm','snake:14:confirm'])
+                self.assertTrue(all(c.kwargs['ephemeral'] for c in i.followup.send.await_args_list))
+                cards.consume('pending:14','111','333','101');self.assertEqual(cards.pending(now=0),[])
+                self.assertEqual(cards.consume('notice:12','111','333','999'),1)
+                self.assertEqual(cards.pending(now=0)[0]['message_id'],'100')
+            finally:await client.close()
+
     async def test_expiry_preview_edits_card_and_always_acknowledges_choice(self):
         reply=format_result({'version':1,'status':'confirmation','text':'Selected: extend 7 days. Confirm to save.',
             'pendingId':'13','choices':[{'label':'Confirm','action':'confirm'}],'actionAccepted':True})

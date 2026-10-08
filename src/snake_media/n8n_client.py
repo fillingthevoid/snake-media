@@ -73,6 +73,7 @@ def format_result(data: object) -> str:
         reply = MediaReply(escape_mentions(escape_markdown(text)), data.get('posterUrl'),
                            data.get('jellyfinUrl'), data.get('noticeId'), data.get('localJellyfinUrl'))
         reply.action_accepted = data.get('actionAccepted') is True
+        reply.preserve_original_controls = data.get('preserveOriginalControls') is True
         original = data.get('requestMessageId')
         reply.request_message_id = original if isinstance(original, str) and re.fullmatch(r'[1-9][0-9]{0,19}', original) else None
         reply.retention_updated = data.get('retentionUpdated') is True

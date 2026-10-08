@@ -27,7 +27,7 @@ function advance(row,a,now,claimId){
   preference={source:row.source,userId:row.userId,destinationId:row.destinationId,requestKey:'watchpref:'+row.source+':'+row.userId,contextJson:JSON.stringify({watchPreference:choice}),mediaType:'movie',mediaJson:'{}',state:'settings',claimId,choice:'',expiresAt:'2100-01-01T00:00:00.000Z'};
  }else if(a.action==='mr_refresh'&&selected&&!b.settings){}
  else if(['mr_extend','mr_keep'].includes(a.action)&&selected&&!b.settings){
-  changeActor={source:row.source,userId:row.userId,destinationId:row.destinationId,messageId:'myrequests-'+row.id+'-'+claimId,requestedAt:new Date(now).toISOString(),text:a.action==='mr_keep'?'keep':'extend',...selected};next.state='done';
+  changeActor={source:row.source,userId:row.userId,destinationId:row.destinationId,messageId:'myrequests-'+row.id+'-'+claimId,requestedAt:new Date(now).toISOString(),text:a.action==='mr_keep'?'keep':'extend',...selected};
  }else throw Error('Stale request browser action');
  if(next.state==='preview'&&b.selected!==null&&!b.settings)statusActor={source:row.source,userId:row.userId,query:'',...b.titles[b.selected]};
  next.contextJson=JSON.stringify(ctx);return {record:next,statusActor,changeActor,preference};
