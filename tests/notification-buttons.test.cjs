@@ -2,7 +2,7 @@ const {test}=require('node:test'),a=require('node:assert/strict');
 const p=require('../n8n/notification-buttons/policy.js');
 const retention=require('../n8n/retention-controls/policy.js');
 const actor={source:'discord',userId:'2',destinationId:'3',pendingId:'12',action:'notice_7'};
-const row={id:12,source:'discord',destinationId:'3',requestKey:'discord:3:4',payloadJson:JSON.stringify({userId:'2'})};
+const row={updatedAt:new Date().toISOString(),id:12,source:'discord',destinationId:'3',requestKey:'discord:3:4',payloadJson:JSON.stringify({userId:'2'})};
 const req={requestKey:row.requestKey,source:'discord',userId:'2',state:'registered',mediaType:'tv',mediaId:'8',title:'Example'};
 test('notification buttons bind original request, owner, destination and fixed operation',()=>{
  for(const [action,days] of [['notice_7',7],['notice_30',30],['notice_keep',undefined]]){

@@ -1,5 +1,7 @@
 """Durable transport-only references to related public Discord cards."""
 import re
+import json
+import os
 import sqlite3
 import time
 
@@ -7,6 +9,7 @@ import time
 class CardRegistry:
     def __init__(self, path):
         self.connection = sqlite3.connect(path)
+        os.chmod(path, 0o600)
         self.connection.row_factory = sqlite3.Row
         self.connection.execute('CREATE TABLE IF NOT EXISTS cards (group_key TEXT, destination_id TEXT, '
                                 'message_id TEXT, owner_id TEXT, PRIMARY KEY(group_key,destination_id,message_id))')
@@ -21,6 +24,13 @@ class CardRegistry:
         if 'created_at' not in {r[1] for r in self.connection.execute('PRAGMA table_info(cards)')}:
             self.connection.execute('ALTER TABLE cards ADD COLUMN created_at REAL')
         self.connection.execute('UPDATE cards SET created_at=? WHERE created_at IS NULL', (time.time(),))
+        self.connection.execute('CREATE TABLE IF NOT EXISTS controls (destination_id TEXT, message_id TEXT, '
+                                'owner_id TEXT, expires_at REAL, webhook_id TEXT, webhook_token TEXT, links_json TEXT, '
+                                'PRIMARY KEY(destination_id,message_id))')
+        if 'webhook_original' not in {r[1] for r in self.connection.execute('PRAGMA table_info(controls)')}:
+            self.connection.execute('ALTER TABLE controls ADD COLUMN webhook_original INTEGER NOT NULL DEFAULT 0')
+        self.connection.execute('INSERT OR IGNORE INTO controls(destination_id,message_id,owner_id,expires_at,webhook_id,webhook_token,links_json) SELECT destination_id,message_id,owner_id, '
+                                'MIN(created_at)+300,NULL,NULL,\'[]\' FROM cards GROUP BY destination_id,message_id')
         self.connection.commit()
 
     def __enter__(self):
@@ -51,6 +61,42 @@ class CardRegistry:
         self.valid(second, destination, '1', owner)
         with self.connection:
             self.connection.execute('INSERT OR IGNORE INTO links VALUES (?,?,?,?)', (first, second, owner, destination))
+
+    def control(self, destination, message):
+        row = self.connection.execute('SELECT * FROM controls WHERE destination_id=? AND message_id=?',
+                                      (destination, message)).fetchone()
+        return dict(row) if row else None
+
+    def track(self, destination, message, owner, now=None, links=(), webhook_id=None, webhook_token=None):
+        self.valid('pending:1', destination, message, owner)
+        old = self.control(destination, message)
+        if old and old['owner_id'] != owner:
+            raise ValueError('card_owner_conflict')
+        with self.connection:
+            self.connection.execute('INSERT OR REPLACE INTO controls VALUES (?,?,?,?,?,?,?,?)',
+                (destination, message, owner, (time.time() if now is None else now) + 300,
+                 webhook_id or (old or {}).get('webhook_id'),
+                 webhook_token or (old or {}).get('webhook_token'), json.dumps(list(links)), (old or {}).get('webhook_original', 0)))
+            self.connection.execute('DELETE FROM cleanup WHERE destination_id=? AND message_id=?', (destination, message))
+
+    def expired(self, destination, message, now=None):
+        row = self.control(destination, message)
+        return bool(row and row['expires_at'] <= (time.time() if now is None else now))
+
+    def touch(self, destination, message, owner, now=None, webhook_id=None, webhook_token=None):
+        now = time.time() if now is None else now
+        with self.connection:
+            changed = self.connection.execute('UPDATE controls SET expires_at=? WHERE destination_id=? '
+                'AND message_id=? AND owner_id=? AND expires_at>?', (now + 300, destination, message, owner, now)).rowcount
+            if changed and webhook_token:
+                self.connection.execute('UPDATE controls SET webhook_id=?,webhook_token=?,webhook_original=1 WHERE destination_id=? AND message_id=?',
+                                        (webhook_id, webhook_token, destination, message))
+        return bool(changed)
+
+    def expire(self, now):
+        with self.connection:
+            self.connection.execute('INSERT OR IGNORE INTO cleanup(destination_id,message_id) '
+                                    'SELECT destination_id,message_id FROM controls WHERE expires_at<=?', (now,))
 
     def remember_request(self, destination, source_message, message, owner):
         self.valid('pending:1', destination, message, owner)
@@ -90,11 +136,18 @@ class CardRegistry:
         return count
 
     def pending(self, now, limit=5):
-        return [dict(r) for r in self.connection.execute('SELECT * FROM cleanup WHERE retry_at<=? AND attempts<12 ORDER BY retry_at LIMIT ?', (now, min(limit, 5)))]
+        return [dict(r) for r in self.connection.execute('SELECT cleanup.*,controls.webhook_id,controls.webhook_token,controls.links_json,controls.webhook_original '
+            'FROM cleanup LEFT JOIN controls USING(destination_id,message_id) '
+            'WHERE retry_at<=? AND attempts<12 ORDER BY retry_at LIMIT ?', (now, min(limit, 5)))]
+
+    def queued(self, destination, message):
+        return bool(self.connection.execute('SELECT 1 FROM cleanup WHERE destination_id=? AND message_id=?',
+                                            (destination, message)).fetchone())
 
     def forget(self, destination, message):
         with self.connection:
             self.connection.execute('DELETE FROM cards WHERE destination_id=? AND message_id=?', (destination, message))
+            self.connection.execute('DELETE FROM controls WHERE destination_id=? AND message_id=?', (destination, message))
 
     def compact(self, before):
         with self.connection:
@@ -107,6 +160,7 @@ class CardRegistry:
     def finish(self, destination, message):
         with self.connection:
             self.connection.execute('DELETE FROM cleanup WHERE destination_id=? AND message_id=?', (destination, message))
+            self.forget(destination, message)
 
     def defer(self, destination, message, now):
         with self.connection:

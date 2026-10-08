@@ -38,16 +38,30 @@ class CardStore{
    fs.renameSync(tmp,this.file);return result;
   }finally{fs.closeSync(fd);fs.unlinkSync(lock);}
  }
- remember(message,owner){
+ remember(message,owner,now=Date.now()){
   if(!Number.isSafeInteger(message?.message_id)||message.message_id<=0||!/^[-]?[1-9][0-9]{0,19}$/.test(String(message?.chat?.id))||!/^\d+$/.test(owner))throw Error('Invalid card identity');
-  const keys=groups(message);if(!keys.length)return;
+  const keys=groups(message);if(!keys.length&&!message?.reply_markup?.inline_keyboard?.flat().some(b=>typeof b.callback_data==='string'&&b.callback_data.startsWith('snake_menu:')))return;
   const chat=String(message.chat.id),id=message.message_id;
   this.transaction(s=>{
    const existing=s.cards.find(c=>c.chat===chat&&c.id===id);
    if(existing&&existing.owner!==owner)throw Error('Card owner conflict');
-   if(!existing)s.cards.push({chat,id,owner,groups:keys,links:links(message.reply_markup.inline_keyboard),createdAt:Date.now()});
-   else{existing.groups=[...new Set([...existing.groups,...keys])];existing.links=links(message.reply_markup.inline_keyboard);}
+   if(!existing)s.cards.push({chat,id,owner,groups:keys,links:links(message.reply_markup.inline_keyboard),createdAt:now,expiresAt:now+300000});
+   else{existing.groups=[...new Set([...existing.groups,...keys])];existing.links=links(message.reply_markup.inline_keyboard);existing.expiresAt=now+300000;}
+   s.jobs=s.jobs.filter(j=>!(j.chat===chat&&j.id===id));
   });
+ }
+ touch(chat,id,owner,now=Date.now()){
+  return this.transaction(s=>{const c=s.cards.find(c=>c.chat===chat&&c.id===id&&c.owner===owner);
+   if(!c||(c.expiresAt??c.createdAt+300000)<=now)return false;
+   c.expiresAt=now+300000;return true;
+  });
+ }
+ expire(now=Date.now()){
+  this.transaction(s=>{s.cards=s.cards.filter(c=>{
+   if((c.expiresAt??c.createdAt+300000)>now)return true;
+   if(!s.jobs.some(j=>j.chat===c.chat&&j.id===c.id))s.jobs.push({...c,retryAt:0,attempts:0});
+   return false;
+  });});
  }
  rememberActive(message,owner,original){
   if(!Number.isSafeInteger(message?.message_id)||message.message_id<=0||!/^[-]?[1-9][0-9]{0,19}$/.test(String(message?.chat?.id))||!/^\d+$/.test(owner)||!(/^[1-9][0-9]{0,19}$/).test(original))throw Error('Invalid active card identity');

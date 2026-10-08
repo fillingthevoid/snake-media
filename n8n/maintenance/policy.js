@@ -15,7 +15,6 @@ function pendingBatches(markers){
  return result;
 }
 function retireChoice(row,now){
- if(row.state==='preview'){try{const b=JSON.parse(row.contextJson||'{}').myRequests;if(Array.isArray(b?.titles)&&Number.isInteger(b.page))return null;}catch{}}
  const expiry=Date.parse(row.expiresAt),updated=Date.parse(row.updatedAt||row.createdAt);
  if(!Number.isFinite(expiry)||!Number.isFinite(updated)||row.state==='processing')return null;
  const terminal=['done','cancelled','expired'].includes(row.state);

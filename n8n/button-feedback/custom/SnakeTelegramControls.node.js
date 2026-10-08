@@ -9,7 +9,7 @@ class SnakeTelegramControls {
    group:['transform'],version:1,description:'Remove handled callback controls while retaining URL buttons',
    defaults:{name:'Snake Telegram Controls'},inputs:['main'],outputs:['main'],
    credentials:[{name:'telegramApi',required:true}],properties:[
-    {displayName:'Operation',name:'operation',type:'options',default:'clear',options:[{name:'Clear Handled Card',value:'clear'},{name:'Remember Sent Card',value:'remember'},{name:'Retry Related Cards',value:'retry'},{name:'Update Original Request',value:'update'}]},
+    {displayName:'Operation',name:'operation',type:'options',default:'clear',options:[{name:'Clear Handled Card',value:'clear'},{name:'Remember Sent Card',value:'remember'},{name:'Retry Related Cards',value:'retry'},{name:'Update Original Request',value:'update'},{name:'Touch Help Menu',value:'touchMenu'}]},
     {displayName:'Callback Message',name:'message',type:'json',default:'{}',required:true},
     {displayName:'Owner ID',name:'ownerId',type:'string',default:''},
     {displayName:'Callback Data',name:'callbackData',type:'string',default:''},
@@ -24,6 +24,10 @@ class SnakeTelegramControls {
    const supplied=this.getNodeParameter('operation',index,'clear'),operation=typeof supplied==='string'?supplied:'clear';
    const owner=this.getNodeParameter('ownerId',index,''),file=this.getNodeParameter('stateFile',index,'/home/node/.n8n/snake-controls.json');
    const store=(typeof owner==='string'&&/^\d+$/.test(owner)||operation==='retry')&&typeof file==='string'?new CardStore(file):null;
+   if(operation==='touchMenu'){
+    try{const data=this.getNodeParameter('callbackData',index,'');let m=this.getNodeParameter('message',index);if(typeof m==='string')m=JSON.parse(m);if(store&&typeof data==='string'&&data.startsWith('snake_menu:'))store.touch(String(m.chat.id),m.message_id,owner);}catch{}
+    output.push({...item,pairedItem:{item:index}});continue;
+   }
    if(operation==='remember'){
     try{let m=this.getNodeParameter('message',index);if(typeof m==='string')m=JSON.parse(m);if(store){store.remember(m?.result||m,owner);const original=this.getNodeParameter('requestMessageId',index,'');if(original)store.rememberActive(m?.result||m,owner,original);}}
     catch{output.push({...item,json:{...reply,telegramCardStored:false},pairedItem:{item:index}});continue;}
@@ -58,6 +62,7 @@ class SnakeTelegramControls {
     let completed=0;
     try{
      if(store){
+      store.expire(Date.now());
       for(const job of store.pending(Date.now()/1000).slice(0,2)){
        try{
         const credentials=await this.getCredentials('telegramApi');
@@ -73,6 +78,9 @@ class SnakeTelegramControls {
      }
     }catch{}
     output.push({json:{telegramRelatedCardsCleared:completed},pairedItem:{item:index}});continue;
+   }
+   if(reply.actionAccepted===true&&reply.preserveOriginalControls===true&&reply.busy!==true&&store){
+    try{let m=this.getNodeParameter('message',index);if(typeof m==='string')m=JSON.parse(m);store.touch(String(m.chat.id),m.message_id,owner);}catch{}
    }
    if(reply.busy===true||reply.preserveOriginalControls===true||!(reply.actionAccepted===true||reply.clearControls===true)){
     output.push({...item,pairedItem:{item:index}});continue;

@@ -33,6 +33,7 @@ class RelatedCardsTests(unittest.IsolatedAsyncioTestCase):
                         data={'custom_id': 'snake:13:confirm'}, user=SimpleNamespace(id=111), channel_id=333, guild_id=444,
                         response=SimpleNamespace(defer=AsyncMock()), followup=SimpleNamespace(send=AsyncMock()),
                         message=SimpleNamespace(id=101, embeds=[], components=[], edit=AsyncMock()), delete_original_response=AsyncMock())
+                    interaction.edit_original_response=interaction.message.edit
                     await client.on_interaction(interaction)
                     self.assertEqual([r['message_id'] for r in cards.pending(now=0)], ['100'] if accepted else [])
                     await client.close()

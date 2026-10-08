@@ -63,8 +63,9 @@ class ConfirmationTests(unittest.IsolatedAsyncioTestCase):
         interaction=SimpleNamespace(type=discord.InteractionType.component,
             data={'custom_id':'snake:12:cancel'},user=SimpleNamespace(id=111),channel_id=333,guild_id=444,
             response=SimpleNamespace(defer=AsyncMock()),followup=SimpleNamespace(send=AsyncMock()))
+        interaction.edit_original_response=interaction.message.edit if hasattr(interaction, "message") else AsyncMock()
         await client.on_interaction(interaction)
-        interaction.response.defer.assert_awaited_once_with(ephemeral=True,thinking=True)
+        interaction.response.defer.assert_awaited_once_with(thinking=False)
         backend.action.assert_awaited_once_with('111','333','444','12','cancel')
         self.assertTrue(interaction.followup.send.call_args.kwargs['ephemeral'])
         await client.close()
@@ -80,13 +81,14 @@ class ConfirmationTests(unittest.IsolatedAsyncioTestCase):
             data={'custom_id':'snake:12:cancel'},user=SimpleNamespace(id=111),channel_id=333,guild_id=444,
             response=SimpleNamespace(defer=AsyncMock()),followup=SimpleNamespace(send=AsyncMock()),
             message=SimpleNamespace(embeds=[poster],edit=AsyncMock()),delete_original_response=AsyncMock())
+        interaction.edit_original_response=interaction.message.edit if hasattr(interaction, "message") else AsyncMock()
         await client.on_interaction(interaction)
         options=interaction.message.edit.call_args.kwargs
         self.assertIsNone(options['view'])
         self.assertEqual(options['embed'].description,'Cancelled')
         self.assertEqual(options['embed'].image.url,poster.image.url)
         self.assertEqual(poster.description,'Is this correct?')
-        interaction.delete_original_response.assert_awaited_once()
+        interaction.delete_original_response.assert_not_awaited()
         interaction.followup.send.assert_not_awaited()
         await client.close()
 
@@ -111,6 +113,7 @@ class ConfirmationTests(unittest.IsolatedAsyncioTestCase):
             response=SimpleNamespace(defer=AsyncMock()),followup=SimpleNamespace(send=AsyncMock()),
             message=SimpleNamespace(embeds=[],edit=AsyncMock(side_effect=failure)),delete_original_response=AsyncMock())
         with self.assertLogs('snake_media',level='WARNING'):
+            interaction.edit_original_response=interaction.message.edit if hasattr(interaction, "message") else AsyncMock()
             await client.on_interaction(interaction)
         backend.action.assert_awaited_once()
         interaction.followup.send.assert_awaited_once()

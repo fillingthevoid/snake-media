@@ -52,12 +52,12 @@ function availability(media,type,pages,episodes){
 function record(actor,now){
  if(!actorValid(actor)||!/^\d+$/.test(actor.messageId)||!Number.isFinite(Date.parse(actor.requestedAt)))throw Error('Missing recommendation context');
  const context={source:actor.source,userId:actor.userId,destinationId:actor.destinationId,messageId:actor.messageId,requestedAt:actor.requestedAt,text:'recommend',recommendation:{stage:'type',type:null,genre:null,items:[],cursor:0}};
- return {source:actor.source,userId:actor.userId,destinationId:actor.destinationId,requestKey:['recommend',actor.source,actor.destinationId,actor.messageId].join(':'),contextJson:JSON.stringify(context),mediaType:'movie',mediaJson:'{}',state:'preview',claimId:'',choice:'',expiresAt:new Date(now+30*60000).toISOString()};
+ return {source:actor.source,userId:actor.userId,destinationId:actor.destinationId,requestKey:['recommend',actor.source,actor.destinationId,actor.messageId].join(':'),contextJson:JSON.stringify(context),mediaType:'movie',mediaJson:'{}',state:'preview',claimId:'',choice:'',expiresAt:new Date(now+300000).toISOString()};
 }
 function transition(row,actor,now,claimId){
  if(!actorValid(actor)||!row||['source','userId','destinationId'].some(k=>row[k]!==actor[k])||!RECACTION.test(actor.action)||row.state!=='preview'||!Number.isFinite(Date.parse(row.expiresAt))||Date.parse(row.expiresAt)<=now)throw Error('Stale or unauthorized recommendation');
  const ctx=JSON.parse(row.contextJson),rec=ctx.recommendation;if(!rec)throw Error('Not a recommendation');
- const next={...row,claimId},a=actor.action;let generate=false,preview=null;
+ const next={...row,claimId,expiresAt:new Date(now+300000).toISOString()},a=actor.action;let generate=false,preview=null;
  if(a==='rec_cancel')next.state='cancelled';
  else if(rec.stage==='type'&&['rec_movie','rec_tv'].includes(a)){rec.type=a.slice(4);rec.stage='genre';next.mediaType=rec.type;}
  else if(rec.stage==='genre'&&/^rec_genre_/.test(a)){

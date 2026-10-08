@@ -20,14 +20,14 @@ test('selection reads exact media identity and expiry actions still enter confir
  const second=p.advance(keep.record,{...actor,action:'mr_extend'},now,'c');assert.equal(second.changeActor.mediaId,'11');assert.notEqual(second.changeActor.messageId,keep.changeActor.messageId);
  assert.throws(()=>p.advance(row,{...actor,userId:'222',action:'mr_refresh'},now,'c'));
  assert.throws(()=>p.advance(row,{...actor,destinationId:'334',action:'mr_refresh'},now,'c'));
- const late=p.advance(row,{...actor,action:'mr_refresh'},now+31*60000,'c');assert.equal(late.statusActor.mediaId,'11');
+ assert.throws(()=>p.advance(row,{...actor,action:'mr_refresh'},now+5*60000,'c'));
 });
-test('legacy open navigation stays active after weeks while handled menus remain closed',()=>{
+test('expired navigation rejects input and becomes eligible for compaction',()=>{
  const later=now+60*86400000,row={...p.create(actor,rows,now),id:7,expiresAt:new Date(now+30*60000).toISOString()};
- assert.equal(p.card(row,later).status,'confirmation');
- const next=p.advance(row,{...actor,action:'mr_title_0'},later,'late');assert.equal(next.statusActor.mediaId,'10');assert.ok(Date.parse(next.record.expiresAt)>later);
+ assert.equal(p.card(row,later).status,'notice');
+ assert.throws(()=>p.advance(row,{...actor,action:'mr_title_0'},later,'late'));
  const retire=require('../n8n/maintenance/policy.js').retireChoice;
- assert.equal(retire({...row,createdAt:actor.requestedAt},later),null);
+ assert.equal(retire({...row,createdAt:actor.requestedAt},later).state,'expired');
  const closed={...row,state:'cancelled'};assert.throws(()=>p.advance(closed,{...actor,action:'mr_title_0'},later,'x'));
  assert.equal(p.card(closed,later).status,'notice');
  assert.equal(retire({...row,contextJson:'{}',createdAt:actor.requestedAt},later).state,'expired');

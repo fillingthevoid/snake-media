@@ -21,6 +21,7 @@ class ExpiryFeedbackTests(unittest.IsolatedAsyncioTestCase):
                 'actionAccepted':True,'preserveOriginalControls':True}) for p in [13,14]]
             backend=SimpleNamespace(action=AsyncMock(side_effect=replies));client=SnakeMediaClient(RequestService(config(),backend),card_registry=cards)
             i=SimpleNamespace(type=discord.InteractionType.component,data={'custom_id':'snake:12:notice_7'},
+                application_id=999,token='test-interaction-token',
                 user=SimpleNamespace(id=111),channel_id=333,guild_id=444,
                 response=SimpleNamespace(defer=AsyncMock()),followup=SimpleNamespace(send=AsyncMock(return_value=SimpleNamespace(id=101))),
                 message=SimpleNamespace(id=100,embeds=[],components=[],edit=AsyncMock()),delete_original_response=AsyncMock())
@@ -43,6 +44,7 @@ class ExpiryFeedbackTests(unittest.IsolatedAsyncioTestCase):
             user=SimpleNamespace(id=111),channel_id=333,guild_id=444,
             response=SimpleNamespace(defer=AsyncMock()),followup=SimpleNamespace(send=AsyncMock()),
             message=SimpleNamespace(embeds=[],components=[],edit=AsyncMock()),delete_original_response=AsyncMock())
+        i.edit_original_response=i.message.edit
         await client.on_interaction(i)
         self.assertEqual(i.message.edit.await_args.kwargs['view'].children[0].custom_id,'snake:13:confirm')
         i.followup.send.assert_awaited_once()
@@ -64,6 +66,7 @@ class ExpiryFeedbackTests(unittest.IsolatedAsyncioTestCase):
             user=SimpleNamespace(id=111),channel_id=333,guild_id=444,
             response=SimpleNamespace(defer=AsyncMock()),followup=SimpleNamespace(send=AsyncMock()),
             message=SimpleNamespace(embeds=[],components=rows,edit=AsyncMock()),delete_original_response=AsyncMock())
+        i.edit_original_response=i.message.edit
         await client.on_interaction(i)
         i.followup.send.assert_awaited_once()
         self.assertIn('Kept permanently',i.followup.send.await_args.kwargs['content'])

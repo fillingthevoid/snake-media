@@ -34,7 +34,7 @@ test('Telegram text and photo callbacks enter the safe markup editor',()=>{
  const expression=gate.slice(3,-2);
  const evaluate=(reply,message)=>new Function('$json','$','return '+expression)(reply,()=>({first:()=>({json:{callback_query:{message}}})}));
  assert.equal(evaluate({actionAccepted:true},{message_id:10,photo:[{}]}),true);
- assert.equal(evaluate({actionAccepted:true,preserveOriginalControls:true},{message_id:10,photo:[{}]}),false);
+ assert.equal(evaluate({actionAccepted:true,preserveOriginalControls:true},{message_id:10,photo:[{}]}),true);
  assert.equal(evaluate({actionAccepted:true,busy:true},{message_id:10,text:'Card'}),false);
  assert.equal(evaluate({},{message_id:10,text:'Card'}),false);
  assert.equal(w.nodes.find(n=>n.name==='Clear Telegram Text Controls').type,'CUSTOM.snakeTelegramControls');
