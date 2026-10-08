@@ -10,12 +10,12 @@ function create(a,rows,now){
  }
  const titles=[...found.values()].slice(0,200);
  if(!titles.length)return {version:1,status:'notice',text:'No requests found for your account on this platform. Try /request or /recommend.'};
- return {source:a.source,userId:a.userId,destinationId:a.destinationId,requestKey:['myrequests',a.source,a.destinationId,a.messageId].join(':'),contextJson:JSON.stringify({...a,myRequests:{titles,page:0,selected:null}}),mediaType:'movie',mediaJson:'{}',state:'preview',claimId:'',choice:'',expiresAt:new Date(now+30*60000).toISOString()};
+ return {source:a.source,userId:a.userId,destinationId:a.destinationId,requestKey:['myrequests',a.source,a.destinationId,a.messageId].join(':'),contextJson:JSON.stringify({...a,myRequests:{titles,page:0,selected:null}}),mediaType:'movie',mediaJson:'{}',state:'preview',claimId:'',choice:'',expiresAt:'2100-01-01T00:00:00.000Z'};
 }
 function advance(row,a,now,claimId){
- if(!validActor(a)||!row||['source','userId','destinationId'].some(k=>row[k]!==a[k])||row.state!=='preview'||!Number.isFinite(Date.parse(row.expiresAt))||Date.parse(row.expiresAt)<=now||!MY_ACTION.test(a.action))throw Error('Expired or unowned request browser');
+ if(!validActor(a)||!row||['source','userId','destinationId'].some(k=>row[k]!==a[k])||row.state!=='preview'||!MY_ACTION.test(a.action))throw Error('Closed or unowned request browser');
  const ctx=JSON.parse(row.contextJson),b=ctx.myRequests;if(!Array.isArray(b?.titles)||!Number.isInteger(b.page))throw Error('Not a request browser');
- const next={...row,claimId};let statusActor=null,changeActor=null,preference=null;
+ const next={...row,claimId,expiresAt:'2100-01-01T00:00:00.000Z'};let statusActor=null,changeActor=null,preference=null;
  const selected=b.titles[b.selected],title=a.action.match(/^mr_title_(\d+)$/),page=a.action.match(/^mr_page_(\d+)$/);
  if(a.action==='mr_close')next.state='cancelled';
  else if(a.action==='mr_back'&&selected){if(b.settings)b.settings=false;else b.selected=null;}
@@ -34,7 +34,7 @@ function advance(row,a,now,claimId){
 }
 function card(row,now,status=null){
  if(row.version)return row;
- if(!row?.id||row.state!=='preview'||!Number.isFinite(Date.parse(row.expiresAt))||Date.parse(row.expiresAt)<=now)return {version:1,status:'notice',text:row?.state==='cancelled'?'My requests closed.':'This request menu has expired. Use /status again.'};
+ if(!row?.id||row.state!=='preview')return {version:1,status:'notice',text:row?.state==='cancelled'?'My requests closed.':'This request menu was already handled. Use /status again.'};
  const b=JSON.parse(row.contextJson).myRequests,selected=b.titles[b.selected];
  const out={version:1,status:'confirmation',pendingId:String(row.id),text:'My requests — choose a title.',choices:[]};
  if(selected&&b.settings){

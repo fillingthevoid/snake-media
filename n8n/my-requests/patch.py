@@ -43,7 +43,7 @@ def build(source):
       h.table('Find Request Selection',pending,filters=[h.eq('id','={{ Number($json.pendingId) }}')]+[h.eq(k,'={{ $json.'+k+' }}') for k in ['source','userId','destinationId']]),
       code('Plan Request Selection',"try{const rs=$input.all().map(x=>x.json).filter(x=>x.id);if(rs.length!==1)throw Error('Not owned');const old=rs[0];return [{json:{valid:true,old,...advance(old,$('My Requests Input').first().json,Date.now(),String($execution.id))}}];}catch{return [{json:{valid:false,version:1,status:'notice',text:'This menu expired, was already selected or belongs to another account. Use /status again.'}}];}"),
       h.condition('Request Selection Valid?','$json.valid===true'),
-      h.table('Claim Request Selection',pending,'update',[h.eq(k,'={{ $json.old.'+k+' }}') for k in ['id','state','claimId','source','userId','destinationId']],{key:'={{ $json.record.'+key+' }}' for key in ['state','claimId','contextJson']}),
+      h.table('Claim Request Selection',pending,'update',[h.eq(k,'={{ $json.old.'+k+' }}') for k in ['id','state','claimId','source','userId','destinationId']],{key:'={{ $json.record.'+key+' }}' for key in ['state','claimId','contextJson','expiresAt']}),
       code('Verify Request Claim',"const row=$json,plan=$('Plan Request Selection').first().json;if(row.claimId!==String($execution.id))return [{json:{claimed:false,version:1,status:'notice',text:'This choice was already handled. Use the latest response.'}}];return [{json:{claimed:true,row,statusActor:plan.statusActor,changeActor:plan.changeActor,preference:plan.preference}}];"),
       h.condition('Request Selection Claimed?','$json.claimed===true'),
       code('Request Selection Declined','return [{json:$json}];'),
