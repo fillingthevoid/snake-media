@@ -31,6 +31,8 @@ class CardStore{
    fs.writeFileSync(fd,String(process.pid));fs.fsyncSync(fd);
    const s=fs.existsSync(this.file)?JSON.parse(fs.readFileSync(this.file,'utf8')):{version:1,cards:[],links:[],jobs:[]};
    if(s.version!==1||!Array.isArray(s.cards)||!Array.isArray(s.links)||!Array.isArray(s.jobs))throw Error('Invalid card state');
+   if(s.activeCards===undefined)s.activeCards=[];
+   if(!Array.isArray(s.activeCards))throw Error('Invalid active card state');
    const result=change(s),tmp=this.file+'.'+process.pid+'.tmp';
    const out=fs.openSync(tmp,'w',0o600);try{fs.writeFileSync(out,JSON.stringify(s));fs.fsyncSync(out);}finally{fs.closeSync(out);}
    fs.renameSync(tmp,this.file);return result;
@@ -44,8 +46,15 @@ class CardStore{
    const existing=s.cards.find(c=>c.chat===chat&&c.id===id);
    if(existing&&existing.owner!==owner)throw Error('Card owner conflict');
    if(!existing)s.cards.push({chat,id,owner,groups:keys,links:links(message.reply_markup.inline_keyboard),createdAt:Date.now()});
+   else{existing.groups=[...new Set([...existing.groups,...keys])];existing.links=links(message.reply_markup.inline_keyboard);}
   });
  }
+ rememberActive(message,owner,original){
+  if(!Number.isSafeInteger(message?.message_id)||message.message_id<=0||!/^[-]?[1-9][0-9]{0,19}$/.test(String(message?.chat?.id))||!/^\d+$/.test(owner)||!(/^[1-9][0-9]{0,19}$/).test(original))throw Error('Invalid active card identity');
+  const chat=String(message.chat.id);
+  this.transaction(s=>{if(!s.activeCards.some(c=>c.chat===chat&&c.original===original&&c.owner===owner))s.activeCards.push({chat,original,owner,id:message.message_id,photo:Array.isArray(message.photo)&&message.photo.length>0,createdAt:Date.now()});});
+ }
+ active(chat,original,owner){return this.transaction(s=>s.activeCards.find(c=>c.chat===chat&&c.original===original&&c.owner===owner)||null);}
  link(first,second,owner,chat){
   if(![first,second].every(x=>/^(notice|pending):[1-9][0-9]{0,15}$/.test(x)))throw Error('Invalid group');
   this.transaction(s=>{if(!s.links.some(l=>l.first===first&&l.second===second&&l.owner===owner&&l.chat===chat))s.links.push({first,second,owner,chat});});
@@ -66,6 +75,7 @@ class CardStore{
  finish(chat,id){this.transaction(s=>{s.jobs=s.jobs.filter(j=>!(j.chat===chat&&j.id===id));});}
  defer(chat,id,now){this.transaction(s=>{const j=s.jobs.find(j=>j.chat===chat&&j.id===id);if(j){j.attempts++;j.retryAt=now+300;}});}
  compact(now){this.transaction(s=>{
+  s.activeCards=s.activeCards.filter(c=>Number.isFinite(c.createdAt)&&c.createdAt>=now-90*86400000);
   s.cards=s.cards.filter(c=>Number.isFinite(c.createdAt)&&c.createdAt>=now-90*86400000);
   const known=new Set(s.cards.flatMap(c=>c.groups));
   s.links=s.links.filter(l=>known.has(l.first)||known.has(l.second));

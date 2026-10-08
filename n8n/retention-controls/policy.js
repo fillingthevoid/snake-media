@@ -17,7 +17,7 @@ function titleKey(text){
 function prepareChange(actor,rows){
  if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\d+$/.test(actor.userId))throw Error('Invalid actor');
  const parsed=parseChange(actor.text);if(!parsed||parsed.error)return {notice:parsed?.error||'Not a retention command.'};
- const owned=rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.userId!=='1'&&r.state==='registered'&&r.requestKey&&(!actor.requestKey||r.requestKey===actor.requestKey)&&['movie','tv'].includes(r.mediaType)&&/^\d+$/.test(String(r.mediaId))&&typeof r.title==='string'&&r.title.trim());
+ const owned=rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.userId!=='1'&&r.state==='registered'&&r.requestKey&&(!actor.requestKey||r.requestKey===actor.requestKey)&&(!actor.mediaId||(r.mediaType===actor.mediaType&&String(r.mediaId)===actor.mediaId))&&['movie','tv'].includes(r.mediaType)&&/^\d+$/.test(String(r.mediaId))&&typeof r.title==='string'&&r.title.trim());
  const query=titleKey(parsed.query||'');
  let matches=parsed.guided?owned:query?owned.filter(r=>titleKey(r.title).includes(query)):[];
  if(!parsed.guided&&matches.some(r=>titleKey(r.title)===query))matches=matches.filter(r=>titleKey(r.title)===query);
@@ -26,6 +26,10 @@ function prepareChange(actor,rows){
  if(parsed.guided||keys.size!==1){
   const candidates=[...keys].map(key=>{const rs=matches.filter(r=>r.mediaType+':'+r.mediaId===key),r=rs[0];return {source:actor.source,userId:actor.userId,mediaType:r.mediaType,mediaId:String(r.mediaId),title:r.title.slice(0,150),requestKeys:[...new Set(rs.map(r=>r.requestKey))]};});
   candidates.sort((a,b)=>a.title.localeCompare(b.title)||a.mediaId.localeCompare(b.mediaId));
+  if(actor.mediaId&&candidates.length===1){
+   if(parsed.operation==='permanent')return {change:{...candidates[0],operation:'permanent'}};
+   return {guide:{operation:'extend',candidates,page:0,selected:0}};
+  }
   return {guide:{operation:parsed.operation,...(parsed.days?{days:parsed.days}:{}),candidates,page:0}};
  }
  const r=matches[0];return {change:{...parsed,source:actor.source,userId:actor.userId,requestKeys:[...new Set(matches.map(r=>r.requestKey))],mediaType:r.mediaType,mediaId:String(r.mediaId),title:String(r.title).slice(0,150)}};

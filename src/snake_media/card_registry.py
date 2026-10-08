@@ -15,6 +15,9 @@ class CardRegistry:
         self.connection.execute('CREATE TABLE IF NOT EXISTS cleanup (destination_id TEXT, message_id TEXT, '
                                 'retry_at REAL NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0, '
                                 'PRIMARY KEY(destination_id,message_id))')
+        self.connection.execute('CREATE TABLE IF NOT EXISTS request_cards (destination_id TEXT, source_message_id TEXT, '
+                                'message_id TEXT, owner_id TEXT, created_at REAL, '
+                                'PRIMARY KEY(destination_id,source_message_id,owner_id))')
         if 'created_at' not in {r[1] for r in self.connection.execute('PRAGMA table_info(cards)')}:
             self.connection.execute('ALTER TABLE cards ADD COLUMN created_at REAL')
         self.connection.execute('UPDATE cards SET created_at=? WHERE created_at IS NULL', (time.time(),))
@@ -49,6 +52,19 @@ class CardRegistry:
         with self.connection:
             self.connection.execute('INSERT OR IGNORE INTO links VALUES (?,?,?,?)', (first, second, owner, destination))
 
+    def remember_request(self, destination, source_message, message, owner):
+        self.valid('pending:1', destination, message, owner)
+        self.valid('pending:1', destination, source_message, owner)
+        with self.connection:
+            self.connection.execute('INSERT OR IGNORE INTO request_cards VALUES (?,?,?,?,?)',
+                                    (destination, source_message, message, owner, time.time()))
+
+    def request_card(self, destination, source_message, owner):
+        row = self.connection.execute('SELECT message_id FROM request_cards WHERE destination_id=? '
+                                      'AND source_message_id=? AND owner_id=?',
+                                      (destination, source_message, owner)).fetchone()
+        return row[0] if row else None
+
     def consume(self, group, owner, destination, current_message):
         self.valid(group, destination, current_message, owner)
         groups = {group}
@@ -82,6 +98,7 @@ class CardRegistry:
 
     def compact(self, before):
         with self.connection:
+            self.connection.execute('DELETE FROM request_cards WHERE created_at<?', (before,))
             self.connection.execute('DELETE FROM cards WHERE created_at<? AND NOT EXISTS '
                                     '(SELECT 1 FROM cleanup WHERE cleanup.destination_id=cards.destination_id AND cleanup.message_id=cards.message_id)', (before,))
             self.connection.execute('DELETE FROM links WHERE first_key NOT IN (SELECT group_key FROM cards) '

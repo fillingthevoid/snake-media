@@ -177,6 +177,24 @@ class SnakeMediaClient(discord.Client):
                            poster_url, jellyfin_url, notice_id, local_jellyfin_url)
         options = presentation(reply)
         options.setdefault('view', None)
+        original = self.card_registry.request_card(channel_id, message_id, owner_id) if self.card_registry and owner_id else None
+        if original:
+            try:
+                message = await asyncio.wait_for(channel.fetch_message(int(original)), timeout=10)
+                if message.author.id != self.user.id:
+                    raise ValueError('original_card_author_changed')
+                if not options['embed'] and message.embeds:
+                    embed = message.embeds[0].copy()
+                    embed.description = str(reply)
+                    options.update(content=None, embed=embed)
+                await asyncio.wait_for(message.edit(**options), timeout=10)
+                self.remember_card(reply, message, owner_id, channel_id)
+                log.info('Request card updated channel_id=%s', channel_id)
+                return str(message.id)
+            except (discord.NotFound, discord.Forbidden):
+                log.info('Original request card unavailable; using notification fallback')
+            # Temporary/unknown edit outcomes propagate to the existing durable
+            # retry worker. Repeating an edit is safe; a new post may duplicate it.
         # discord.py enforces supplied nonce uniqueness for Discord's recent window.
         message = await channel.send(reference=reference, nonce=nonce, **options)
         if owner_id:
@@ -196,6 +214,12 @@ class SnakeMediaClient(discord.Client):
     def remember_card(self, reply, message, owner, destination):
         if self.card_registry is None or message is None:
             return
+        original = getattr(reply, 'request_message_id', None)
+        if original:
+            try:
+                self.card_registry.remember_request(destination, original, str(message.id), owner)
+            except Exception as exc:
+                log.warning('Active card storage deferred error_type=%s', type(exc).__name__)
         group = ('pending:' + str(reply.pending_id) if getattr(reply, 'choices', None)
                  else 'notice:' + str(reply.notice_id) if getattr(reply, 'notice_id', None) else None)
         if group:

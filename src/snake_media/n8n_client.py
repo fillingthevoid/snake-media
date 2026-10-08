@@ -73,6 +73,8 @@ def format_result(data: object) -> str:
         reply = MediaReply(escape_mentions(escape_markdown(text)), data.get('posterUrl'),
                            data.get('jellyfinUrl'), data.get('noticeId'), data.get('localJellyfinUrl'))
         reply.action_accepted = data.get('actionAccepted') is True
+        original = data.get('requestMessageId')
+        reply.request_message_id = original if isinstance(original, str) and re.fullmatch(r'[1-9][0-9]{0,19}', original) else None
         reply.retention_updated = data.get('retentionUpdated') is True
         reply.clear_controls = data.get('clearControls') is True and data.get('busy') is not True
         if status == 'confirmation':
@@ -85,7 +87,7 @@ def format_result(data: object) -> str:
                 if (not isinstance(choice, dict) or not isinstance(choice.get('label'), str)
                         or not 1 <= len(choice['label']) <= 80
                         or not isinstance(choice.get('action'), str)
-                        or not re.fullmatch(r'confirm|cancel|latest|all|choose|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30)|rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more)', choice['action'])):
+                        or not re.fullmatch(r'confirm|cancel|latest|all|choose|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30)|mr_(?:title_[0-9]{1,3}|page_[0-9]{1,2}|refresh|extend|keep|back|close|watch)|wp_(?:local|tailscale|both)|rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more)', choice['action'])):
                     raise N8NError('invalid_confirmation_choice')
             reply.pending_id, reply.choices = pending, choices
         return reply

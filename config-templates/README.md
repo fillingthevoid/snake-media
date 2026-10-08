@@ -1,6 +1,6 @@
 # Current configuration templates
 
-Maintained workflow reference, updated **2026-10-05**. Arr configuration snapshots
+Maintained workflow reference, updated **2026-10-07**. Arr configuration snapshots
 remain from **2026-10-02**:
 
 - Radarr and Sonarr quality profiles, quality definitions, custom formats and delay profiles.

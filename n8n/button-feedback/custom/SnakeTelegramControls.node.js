@@ -9,10 +9,11 @@ class SnakeTelegramControls {
    group:['transform'],version:1,description:'Remove handled callback controls while retaining URL buttons',
    defaults:{name:'Snake Telegram Controls'},inputs:['main'],outputs:['main'],
    credentials:[{name:'telegramApi',required:true}],properties:[
-    {displayName:'Operation',name:'operation',type:'options',default:'clear',options:[{name:'Clear Handled Card',value:'clear'},{name:'Remember Sent Card',value:'remember'},{name:'Retry Related Cards',value:'retry'}]},
+    {displayName:'Operation',name:'operation',type:'options',default:'clear',options:[{name:'Clear Handled Card',value:'clear'},{name:'Remember Sent Card',value:'remember'},{name:'Retry Related Cards',value:'retry'},{name:'Update Original Request',value:'update'}]},
     {displayName:'Callback Message',name:'message',type:'json',default:'{}',required:true},
     {displayName:'Owner ID',name:'ownerId',type:'string',default:''},
     {displayName:'Callback Data',name:'callbackData',type:'string',default:''},
+    {displayName:'Request Message ID',name:'requestMessageId',type:'string',default:''},
     {displayName:'State File',name:'stateFile',type:'string',default:'/home/node/.n8n/snake-controls.json'},
    ]};
  }
@@ -24,9 +25,34 @@ class SnakeTelegramControls {
    const owner=this.getNodeParameter('ownerId',index,''),file=this.getNodeParameter('stateFile',index,'/home/node/.n8n/snake-controls.json');
    const store=(typeof owner==='string'&&/^\d+$/.test(owner)||operation==='retry')&&typeof file==='string'?new CardStore(file):null;
    if(operation==='remember'){
-    try{let m=this.getNodeParameter('message',index);if(typeof m==='string')m=JSON.parse(m);if(store)store.remember(m?.result||m,owner);}
+    try{let m=this.getNodeParameter('message',index);if(typeof m==='string')m=JSON.parse(m);if(store){store.remember(m?.result||m,owner);const original=this.getNodeParameter('requestMessageId',index,'');if(original)store.rememberActive(m?.result||m,owner,original);}}
     catch{output.push({...item,json:{...reply,telegramCardStored:false},pairedItem:{item:index}});continue;}
     output.push({...item,pairedItem:{item:index}});continue;
+   }
+   if(operation==='update'){
+    let result={originalCardUpdated:false},target;
+    try{
+     const original=this.getNodeParameter('requestMessageId',index,''),chat=String(reply.destinationId);
+     target=store&&store.active(chat,original,owner);
+     if(target){
+      const credentials=await this.getCredentials('telegramApi'),base=credentials.baseUrl||'https://api.telegram.org';
+      if(base!=='https://api.telegram.org'||!/^\d+:[A-Za-z0-9_-]+$/.test(credentials.accessToken||''))throw Error('credentials');
+      const buttons=[];
+      for(const [label,url] of [['Open locally',reply.localJellyfinUrl],['Open in Jellyfin',reply.jellyfinUrl]])if(typeof url==='string')buttons.push({text:label,url});
+      if(reply.retentionControls!==false&&/^[1-9][0-9]{0,15}$/.test(String(reply.id)))for(const [text,action]of [['Extend 7 days','notice_7'],['Extend 30 days','notice_30'],['Keep permanently','notice_keep']])buttons.push({text,callback_data:'snake:'+reply.id+':'+action});
+      const rows=[];for(let i=0;i<buttons.length;i+=3)rows.push(buttons.slice(i,i+3));
+      const body={chat_id:chat,message_id:target.id,reply_markup:{inline_keyboard:rows},[target.photo?'caption':'text']:String(reply.text||'').slice(0,target.photo?1000:1800)};
+      const response=await this.helpers.httpRequest({method:'POST',url:base+'/bot'+credentials.accessToken+'/'+(target.photo?'editMessageCaption':'editMessageText'),body,json:true,timeout:10000});
+      if(response?.ok!==true)throw Error('edit_unconfirmed');
+      result={...response,originalCardUpdated:true};
+     }
+    }catch(error){
+     const status=Number(error?.statusCode||error?.response?.status||error?.httpCode||error?.status),description=error?.response?.data?.description||error?.response?.body?.description||error?.message||'';
+     if(target&&status===400&&/message is not modified/i.test(description))result={ok:true,result:{message_id:target.id,chat:{id:target.chat}},originalCardUpdated:true};
+     else if(!(status===400&&/message to edit not found|message can't be edited|message cannot be edited/i.test(description)))result={originalCardUpdated:false,originalCardRetry:true};
+    }
+    if(result.originalCardUpdated&&store&&target){try{store.finish(target.chat,target.id);}catch{result={originalCardUpdated:false,originalCardRetry:true};}}
+    output.push({json:result,pairedItem:{item:index}});continue;
    }
    if(operation==='retry'){
     let completed=0;
