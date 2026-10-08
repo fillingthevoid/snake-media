@@ -2,7 +2,7 @@
 import re
 import discord
 
-CUSTOM_ID = re.compile(r'snake:([1-9][0-9]{0,15}):(confirm|cancel|latest|all|choose|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|notice_7|notice_30|notice_keep|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30))')
+CUSTOM_ID = re.compile(r'snake:([1-9][0-9]{0,15}):(confirm|cancel|latest|all|choose|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|notice_7|notice_30|notice_keep|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30)|rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel))')
 
 
 def notification_view(notice_id):
@@ -30,10 +30,16 @@ def presentation(reply):
         options.update(content=str(reply), embed=None)
     if getattr(reply, 'choices', None):
         view = discord.ui.View(timeout=None)
+        remote = getattr(reply, 'jellyfin_url', None)
+        local = getattr(reply, 'local_jellyfin_url', None)
+        links = [('Open locally', local), ('Open via Tailscale', remote)] if local and remote else [('Open in Jellyfin', remote or local)]
+        for label, url in links:
+            if url:
+                view.add_item(discord.ui.Button(label=label, url=url))
         for choice in reply.choices:
             view.add_item(discord.ui.Button(label=choice['label'],
                 custom_id=f'snake:{reply.pending_id}:{choice["action"]}',
-                style=discord.ButtonStyle.danger if choice['action']=='cancel' else discord.ButtonStyle.secondary))
+                style=discord.ButtonStyle.danger if choice['action'] in ('cancel', 'rec_cancel') else discord.ButtonStyle.secondary))
         options['view'] = view
     elif (getattr(reply, 'notice_id', None) or getattr(reply, 'jellyfin_url', None)
           or getattr(reply, 'local_jellyfin_url', None)):

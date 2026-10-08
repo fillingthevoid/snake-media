@@ -75,6 +75,14 @@ class StackBackupTests(unittest.TestCase):
             self.assertNotIn(private, text)
         self.assertEqual(cleaned[0]['fields'], [{'name': 'categories', 'value': [5000]}])
 
+    def test_workflow_export_replaces_short_numeric_telegram_allowlist_ids(self):
+        workflow={'nodes':[{'parameters':{'leftValue':
+            '={{ [912345678,8234567890].includes(Number($json.userId)) }}'}}]}
+        text=json.dumps(self.backup.sanitize_workflows([workflow]))
+        self.assertNotIn('912345678',text)
+        self.assertNotIn('8234567890',text)
+        self.assertIn('includes(Number($json.userId))',text)
+
     def test_manifest_verification_detects_changed_snapshot(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

@@ -1,4 +1,4 @@
-function help(){return '/request <movie or series title> — request media. Include the year if needed.\nYou can also send a plain-text request.\n\nTV: choose Latest season, All seasons or a specific season, then Confirm the poster and selection. New episodes in selected seasons and future seasons download automatically.\n\n/status [title] — your downloads, availability and expiry.\n/serverstatus — storage, services and Jellyfin sample streaming checks.\nMovies expire 7 days after import; TV episodes expire 30 days after each import. Watching can shorten expiry to 7 days, but never extends it.\nInclude "keep for 14 days" or "keep permanently" in your request to change the default. Download cards have expiry buttons.\n\n/extend or /keep — choose one of your requested titles using buttons.\n/extend <title> 7 days — extend an existing request.\n/keep <title> permanently — keep an existing request.';}
+function help(){return '/request <movie or series title> — request media. Include the year if needed.\nYou can also send a plain-text request.\n\nTV: choose Latest season, All seasons or a specific season, then Confirm the poster and selection. New episodes in selected seasons and future seasons download automatically.\n\n/recommend — choose Movie or TV and a genre for suggestions.\n/status [title] — your downloads, availability and expiry.\n/serverstatus — storage, services and Jellyfin sample streaming checks.\nMovies expire 7 days after import; TV episodes expire 30 days after each import. Watching can shorten expiry to 7 days, but never extends it.\nInclude "keep for 14 days" or "keep permanently" in your request to change the default. Download cards have expiry buttons.\n\n/extend or /keep — choose one of your requested titles using buttons.\n/extend <title> 7 days — extend an existing request.\n/keep <title> permanently — keep an existing request.';}
 function prepare(u,botUsername){
  const q=u.callback_query,m=q?.message||u.message;if(!m)return [];
  const d=q?.data?.match(/^snake:([1-9][0-9]{0,15}):([a-z_0-9]+)$/);
@@ -12,7 +12,7 @@ function prepare(u,botUsername){
   if(!title||title.length>1600)p.commandReply='Use /request <movie or series title>, up to 1600 characters. Example: /request The Matrix from 1999';
   else p.text='add '+title;
  }else if(name==='serverstatus'){if(title)p.commandReply='Use /serverstatus without a title.';else p.text='/serverstatus';}else if(['help','start'].includes(name))p.commandReply=help();
- else if(!['status','extend','keep'].includes(name))p.commandReply='Unknown command. Use /request <title>, /status or /help.';
+ else if(!['status','extend','keep','recommend'].includes(name))p.commandReply='Unknown command. Use /request <title>, /status or /help.';
  return [{json:p}];
 }
 if(typeof module!=='undefined')module.exports={prepare,help};

@@ -14,6 +14,7 @@ workflow templates from successive development stages:
 - `retention`: per-file expiry, watched state, shared-file protection and future episodes.
 - `retention-controls`, `notification-buttons`, `status`: user controls and inspection.
 - `retry-fixes`, `lock-recovery`: busy retries and proven abandoned-lock recovery.
+- `recommendations`: private history, Movie/TV and genre filters, verified posters and availability.
 - `polish`: current authorization, presentation and batched persistence overlays.
 
 Some files represent older behavior. Tests demonstrate individual policies; they

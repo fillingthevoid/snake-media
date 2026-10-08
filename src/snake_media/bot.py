@@ -41,6 +41,9 @@ class SnakeMediaClient(discord.Client):
         self.tree.add_command(app_commands.Command(name='request',
             description='Request a movie or series; review the poster before confirming.',
             callback=self.request_command))
+        self.tree.add_command(app_commands.Command(name='recommend',
+            description='Find movies or shows based on your requests and a chosen genre.',
+            callback=self.recommend_command))
         self.tree.add_command(app_commands.Command(name='help',
             description='Show request, season, expiry and status instructions.',
             callback=self.help_command))
@@ -60,6 +63,7 @@ class SnakeMediaClient(discord.Client):
                     'TV: choose Latest season, All seasons or a specific season, then Confirm.\n'
                     'New episodes and future seasons download automatically.\n\n'
                     '/status — your downloads, availability and expiry.\n'
+                    '/recommend — choose Movie or TV and a genre for personal suggestions.\n'
                     '/serverstatus — storage, services and Jellyfin streaming.\n\n'
                     '/extend or /keep — choose a requested title and change its expiry.\n\n'
                     'Movies: 7 days after import. TV: 30 days per episode after import.\n'
@@ -109,6 +113,9 @@ class SnakeMediaClient(discord.Client):
     async def server_status_command(self, interaction: discord.Interaction):
         await self.read_command(interaction, 'serverstatus')
 
+    async def recommend_command(self, interaction: discord.Interaction):
+        await self.read_command(interaction, 'recommend')
+
     async def extend_command(self, interaction: discord.Interaction, title: str = '',
                              days: app_commands.Range[int, 1, 3650] = 7):
         await self.read_command(interaction, f'extend {title.strip()} {days} days' if title.strip() else 'extend')
@@ -122,7 +129,8 @@ class SnakeMediaClient(discord.Client):
             user_id=str(interaction.user.id), username=interaction.user.name,
             channel_id=str(interaction.channel_id),
             guild_id=str(interaction.guild_id) if interaction.guild_id else None,
-            is_bot=False, message_id=str(interaction.id))
+            is_bot=False, message_id=str(interaction.id),
+            requested_at=discord.utils.snowflake_time(interaction.id).isoformat(timespec='milliseconds').replace('+00:00', 'Z'))
         reply = await self.service.handle(incoming, str(self.user.id))
         await interaction.followup.send(ephemeral=True,
             **presentation(reply or 'Use Snake Media in an authorized server channel.'))

@@ -10,4 +10,10 @@ test('own bot suffix works and other bot commands are ignored',()=>{assert.equal
 test('plain requests status retention and callbacks retain their prior behavior',()=>{for(const text of ['add Severance','/status Severance','/extend Severance 7 days','/keep Severance permanently'])assert.equal(prepare(update(text),'SnakeBot')[0].json.text,text);const u={callback_query:{id:'callback',data:'snake:123:latest',from:{id:222},message:update('').message}};const p=prepare(u,'SnakeBot')[0].json;assert.equal(p.text,'confirmation');assert.equal(p.userId,222);assert.equal(p.action,'latest');assert.equal(p.pendingId,'123');assert.equal(p.callbackId,'callback');assert.equal(p.commandReply,undefined);});
 test('unknown and oversized commands give concise guidance',()=>{for(const text of ['/what','/request '+ 'x'.repeat(1601)])assert.equal(typeof prepare(update(text),'SnakeBot')[0].json.commandReply,'string');});
 
+test('recommend reaches the shared menu rather than unknown-command guidance',()=>{
+ const p=prepare(update('/recommend@SnakeBot'),'SnakeBot')[0].json;
+ assert.equal(p.commandReply,undefined);assert.equal(p.userId,111);
+ assert.match(prepare(update('/help'),'SnakeBot')[0].json.commandReply,/recommend/);
+});
+
 test('serverstatus uses its dedicated read-only route and is listed in help',()=>{const p=prepare(update('/serverstatus@SnakeBot'),'SnakeBot')[0].json;assert.equal(p.text,'/serverstatus');assert.equal(p.commandReply,undefined);assert.match(prepare(update('/help'),'SnakeBot')[0].json.commandReply,/serverstatus/);assert.match(prepare(update('/serverstatus Example'),'SnakeBot')[0].json.commandReply,/serverstatus/);});

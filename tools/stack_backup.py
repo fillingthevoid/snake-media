@@ -107,6 +107,10 @@ def sanitize_workflows(workflows, secrets=()):
             for v in value:
                 discover(v)
         elif isinstance(value, str):
+            if 'userId' in value:
+                for array in re.findall(r'\[([\d\s,]+)\]\.includes\((?:Number\()?\$json\.userId', value):
+                    for identity in re.findall(r'\d{6,16}', array):
+                        identities.setdefault(identity, str(100000001 + len(identities)))
             for identity in re.findall(r'(?<![\dA-Za-z])\d{17,19}(?![\dA-Za-z])', value):
                 identities.setdefault(identity, str(100000000000000001 + len(identities)))
 
