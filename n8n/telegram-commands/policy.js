@@ -6,7 +6,7 @@ function prepare(u,botUsername){
  const p={text:q?'confirmation':m.text||'',chatId:m.chat.id,userId:(q?.from||m.from).id,messageId:String(m.message_id),requestedAt:new Date(m.date*1000).toISOString(),action:d?.[2],pendingId:d?.[1],callbackId:q?.id};
  if(q){
   const nav=q.data?.match(/^snake_menu:(help|request|expiry|recommend|status|serverstatus|extend|keep)$/);
-  if(nav){const name=nav[1];p.text='/'+name;p.messageId=/^[0-9]+$/.test(String(q.id))?String(q.id):p.messageId;p.requestedAt=new Date().toISOString();if(menus[name]){p.commandReply=menus[name].text;p.menuChoices=menus[name].choices;}}
+  if(nav){const name=nav[1];p.text='/'+name;p.messageId=/^[0-9]+$/.test(String(q.id))?String(q.id):p.messageId;p.requestedAt=new Date().toISOString();if(name==='request'){p.requestPrompt=true;p.commandReply='What would you like to watch?';}else if(menus[name]){p.commandReply=menus[name].text;p.menuChoices=menus[name].choices;}}
   return [{json:p}];
  }
  const c=p.text.trim().match(/^\/([a-z][a-z0-9_]*)(?:@([a-z0-9_]+))?(?:\s+([\s\S]*))?$/i);
@@ -14,7 +14,8 @@ function prepare(u,botUsername){
  if(c[2]&&c[2].toLowerCase()!==String(botUsername).toLowerCase())return [];
  const name=c[1].toLowerCase(),title=(c[3]||'').trim();
  if(name==='request'){
-  if(!title||title.length>1600)p.commandReply='Use /request <movie or series title>, up to 1600 characters. Example: /request The Matrix from 1999';
+  if(!title){p.requestPrompt=true;p.commandReply='What would you like to watch? Use /request to reopen.';}
+  else if(title.length>1600)p.commandReply='Enter a title up to 1600 characters.';
   else p.text='add '+title;
  }else if(name==='serverstatus'){if(title)p.commandReply='Use /serverstatus without a title.';else p.text='/serverstatus';}else if(['help','start'].includes(name)){p.commandReply=help();p.menuChoices=menus.help.choices;}
  else if(!['status','extend','keep','recommend'].includes(name))p.commandReply='Unknown command. Use /request <title>, /status or /help.';

@@ -5,12 +5,12 @@ A lightweight Discord front end for an n8n media-request backend. Discord handle
 ## Features
 
 - `/request title` or natural-language requests directed at the bot by mention.
-- Compact `/help` on both platforms with Request, Recommend and My requests buttons, plus separate season/expiry guidance.
+- Compact `/help` on both platforms with Request, Recommend and My requests buttons, plus separate season/expiry guidance. Request opens a Discord title form or a Telegram reply prompt; `/request` without a title works too. Reply to the Telegram prompt within five minutes.
 - Compact poster confirmation showing expiry before adding media.
 - TV requests require latest, all or a specific season, followed by one final Confirm.
 - Download updates, release quality, expiry controls and Jellyfin links.
 - `/status` opens My requests: choose a title, then Refresh, Extend, Keep permanently or Watch address. Expiry changes still require confirmation.
-- Interactive buttons time out after five minutes of inactivity and disappear. Accepted selections renew the window. Extend and Keep open separate confirmations; original controls remain reusable during their window. Watch links remain available.
+- Interactive buttons time out after five minutes of inactivity and disappear with a reopening hint. Accepted selections renew the window. Choose a title in My requests to check progress, Extend or Keep permanently. Changes open separate confirmations; original controls remain reusable during their window. Watch links remain available. Status explains whether to wait, refresh, request again or watch.
 - Save a Local, Tailscale or Both Watch address preference for each account and platform.
 - New media requests keep progress and download availability on the original request card. Missing cards use normal message delivery; temporary edit failures retry.
 - `/recommend` on Discord and Telegram: choose Movie or TV and a genre, then browse personal suggestions with posters and Jellyfin availability. Selecting a title uses the existing confirmation flow. See [recommendations](n8n/recommendations/README.md).

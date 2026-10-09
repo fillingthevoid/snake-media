@@ -42,7 +42,8 @@ function describe({requests,records,media,episodes,queue,library,now}){
   earliest=Math.min(earliest??Infinity,Date.parse(v.expiresAt));
   if(v.reason==='currently playing or unresolved active session')deferred++;
  }
- const lines=[header,status];
+ const next=counts.available?'Watch now in Jellyfin.':counts.downloading?'No action needed — download in progress.':counts.queued||counts.imported?'No action needed — waiting for download or import to finish.':counts.waiting||counts.unreleased?'No action needed — monitored for an available release.':counts.removed?'Use /request if you want to download it again.':'Episode details are pending. Try Refresh in a moment.';
+ const lines=[header,status,next];
  if(earliest!==null)lines.push((r.mediaType==='tv'?'Next episode expiry: ':'Expiry: ')+dateLabel(earliest)+(earliest<=now?' (due; cleanup pending)':''));
  if(protectedCount)lines.push(protectedCount+' protected '+(protectedCount===1?'file':'files')+' — no automatic deletion.');
  if(pending)lines.push('Expiry check pending for '+pending+' '+(pending===1?'file.':'files.'));

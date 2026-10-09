@@ -9,7 +9,7 @@ class SnakeTelegramControls {
    group:['transform'],version:1,description:'Remove handled callback controls while retaining URL buttons',
    defaults:{name:'Snake Telegram Controls'},inputs:['main'],outputs:['main'],
    credentials:[{name:'telegramApi',required:true}],properties:[
-    {displayName:'Operation',name:'operation',type:'options',default:'clear',options:[{name:'Clear Handled Card',value:'clear'},{name:'Remember Sent Card',value:'remember'},{name:'Retry Related Cards',value:'retry'},{name:'Update Original Request',value:'update'},{name:'Touch Help Menu',value:'touchMenu'}]},
+    {displayName:'Operation',name:'operation',type:'options',default:'clear',options:[{name:'Clear Handled Card',value:'clear'},{name:'Remember Sent Card',value:'remember'},{name:'Retry Related Cards',value:'retry'},{name:'Update Original Request',value:'update'},{name:'Touch Help Menu',value:'touchMenu'},{name:'Ask For Title',value:'prompt'},{name:'Resolve Title Reply',value:'resolvePrompt'}]},
     {displayName:'Callback Message',name:'message',type:'json',default:'{}',required:true},
     {displayName:'Owner ID',name:'ownerId',type:'string',default:''},
     {displayName:'Callback Data',name:'callbackData',type:'string',default:''},
@@ -24,6 +24,28 @@ class SnakeTelegramControls {
    const supplied=this.getNodeParameter('operation',index,'clear'),operation=typeof supplied==='string'?supplied:'clear';
    const owner=this.getNodeParameter('ownerId',index,''),file=this.getNodeParameter('stateFile',index,'/home/node/.n8n/snake-controls.json');
    const store=(typeof owner==='string'&&/^\d+$/.test(owner)||operation==='retry')&&typeof file==='string'?new CardStore(file):null;
+   if(operation==='prompt'){
+    if(!store||!/^[-]?[1-9][0-9]{0,19}$/.test(String(reply.chatId)))throw Error('Invalid prompt actor');
+    const credentials=await this.getCredentials('telegramApi'),base=credentials.baseUrl||'https://api.telegram.org';
+    if(base!=='https://api.telegram.org'||!/^\d+:[A-Za-z0-9_-]+$/.test(credentials.accessToken||''))throw Error('Invalid prompt credentials');
+    let r;try{r=await this.helpers.httpRequest({method:'POST',url:base+'/bot'+credentials.accessToken+'/sendMessage',body:{chat_id:reply.chatId,text:'What would you like to watch?\nReply with a movie or series title within 5 minutes. Use /request to reopen.',reply_markup:{force_reply:true,input_field_placeholder:'Movie or series title'}},json:true,timeout:10000});}catch{throw Error('Telegram title prompt delivery failed');}
+    if(r?.ok!==true)throw Error('Prompt delivery unconfirmed');
+    store.rememberPrompt(r.result,owner);output.push({json:{requestPromptSent:true},pairedItem:{item:index}});continue;
+   }
+   if(operation==='resolvePrompt'){
+    let m=this.getNodeParameter('message',index);if(typeof m==='string')m=JSON.parse(m);
+    const original=m?.reply_to_message;
+    let result=reply;
+    if(store&&original&&typeof original.text==='string'&&original.text.startsWith('What would you like to watch?\nReply with a movie or series title within 5 minutes.')){
+     const text=typeof m.text==='string'?m.text.trim():'';
+     // Explicit commands retain their normal routing and do not consume a prompt.
+     if(text&&!text.startsWith('/')){
+      if(text.length>1600)result={...reply,commandReply:'Enter a title up to 1600 characters.'};
+      else{const outcome=store.claimPrompt(String(m.chat.id),original.message_id,owner);result=outcome==='accepted'?{...reply,text:'add '+text}:{...reply,commandReply:'This request prompt expired, was handled or belongs to another account. Use /request to reopen.'};}
+     }
+    }
+    output.push({...item,json:result,pairedItem:{item:index}});continue;
+   }
    if(operation==='touchMenu'){
     try{const data=this.getNodeParameter('callbackData',index,'');let m=this.getNodeParameter('message',index);if(typeof m==='string')m=JSON.parse(m);if(store&&typeof data==='string'&&data.startsWith('snake_menu:'))store.touch(String(m.chat.id),m.message_id,owner);}catch{}
     output.push({...item,pairedItem:{item:index}});continue;
@@ -69,7 +91,9 @@ class SnakeTelegramControls {
         const base=credentials.baseUrl||'https://api.telegram.org';
         if(base!=='https://api.telegram.org'||!/^\d+:[A-Za-z0-9_-]+$/.test(credentials.accessToken||''))throw Error('credentials');
         let ok=false;
-        try{const r=await this.helpers.httpRequest({method:'POST',url:base+'/bot'+credentials.accessToken+'/editMessageReplyMarkup',body:{chat_id:job.chat,message_id:job.id,reply_markup:{inline_keyboard:links(job.message.reply_markup.inline_keyboard)}},json:true,timeout:10000});ok=r?.ok===true;}
+        try{const body={chat_id:job.chat,message_id:job.id,reply_markup:{inline_keyboard:links(job.message.reply_markup.inline_keyboard)}};let method='editMessageReplyMarkup';
+         if(job.expired&&(job.message.text!==undefined||job.message.caption!==undefined)){const photo=job.message.caption!==undefined;method=photo?'editMessageCaption':'editMessageText';body[photo?'caption':'text']=(photo?job.message.caption:job.message.text)+'\n\nMenu expired. Use /help or /status to reopen.';}
+         const r=await this.helpers.httpRequest({method:'POST',url:base+'/bot'+credentials.accessToken+'/'+method,body,json:true,timeout:10000});ok=r?.ok===true;}
         catch(error){const status=Number(error?.statusCode||error?.response?.status||error?.httpCode||error?.status),description=error?.response?.data?.description||error?.response?.body?.description||error?.message||'';ok=status===400&&/message is not modified|message to edit not found/i.test(description);}
         if(ok){store.finish(job.chat,job.id);completed++;}else store.defer(job.chat,job.id,Date.now()/1000);
        }catch{store.defer(job.chat,job.id,Date.now()/1000);}

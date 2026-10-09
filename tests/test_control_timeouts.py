@@ -71,11 +71,11 @@ class CleanupTimeouts(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as folder, CardRegistry(Path(folder) / 'state.sqlite3') as cards:
             client = SnakeMediaClient(RequestService(config(), SimpleNamespace()), card_registry=cards)
             cards.track('333', '100', '111', now=0, webhook_id='999', webhook_token='private-token')
-            webhook = SimpleNamespace(edit_message=AsyncMock())
+            webhook = SimpleNamespace(edit_message=AsyncMock(), fetch_message=AsyncMock(return_value=SimpleNamespace(content='My requests')))
             client.fetch_channel = AsyncMock()
             with patch('snake_media.bot.discord.Webhook.partial', return_value=webhook):
                 await client.cleanup_cards()
-            webhook.edit_message.assert_awaited_once_with(100, view=None)
+            webhook.edit_message.assert_awaited_once_with(100, view=None, content='My requests\n\nMenu expired. Use /help or /status to reopen.')
             client.fetch_channel.assert_not_awaited()
             self.assertIsNone(cards.control('333', '100'))
             await client.close()

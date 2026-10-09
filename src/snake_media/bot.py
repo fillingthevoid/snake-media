@@ -13,6 +13,7 @@ from .notifications import NotificationDelivery
 from .confirmations import CUSTOM_ID, presentation, edit_presentation, notification_view
 from .n8n_client import MediaReply
 from .command_menu import menu_text, menu_choices, NAVIGATION
+from .request_prompt import RequestTitleModal
 
 log = logging.getLogger("snake_media")
 
@@ -61,6 +62,9 @@ class SnakeMediaClient(discord.Client):
         await self.menu_command(interaction, 'help')
 
     async def menu_command(self, interaction, section):
+        if section == 'request':
+            await self.request_command(interaction)
+            return
         if section in ('recommend', 'status', 'serverstatus', 'extend', 'keep'):
             await self.read_command(interaction, section)
             return
@@ -78,12 +82,18 @@ class SnakeMediaClient(discord.Client):
                                         allowed_mentions=discord.AllowedMentions.none())
         self.track_controls(sent, str(interaction.user.id), str(interaction.channel_id), view, interaction)
 
-    async def request_command(self, interaction: discord.Interaction, title: app_commands.Range[str, 1, 1600]):
+    async def request_command(self, interaction: discord.Interaction, title: str = ''):
+        if not title:
+            if not self.service.command_allowed(str(interaction.user.id), str(interaction.channel_id), interaction.guild_id):
+                await interaction.response.send_message("⛔ This Discord account isn't authorized to use Snake Media here.", ephemeral=True)
+                return
+            await interaction.response.send_modal(RequestTitleModal(self, str(interaction.user.id)))
+            return
         await interaction.response.defer(ephemeral=True, thinking=True)
         if not self.service.command_allowed(str(interaction.user.id), str(interaction.channel_id), interaction.guild_id):
             await interaction.followup.send("⛔ This Discord account isn't authorized to use Snake Media here.", ephemeral=True)
             return
-        if not title.strip():
+        if not title.strip() or len(title) > 1600:
             await interaction.followup.send('Enter a movie or series title.', ephemeral=True)
             return
         card = None
@@ -282,7 +292,13 @@ class SnakeMediaClient(discord.Client):
                         if not self.card_registry.queued(destination, ident):
                             continue
                         target = '@original' if row.get('webhook_original') else int(ident)
-                        await asyncio.wait_for(webhook.edit_message(target, view=view if view.children else None), timeout=10)
+                        options = {'view': view if view.children else None}
+                        if self.card_registry.expired(destination, ident):
+                            message = await asyncio.wait_for(webhook.fetch_message(target), timeout=10)
+                            if not self.card_registry.queued(destination, ident):
+                                continue
+                            options['content'] = (message.content or '')[:1900] + '\n\nMenu expired. Use /help or /status to reopen.'
+                        await asyncio.wait_for(webhook.edit_message(target, **options), timeout=10)
                     self.card_registry.finish(destination, ident)
                     continue
                 channel = self.get_channel(int(destination)) or await self.fetch_channel(int(destination))
@@ -293,7 +309,10 @@ class SnakeMediaClient(discord.Client):
                     self.card_registry.finish(destination, ident)
                     continue
                 options = edit_presentation('', [], message.components)
-                await asyncio.wait_for(message.edit(view=options['view']), timeout=10)
+                edit = {'view': options['view']}
+                if self.card_registry.expired(destination, ident):
+                    edit['content'] = (getattr(message, 'content', '') or '')[:1900] + '\n\nMenu expired. Use /help or /status to reopen.'
+                await asyncio.wait_for(message.edit(**edit), timeout=10)
                 self.card_registry.finish(destination, ident)
             except discord.NotFound:
                 self.card_registry.finish(destination, ident)

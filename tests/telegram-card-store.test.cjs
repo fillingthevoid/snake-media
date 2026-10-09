@@ -15,11 +15,13 @@ test('Telegram related keyboards survive restart and ownership scopes cleanup',(
   assert.deepEqual(store.pending(1000)[0].message.reply_markup.inline_keyboard,[[{text:'Open',url:'https://jellyfin.example.com'}]]);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
-test('Telegram registry strips message text and refuses conflicting owners',()=>{
+test('Telegram registry keeps bounded rendered copy for timeout edits and refuses conflicting owners',()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'snake-cards-'));try{
   const file=path.join(dir,'state.json'),store=new CardStore(file);
-  store.remember({...card(100),text:'PRIVATE REQUEST CONTENT'},'111');
-  assert.equal(fs.readFileSync(file,'utf8').includes('PRIVATE REQUEST CONTENT'),false);
+  store.remember({...card(100),text:'x'.repeat(2000),from:{username:'UNNEEDED PRIVATE ACTOR'},photo:[{file_id:'UNNEEDED PHOTO ID'}]},'111');
+  const data=JSON.parse(fs.readFileSync(file,'utf8'));
+  assert.equal(data.cards[0].text.length,1800);
+  assert.equal(fs.readFileSync(file,'utf8').includes('UNNEEDED'),false);
   assert.throws(()=>store.remember(card(100),'222'));
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });

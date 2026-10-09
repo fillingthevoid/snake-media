@@ -33,6 +33,8 @@ class CardStore{
    if(s.version!==1||!Array.isArray(s.cards)||!Array.isArray(s.links)||!Array.isArray(s.jobs))throw Error('Invalid card state');
    if(s.activeCards===undefined)s.activeCards=[];
    if(!Array.isArray(s.activeCards))throw Error('Invalid active card state');
+   if(s.prompts===undefined)s.prompts=[];
+   if(!Array.isArray(s.prompts))throw Error('Invalid prompt state');
    const result=change(s),tmp=this.file+'.'+process.pid+'.tmp';
    const out=fs.openSync(tmp,'w',0o600);try{fs.writeFileSync(out,JSON.stringify(s));fs.fsyncSync(out);}finally{fs.closeSync(out);}
    fs.renameSync(tmp,this.file);return result;
@@ -45,8 +47,9 @@ class CardStore{
   this.transaction(s=>{
    const existing=s.cards.find(c=>c.chat===chat&&c.id===id);
    if(existing&&existing.owner!==owner)throw Error('Card owner conflict');
-   if(!existing)s.cards.push({chat,id,owner,groups:keys,links:links(message.reply_markup.inline_keyboard),createdAt:now,expiresAt:now+300000});
-   else{existing.groups=[...new Set([...existing.groups,...keys])];existing.links=links(message.reply_markup.inline_keyboard);existing.expiresAt=now+300000;}
+   const body={text:typeof message.text==='string'?message.text.slice(0,1800):undefined,caption:typeof message.caption==='string'?message.caption.slice(0,950):undefined};
+   if(!existing)s.cards.push({chat,id,owner,groups:keys,links:links(message.reply_markup.inline_keyboard),...body,createdAt:now,expiresAt:now+300000});
+   else{existing.groups=[...new Set([...existing.groups,...keys])];existing.links=links(message.reply_markup.inline_keyboard);Object.assign(existing,body);existing.expiresAt=now+300000;}
    s.jobs=s.jobs.filter(j=>!(j.chat===chat&&j.id===id));
   });
  }
@@ -59,9 +62,16 @@ class CardStore{
  expire(now=Date.now()){
   this.transaction(s=>{s.cards=s.cards.filter(c=>{
    if((c.expiresAt??c.createdAt+300000)>now)return true;
-   if(!s.jobs.some(j=>j.chat===c.chat&&j.id===c.id))s.jobs.push({...c,retryAt:0,attempts:0});
+   if(!s.jobs.some(j=>j.chat===c.chat&&j.id===c.id))s.jobs.push({...c,expired:true,retryAt:0,attempts:0});
    return false;
   });});
+ }
+ rememberPrompt(message,owner,now=Date.now()){
+  if(!Number.isSafeInteger(message?.message_id)||message.message_id<=0||!/^[-]?[1-9][0-9]{0,19}$/.test(String(message?.chat?.id))||!/^\d+$/.test(owner))throw Error('Invalid prompt identity');
+  this.transaction(s=>{s.prompts=s.prompts.filter(p=>p.expiresAt>now-86400000);s.prompts.push({chat:String(message.chat.id),id:message.message_id,owner,expiresAt:now+300000,handled:false});});
+ }
+ claimPrompt(chat,id,owner,now=Date.now()){
+  return this.transaction(s=>{const p=s.prompts.find(p=>p.chat===chat&&p.id===id);if(!p)return 'unknown';if(p.owner!==owner)return 'unowned';if(p.handled)return 'handled';if(p.expiresAt<=now)return 'expired';p.handled=true;return 'accepted';});
  }
  rememberActive(message,owner,original){
   if(!Number.isSafeInteger(message?.message_id)||message.message_id<=0||!/^[-]?[1-9][0-9]{0,19}$/.test(String(message?.chat?.id))||!/^\d+$/.test(owner)||!(/^[1-9][0-9]{0,19}$/).test(original))throw Error('Invalid active card identity');
@@ -85,7 +95,7 @@ class CardStore{
    });return count;
   });
  }
- pending(now){return this.transaction(s=>s.jobs.filter(j=>j.retryAt<=now&&j.attempts<12).slice(0,5).map(j=>({chat:j.chat,id:j.id,message:{message_id:j.id,chat:{id:j.chat},reply_markup:{inline_keyboard:j.links}}})));}
+ pending(now){return this.transaction(s=>s.jobs.filter(j=>j.retryAt<=now&&j.attempts<12).slice(0,5).map(j=>({chat:j.chat,id:j.id,expired:j.expired===true,message:{message_id:j.id,chat:{id:j.chat},text:j.text,caption:j.caption,reply_markup:{inline_keyboard:j.links}}})));}
  finish(chat,id){this.transaction(s=>{s.jobs=s.jobs.filter(j=>!(j.chat===chat&&j.id===id));});}
  defer(chat,id,now){this.transaction(s=>{const j=s.jobs.find(j=>j.chat===chat&&j.id===id);if(j){j.attempts++;j.retryAt=now+300;}});}
  compact(now){this.transaction(s=>{
