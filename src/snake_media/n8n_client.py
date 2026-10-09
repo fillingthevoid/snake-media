@@ -10,6 +10,7 @@ import aiohttp
 from discord.utils import escape_markdown, escape_mentions
 
 from .requests import MediaRequest
+from .command_menu import NAVIGATION
 
 log = logging.getLogger('snake_media')
 MAX_RESPONSE_BYTES = 65536
@@ -77,18 +78,26 @@ def format_result(data: object) -> str:
         original = data.get('requestMessageId')
         reply.request_message_id = original if isinstance(original, str) and re.fullmatch(r'[1-9][0-9]{0,19}', original) else None
         reply.retention_updated = data.get('retentionUpdated') is True
+        menus = data.get('menuChoices', [])
+        if (not isinstance(menus, list) or len(menus) > 8 or any(
+                not isinstance(c, dict) or c.get('action') not in NAVIGATION
+                or not isinstance(c.get('label'), str) or not 1 <= len(c['label']) <= 80
+                for c in menus)):
+            raise N8NError('invalid_navigation_choices')
+        reply.menu_choices = menus
         reply.clear_controls = data.get('clearControls') is True and data.get('busy') is not True
         if status == 'confirmation':
             pending = data.get('pendingId')
             choices = data.get('choices')
             if (not isinstance(pending, str) or not re.fullmatch(r'[1-9][0-9]{0,15}', pending)
-                    or not isinstance(choices, list) or not 1 <= len(choices) <= 25):
+                    or not isinstance(choices, list) or not 1 <= len(choices) <= 25
+                    or len(choices) + len(menus) + bool(reply.jellyfin_url) + bool(reply.local_jellyfin_url) > 25):
                 raise N8NError('invalid_confirmation')
             for choice in choices:
                 if (not isinstance(choice, dict) or not isinstance(choice.get('label'), str)
                         or not 1 <= len(choice['label']) <= 80
                         or not isinstance(choice.get('action'), str)
-                        or not re.fullmatch(r'confirm|cancel|latest|all|choose|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30)|mr_(?:title_[0-9]{1,3}|page_[0-9]{1,2}|refresh|extend|keep|back|close|watch)|wp_(?:local|tailscale|both)|rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more)', choice['action'])):
+                        or not re.fullmatch(r'confirm|cancel|wrong|back|match_[0-7]|retback|latest|all|choose|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30)|mr_(?:title_[0-9]{1,3}|page_[0-9]{1,2}|filter_(?:all|downloading|ready|expiring)|refresh|extend|keep|back|close|watch)|wp_(?:local|tailscale|both)|rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more|back)', choice['action'])):
                     raise N8NError('invalid_confirmation_choice')
             reply.pending_id, reply.choices = pending, choices
         return reply

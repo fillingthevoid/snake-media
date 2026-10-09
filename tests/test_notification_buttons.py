@@ -22,7 +22,7 @@ class NoticeButtonTests(unittest.IsolatedAsyncioTestCase):
         client.get_channel=lambda _:channel
         await client.send_notification('333','444','Ready',notice_id='12')
         view=channel.send.call_args.kwargs['view']
-        self.assertEqual([b.label for b in view.children],['Extend 7 days','Extend 30 days','Keep permanently'])
+        self.assertEqual([b.label for b in view.children],['Extend by 7 days','Extend by 30 days','Keep permanently'])
         self.assertEqual([b.custom_id for b in view.children],['snake:12:notice_7','snake:12:notice_30','snake:12:notice_keep'])
         await client.close()
 

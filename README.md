@@ -6,16 +6,17 @@ A lightweight Discord front end for an n8n media-request backend. Discord handle
 
 - `/request title` or natural-language requests directed at the bot by mention.
 - Compact `/help` on both platforms with Request, Recommend and My requests buttons, plus separate season/expiry guidance. Request opens a Discord title form or a Telegram reply prompt; `/request` without a title works too. Reply to the Telegram prompt within five minutes.
-- Compact poster confirmation showing expiry before adding media.
+- Compact poster confirmation showing expiry before adding media. Wrong title? offers alternative matches or a corrected search.
 - TV requests require latest, all or a specific season, followed by one final Confirm.
 - Download updates, release quality, expiry controls and Jellyfin links.
-- `/status` opens My requests: choose a title, then Refresh, Extend, Keep permanently or Watch address. Expiry changes still require confirmation.
+- `/status` opens My requests with Downloading, Ready to watch and Expiring soon filters: choose a title, then Refresh, Extend, Keep permanently or Watch address. Categories use saved tracking; selecting a title checks live status.
+- Back and Cancel controls work through season, recommendation and expiry choices. Empty lists offer Request and Recommendations. See [request usability](n8n/request-usability/README.md).
 - Interactive buttons time out after five minutes of inactivity and disappear with a reopening hint. Accepted selections renew the window. Choose a title in My requests to check progress, Extend or Keep permanently. Changes open separate confirmations; original controls remain reusable during their window. Watch links remain available. Status explains whether to wait, refresh, request again or watch.
 - Save a Local, Tailscale or Both Watch address preference for each account and platform.
 - New media requests keep progress and download availability on the original request card. Missing cards use normal message delivery; temporary edit failures retry.
 - `/recommend` on Discord and Telegram: choose Movie or TV and a genre, then browse personal suggestions with posters and Jellyfin availability. Selecting a title uses the existing confirmation flow. See [recommendations](n8n/recommendations/README.md).
 - Recommendation cards offer Change genre and More suggestions; previously shown titles are excluded and generation is limited to five sets per menu. Telegram genres use three columns.
-- `/extend` and `/keep` offer your tracked titles and expiry choices on Discord and Telegram. Custom durations remain available through command arguments.
+- `/extend` and `/keep` offer your tracked titles and expiry choices on Discord and Telegram. Extend by 7/30 days shows proposed dates from the latest expiry check before final confirmation; the saved result acknowledges the date. Custom durations remain available through command arguments.
 - Title matching handles punctuation, accents and “and”/“&”; ambiguous expiry matches offer title buttons.
 - `/serverstatus` for CPU and memory usage, GPU temperature/video activity, upload speed and average, storage, service availability and Jellyfin sample streaming checks. Requires the optional [host collector and n8n route](n8n/server-health/README.md).
 - Owner-only `/authorize user_id`, synchronizing the bot and n8n allowlists through an optional host helper.

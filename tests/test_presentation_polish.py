@@ -6,7 +6,7 @@ class PresentationPolishTests(unittest.IsolatedAsyncioTestCase):
     async def test_notice_displays_poster_link_and_preserves_expiry_controls(self):
         reply=format_result({'version':1,'status':'notice','text':'Available. Expiry Oct 8.', 'posterUrl':'https://image.tmdb.org/t/p/w500/a.jpg','jellyfinUrl':'http://192.168.1.10:8096/web/index.html#!/details?id=abc','noticeId':'12'})
         card=presentation(reply)
-        self.assertEqual([b.label for b in card['view'].children],['Open in Jellyfin','Extend 7 days','Extend 30 days','Keep permanently'])
+        self.assertEqual([b.label for b in card['view'].children],['Open in Jellyfin','Extend by 7 days','Extend by 30 days','Keep permanently'])
         self.assertEqual(card['embed'].image.url,'https://image.tmdb.org/t/p/w500/a.jpg')
     async def test_untrusted_links_are_not_rendered(self):
         reply=format_result({'version':1,'status':'notice','text':'Ready','jellyfinUrl':'javascript:alert(1)'})

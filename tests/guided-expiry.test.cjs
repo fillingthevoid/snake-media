@@ -22,11 +22,11 @@ test('guides page safely and require title then duration then confirmation',()=>
  let out=p.guideAction(row,{...actor,action:'retpage_1'},Date.now());
  row={...row,...out};a.equal(p.changeCard(row).choices.filter(c=>c.action.startsWith('rettitle_')).length,4);
  out=p.guideAction(row,{...actor,action:'rettitle_8'},Date.now());row={...row,...out};
- a.deepEqual(p.changeCard(row).choices.map(c=>c.action),['retdays_7','retdays_30','cancel']);
+ a.deepEqual(p.changeCard(row).choices.map(c=>c.action),['retdays_7','retdays_30','retback','cancel']);
  a.throws(()=>p.guideAction(row,{...actor,action:'confirm'},Date.now()));
  out=p.guideAction(row,{...actor,action:'retdays_30'},Date.now());row={...row,...out};
  a.equal(JSON.parse(row.contextJson).retentionChange.days,30);
- a.deepEqual(p.changeCard(row).choices.map(c=>c.action),['confirm','cancel']);
+ a.deepEqual(p.changeCard(row).choices.map(c=>c.action),['confirm','retback','cancel']);
 });
 test('guides reject forged actions wrong owner wrong chat and expiry',()=>{
  const row=pending(p.prepareChange(actor,[req(4,'Example')]).guide);

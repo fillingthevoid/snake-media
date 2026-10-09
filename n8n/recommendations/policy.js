@@ -1,6 +1,6 @@
 // Personalized recommendation decisions. No network calls or media mutations.
 const GENRES=[['any','Any genre'],['action','Action'],['adventure','Adventure'],['animation','Animation'],['comedy','Comedy'],['crime','Crime'],['documentary','Documentary'],['drama','Drama'],['family','Family'],['fantasy','Fantasy'],['horror','Horror'],['mystery','Mystery'],['romance','Romance'],['thriller','Thriller'],['scifi','Science fiction'],['war','War'],['western','Western']];
-const RECACTION=/^rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more)$/;
+const RECACTION=/^rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more|back)$/;
 function normalized(s){return String(s||'').normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');}
 function actorValid(a){return a&&['discord','telegram'].includes(a.source)&&/^[1-9][0-9]{0,19}$/.test(a.userId)&&/^-?[1-9][0-9]{0,19}$/.test(a.destinationId);}
 function history(rows,actor){
@@ -59,6 +59,7 @@ function transition(row,actor,now,claimId){
  const ctx=JSON.parse(row.contextJson),rec=ctx.recommendation;if(!rec)throw Error('Not a recommendation');
  const next={...row,claimId,expiresAt:new Date(now+300000).toISOString()},a=actor.action;let generate=false,preview=null;
  if(a==='rec_cancel')next.state='cancelled';
+ else if(a==='rec_back'&&['genre','results'].includes(rec.stage)){rec.stage=rec.stage==='genre'?'type':'genre';rec.items=[];rec.cursor=0;}
  else if(rec.stage==='type'&&['rec_movie','rec_tv'].includes(a)){rec.type=a.slice(4);rec.stage='genre';next.mediaType=rec.type;}
  else if(rec.stage==='genre'&&/^rec_genre_/.test(a)){
   if((rec.generations||0)>=5)throw Error('Recommendation generation limit');
@@ -108,6 +109,7 @@ function card(row,now=Date.now(),remoteBase='',localBase=''){
   out.choices=[{label:r.type==='tv'?'Choose seasons':'Choose this movie',action:'rec_choose'}];if(r.items.length>1)out.choices.push({label:'Previous',action:'rec_previous'},{label:'Next',action:'rec_next'});
   if((r.generations||0)<5)out.choices.push({label:'Change genre',action:'rec_change'},{label:'More suggestions',action:'rec_more'});
  }else return notice('Use /recommend to start again.');
+ if(['genre','results'].includes(r.stage))out.choices.push({label:'Back',action:'rec_back'});
  out.choices.push({label:'Cancel',action:'rec_cancel'});return out;
 }
 if(typeof module!=='undefined')module.exports={GENRES,RECACTION,history,suggestions,verified,providerItem,librarySearchTitle,availability,record,transition,generation,completed,card};

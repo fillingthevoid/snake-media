@@ -52,7 +52,7 @@ def build(source):
         'rows.push({row:{buttons:[{text:"Cancel",additionalFields:{callback_data:"snake:"+r.pendingId+":rec_cancel"}}]}});}')
     if start in body:
         cn['Recommendation Card Data']['parameters']['jsCode'] = body.replace(start, replacement)
-    elif replacement not in body:
+    elif replacement not in body and 'let rows=(r.choices||[]).map' not in body:
         raise ValueError('Unknown recommendation keyboard generation')
     if 'Shared Menu?' not in cn:
         gate = copy.deepcopy(cn['Recommendation Card?'])
