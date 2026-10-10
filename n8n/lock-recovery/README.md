@@ -8,7 +8,7 @@ Recovery requires:
 
 - An exact numeric owner belonging to the retention coordinator or recovery workflow.
 - A retained execution with status success/error/canceled/crashed and a stop timestamp.
-- At least two minutes since it stopped, with no nonterminal n8n executions present.
+- At least two minutes since it stopped, with no blocking n8n executions present.
 - Evidence no more than 30 seconds old when the recovery workflow starts.
 - A conditional update proving the lock still belongs to that owner.
 
@@ -65,3 +65,11 @@ Final checks: lock empty, checker idle, health 200, live status shows the cleanu
 pause, changed-owner recovery makes no changes. Automatic deletion remains paused
 pending a successful retention preview and review of the runner timeout. No failed
 operation was automatically replayed. Existing expiry policies remain stored.
+
+## Finished execution snapshots
+
+n8n can retain read-only child snapshots marked running after their parent has stopped. The checker excludes only the three known read workflows when both the child start and retained terminal ancestor stop are at least two minutes old. Missing parents, cycles, unknown workflows, waiting states, pruned read records and incomplete evidence still block recovery. Locked owner checks remain unchanged.
+
+The two-node Telegram keyboard cleanup schedule is presentation-only and cannot change media. It is excluded only when its workflow shape matches and the installed custom node matches `CLEANUP_HASH`. That exception also covers its soft-deleted snapshots. Update the hash deliberately when deploying a reviewed cleanup implementation; a mismatch defers recovery.
+
+The proof's `activeExecutions` counts blocking operations. The checker only reads SQLite; conditional lock changes and the recovery audit still use native authenticated n8n nodes. Automatic deletion remains paused after recovery.

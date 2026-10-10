@@ -16,12 +16,22 @@ import sqlite3
 import subprocess
 import tarfile
 import tempfile
+import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
 
+def open_readonly_database(source):
+    """Allow brief source availability races without ignoring persistent failures."""
+    for attempt in range(5):
+        try:return sqlite3.connect(Path(source).resolve().as_uri()+'?mode=ro',uri=True,timeout=30)
+        except sqlite3.OperationalError as error:
+            if getattr(error,'sqlite_errorcode',None)!=sqlite3.SQLITE_CANTOPEN or attempt==4:raise
+            print('SQLite backup source temporarily unavailable; retrying read-only open',flush=True)
+            time.sleep(2**attempt)
+
 def snapshot_database(source, target):
-    with closing(sqlite3.connect(Path(source).resolve().as_uri() + '?mode=ro', uri=True, timeout=30)) as live:
+    with closing(open_readonly_database(source)) as live:
         with closing(sqlite3.connect(target)) as backup:
             live.backup(backup, pages=512, sleep=0.05)
             if backup.execute('PRAGMA quick_check').fetchall() != [('ok',)]:

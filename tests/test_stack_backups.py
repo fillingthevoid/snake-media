@@ -5,9 +5,26 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 class StackBackupTests(unittest.TestCase):
+    def test_readonly_open_retries_only_transient_cantopen_and_stays_bounded(self):
+        error=sqlite3.OperationalError('temporary source unavailable')
+        error.sqlite_errorcode=sqlite3.SQLITE_CANTOPEN
+        sentinel=object()
+        with patch.object(self.backup.sqlite3,'connect',side_effect=[error,sentinel]) as connect,patch.object(self.backup.time,'sleep') as sleep:
+            self.assertIs(self.backup.open_readonly_database('/temporary/source.db'),sentinel)
+            self.assertTrue(all('?mode=ro' in c.args[0] for c in connect.call_args_list))
+            sleep.assert_called_once_with(1)
+        with patch.object(self.backup.sqlite3,'connect',side_effect=error) as connect,patch.object(self.backup.time,'sleep'):
+            with self.assertRaises(sqlite3.OperationalError):self.backup.open_readonly_database('/temporary/source.db')
+            self.assertEqual(connect.call_count,5)
+        error.sqlite_errorcode=sqlite3.SQLITE_CORRUPT
+        with patch.object(self.backup.sqlite3,'connect',side_effect=error) as connect,patch.object(self.backup.time,'sleep') as sleep:
+            with self.assertRaises(sqlite3.OperationalError):self.backup.open_readonly_database('/temporary/source.db')
+            self.assertEqual(connect.call_count,1);sleep.assert_not_called()
+
     def test_private_runtime_snapshot_captures_sqlite_and_refuses_recovery_keys(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

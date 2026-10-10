@@ -2,8 +2,10 @@
 import argparse
 import datetime
 import json
+import hashlib
 import re
 import sqlite3
+import subprocess
 import time
 import urllib.request
 from pathlib import Path
@@ -11,11 +13,63 @@ from pathlib import Path
 TERMINAL=('success','error','canceled','crashed')
 OWNERS=('snakeRetentionCoordinatorV1','snakeLockRecoveryV1')
 COOLDOWN=120
+READ_CHILDREN=('snakeTargetLibraryV1','snakeStatusInspectV1','snakeInspectRequestV1')
+# Pin the bounded presentation-only cleanup implementation, not just its name.
+CLEANUP_HASH='25eda8498cfe3e1fab2781b1bf78298b0f4a8d96c73b09064372a26ddb843546'
 
 def timestamp(value):
     if not isinstance(value,str):raise ValueError('missing_timestamp')
     dt=datetime.datetime.fromisoformat(value.replace('Z','+00:00'))
     return dt.replace(tzinfo=datetime.timezone.utc).timestamp() if dt.tzinfo is None else dt.timestamp()
+
+def blocking_activity(rows,parents,executions,now,cleanup_safe=False):
+    """Ignore proven finished read snapshots and verified presentation cleanup."""
+    def harmless(row):
+        if row.get('status')!='running':return False
+        if row.get('workflowId')=='snakeTelegramControlsRetryV1':return cleanup_safe
+        if row.get('deletedAt') is not None:return False
+        if row.get('workflowId') not in READ_CHILDREN:return False
+        try:
+            if now-timestamp(row.get('startedAt'))<COOLDOWN:return False
+            current=str(row['id']);seen=set()
+            while current in parents:
+                if current in seen or not parents[current]:return False
+                seen.add(current);current=str(parents[current])
+            root=executions.get(current)
+            return bool(seen and root and root.get('deletedAt') is None and
+                        root.get('status') in TERMINAL and now-timestamp(root.get('stoppedAt'))>=COOLDOWN)
+        except (KeyError,ValueError,TypeError,AttributeError):return False
+    return sum(not harmless(row) for row in rows)
+
+def activity_count(connection,now):
+    """Read a consistent snapshot. Any incomplete evidence keeps work blocking."""
+    query="SELECT count(*) FROM execution_entity WHERE status IS NULL OR status NOT IN (?,?,?,?)"
+    count=connection.execute(query,TERMINAL).fetchone()[0]
+    if not count:return 0
+    try:
+        data=connection.execute('SELECT e.id,e.workflowId,e.status,e.startedAt,e.deletedAt,ed.data '
+            'FROM execution_entity e LEFT JOIN execution_data ed ON ed.executionId=e.id '
+            'WHERE e.status IS NULL OR e.status NOT IN (?,?,?,?)',TERMINAL).fetchall()
+        if len(data)>2000 or len(data)!=count:return count
+        rows=[dict(zip(('id','workflowId','status','startedAt','deletedAt'),r[:5])) for r in data]
+        raw={str(r[0]):r[5] for r in data if r[1] in READ_CHILDREN and r[5]}
+        if sum(len(v) for v in raw.values())>16*1024*1024:return count
+        script="const fs=require('fs'),{parse}=require('/usr/local/lib/node_modules/n8n/node_modules/flatted');console.log(JSON.stringify(Object.fromEntries(Object.entries(JSON.parse(fs.readFileSync(0,'utf8'))).map(([id,raw])=>[id,parse(raw).parentExecution?.executionId||null]))));"
+        parents=json.loads(subprocess.check_output(['docker','exec','-i','n8n','node','-e',script],
+            input=json.dumps(raw),text=True,timeout=10,stderr=subprocess.DEVNULL)) if raw else {}
+        executions={}
+        for ident in {str(r[0]) for r in data}|{str(v) for v in parents.values() if v}:
+            r=connection.execute('SELECT id,status,stoppedAt,deletedAt FROM execution_entity WHERE id=?',(ident,)).fetchone()
+            if r:executions[str(r[0])]=dict(zip(('id','status','stoppedAt','deletedAt'),r))
+        cleanup=connection.execute("SELECT nodes FROM workflow_entity WHERE id='snakeTelegramControlsRetryV1'").fetchone()
+        cleanup_safe=False
+        if cleanup:
+            nodes=json.loads(cleanup[0])
+            shape=[(n['type'],n['parameters'].get('operation')) for n in nodes]
+            cleanup_safe=(shape==[('n8n-nodes-base.scheduleTrigger',None),('CUSTOM.snakeTelegramControls','retry')] and
+                hashlib.sha256(Path('/mnt/media/appdata/n8n/custom/SnakeTelegramControls.node.js').read_bytes()).hexdigest()==CLEANUP_HASH)
+        return blocking_activity(rows,parents,executions,now,cleanup_safe)
+    except Exception:return count
 
 def inspect(connection,now):
     tables=connection.execute('SELECT id FROM data_table WHERE name=?',('snake_media_retention_control',)).fetchall()
@@ -35,7 +89,7 @@ def inspect(connection,now):
     except (TypeError,ValueError):return {'state':'blocked','reason':'stop_time_unknown','owner':owner}
     if now-stopped<COOLDOWN:return {'state':'waiting','reason':'cooldown','owner':owner}
     # Include waiting/queued/unknown executions and soft-deleted running rows.
-    active=connection.execute('SELECT count(*) FROM execution_entity WHERE status IS NULL OR status NOT IN (?,?,?,?)',TERMINAL).fetchone()[0]
+    active=activity_count(connection,now)
     if active:return {'state':'waiting','reason':'n8n_work_active','owner':owner}
     iso=lambda t:datetime.datetime.fromtimestamp(t,datetime.timezone.utc).isoformat().replace('+00:00','Z')
     return {'state':'ready','proof':{'owner':owner,'workflowId':row[0],'status':row[1],
