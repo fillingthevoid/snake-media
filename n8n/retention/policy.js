@@ -36,6 +36,7 @@ function subscription(episodes,choice,now) {
  if(choice==='all')selectedSeasons=[...new Set(regular.map(e=>e.seasonNumber))];
  else if(choice==='latest')selectedSeasons=[historicalSeasons.at(-1)||Math.min(...regular.map(e=>e.seasonNumber))];
  else if(/^season_[1-9][0-9]{0,3}$/.test(choice))selectedSeasons=[Number(choice.slice(7))];
+ else if(/^seasons_[1-9][0-9]{0,3}(?:_[1-9][0-9]{0,3})*$/.test(choice)){selectedSeasons=choice.slice(8).split('_').map(Number);if(selectedSeasons.some((s,i)=>(i&&s<=selectedSeasons[i-1])||!regular.some(e=>e.seasonNumber===s)))throw new Error('Invalid subscription seasons');}
  else throw new Error('Invalid subscription choice');
  if(!selectedSeasons.length||selectedSeasons.some(s=>!Number.isFinite(s)))throw new Error('No season metadata yet');
  const result={historicalSeasons,selectedSeasons,episodeIds:[]};

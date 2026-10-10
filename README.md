@@ -93,9 +93,11 @@ Jellyfin links support HTTPS or restricted HTTP on port 8096. The example LAN HT
 
 Use `/request title: Severance` in an allowed channel, or mention the bot. The
 confirmation card appears in the channel; command acknowledgements and `/help`
-are private. For TV, choose Latest season, All seasons or Choose a season, then
-review the title, selection and expiry and press Confirm. Change selection returns
-to the choices. Choosing episodes alone does not add or search for media.
+are private. For TV, choose Latest season, All seasons or Choose seasons, then
+tap one or more seasons to select them. Tap a checked season again to deselect
+it, then use Review selection. Review the title, selection and expiry and press
+Confirm. Back preserves selected seasons. Choosing episodes alone does not add
+or search for media.
 
 The [current workflow snapshot](config-templates/) includes this flow. The
 [request simplification overlay](n8n/request-simplification/) is for a compatible

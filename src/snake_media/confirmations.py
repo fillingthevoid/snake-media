@@ -2,7 +2,7 @@
 import re
 import discord
 
-CUSTOM_ID = re.compile(r'snake:([1-9][0-9]{0,15}):(confirm|cancel|wrong|back|match_[0-7]|retback|latest|all|choose|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|notice_7|notice_30|notice_keep|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30)|mr_(?:title_[0-9]{1,3}|page_[0-9]{1,2}|filter_(?:all|downloading|ready|expiring)|refresh|extend|keep|back|close|watch)|wp_(?:local|tailscale|both)|rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more|back))')
+CUSTOM_ID = re.compile(r'snake:([1-9][0-9]{0,15}):(confirm|cancel|wrong|back|match_[0-7]|retback|latest|all|choose|review|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|notice_7|notice_30|notice_keep|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30)|mr_(?:title_[0-9]{1,3}|page_[0-9]{1,2}|filter_(?:all|downloading|ready|expiring)|refresh|extend|keep|back|close|watch)|wp_(?:local|tailscale|both)|rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more|back))')
 
 
 def notification_view(notice_id):

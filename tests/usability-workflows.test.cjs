@@ -37,3 +37,14 @@ test('Telegram dynamic poster data retains title choices and correction prompt t
  assert.deepEqual(output.keyboard.rows.flatMap(r=>r.row.buttons).map(b=>b.additionalFields.callback_data),['snake:5:match_0','snake:5:back','snake:5:cancel','snake_menu:request']);
  assert.equal(output.posterUrl,input.posterUrl);
 });
+
+for(const source of ['discord','telegram'])test(source+' embedded multi-season picker persists selections and scopes one subscription',()=>{
+ let row={id:5,...actor,source,state:'scope',choice:'',claimId:'old',expiresAt:'2099-01-01',mediaType:'tv',mediaJson:JSON.stringify({title:'Example',tvdbId:10,seasons:[{seasonNumber:1},{seasonNumber:2},{seasonNumber:3}]}),contextJson:'{}'};
+ function click(action){const plan=run('snakeConfirmMediaV1','Validate Action',row,{'Action Input':{...actor,source,action}})[0];assert.ok(plan.state);row={...plan.row,state:plan.state,choice:plan.choice,claimId:plan.claimId};return run('snakeConfirmMediaV1','Render Choice',row)[0];}
+ click('choose');click('season_1');const card=click('season_3');assert.equal(row.state,'seasons');assert.match(card.text,/Seasons 1, 3/);
+ const tg=run('snakeTelegramCardV1','Recommendation Card Data',card)[0];assert.ok(tg.keyboard.rows.flatMap(r=>r.row.buttons).some(b=>b.additionalFields.callback_data==='snake:5:review'));
+ click('review');assert.equal(row.choice,'seasons_1_3');click('back');assert.equal(row.state,'seasons');click('review');
+ const n=workflows.find(w=>w.id==='snakeCommitMediaBodyV2').nodes.find(n=>n.name==='Selected Episode Snapshot');
+ const code=n.parameters.jsCode.split('if(typeof module')[0];const subscription=new Function(code+';return subscription;')();
+ const episodes=[1,2,3].map(s=>({id:s,seasonNumber:s,airDateUtc:'2020-01-01'}));assert.deepEqual(subscription(episodes,row.choice,Date.now()).selectedSeasons,[1,3]);
+});

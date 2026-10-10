@@ -97,7 +97,7 @@ def format_result(data: object) -> str:
                 if (not isinstance(choice, dict) or not isinstance(choice.get('label'), str)
                         or not 1 <= len(choice['label']) <= 80
                         or not isinstance(choice.get('action'), str)
-                        or not re.fullmatch(r'confirm|cancel|wrong|back|match_[0-7]|retback|latest|all|choose|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30)|mr_(?:title_[0-9]{1,3}|page_[0-9]{1,2}|filter_(?:all|downloading|ready|expiring)|refresh|extend|keep|back|close|watch)|wp_(?:local|tailscale|both)|rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more|back)', choice['action'])):
+                        or not re.fullmatch(r'confirm|cancel|wrong|back|match_[0-7]|retback|latest|all|choose|review|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30)|mr_(?:title_[0-9]{1,3}|page_[0-9]{1,2}|filter_(?:all|downloading|ready|expiring)|refresh|extend|keep|back|close|watch)|wp_(?:local|tailscale|both)|rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more|back)', choice['action'])):
                     raise N8NError('invalid_confirmation_choice')
             reply.pending_id, reply.choices = pending, choices
         return reply

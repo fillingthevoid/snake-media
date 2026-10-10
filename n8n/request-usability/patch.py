@@ -76,7 +76,7 @@ return [{json:{source:c.source,userId:c.userId,destinationId:c.destinationId,req
     # Existing dynamic native Telegram sender supports photos, links and cleanup.
     tg=nodes('snakeTelegramCardV1')
     tg['Shared Menu?']['parameters']['conditions']['conditions'][0]['leftValue']='={{ Array.isArray($json.menuChoices) && $json.menuChoices.length>0 && !$json.choices?.length }}'
-    tg['Recommendation Card?']['parameters']['conditions']['conditions'][0]['leftValue']="={{ $json.choices?.some(c=>/^(rec_|mr_|match_|wrong$|back$|retback$|retdays_)/.test(c.action))===true }}"
+    tg['Recommendation Card?']['parameters']['conditions']['conditions'][0]['leftValue']="={{ $json.choices?.some(c=>/^(rec_|mr_|match_|wrong$|back$|retback$|review$|season_|page_|retdays_)/.test(c.action))===true }}"
     wrapper="""
 const r=$json;let rows=(r.choices||[]).map(c=>({row:{buttons:[{text:c.label,additionalFields:{callback_data:'snake:'+r.pendingId+':'+c.action}}]}}));
 if(r.choices?.some(c=>/^rec_genre_/.test(c.action))){const genres=r.choices.filter(c=>/^rec_genre_/.test(c.action));rows=[];for(let i=0;i<genres.length;i+=3)rows.push({row:{buttons:genres.slice(i,i+3).map(c=>({text:c.label,additionalFields:{callback_data:'snake:'+r.pendingId+':'+c.action}}))}});for(const c of r.choices.filter(c=>!/^rec_genre_/.test(c.action)))rows.push({row:{buttons:[{text:c.label,additionalFields:{callback_data:'snake:'+r.pendingId+':'+c.action}}]}});}

@@ -12,7 +12,7 @@ class RequestUsability(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([b.custom_id for b in buttons],['snake_menu:request','snake_menu:recommend'])
 
     async def test_new_choices_pass_transport_and_persistent_dispatch(self):
-        for action in ['wrong','back','match_7','retback','mr_filter_downloading','rec_back']:
+        for action in ['review','wrong','back','match_7','retback','mr_filter_downloading','rec_back']:
             reply=format_result({'version':1,'status':'confirmation','text':'Choose.',
                 'pendingId':'1','choices':[{'label':'Choose','action':action}]})
             self.assertEqual(presentation(reply)['view'].children[0].custom_id,'snake:1:'+action)
