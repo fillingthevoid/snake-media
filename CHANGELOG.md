@@ -1,5 +1,11 @@
 # Changelog
 
+## October 11, 2026 — LAN and internet upload
+
+- Split server status upload into local LAN and internet traffic on both bots.
+- Show separate one-minute averages while retaining the total upload reading.
+- Count traffic without capturing its contents; unavailable readings stay clearly labeled.
+
 ## October 11, 2026 — Telegram card editing
 
 - Update Telegram season selection, navigation and expiry choices on the original post.

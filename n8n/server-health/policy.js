@@ -20,6 +20,14 @@ function report(r,now=Date.now()){
  lines.push(networkOk?`Server upload: ${n.uploadMbps.toFixed(2)} Mbps (${n.sampleSeconds.toFixed(0)}s sample; includes LAN traffic)`:'Server upload: usage unavailable');
  const averageOk=n?.available===true&&num(n.uploadAverageMbps)&&num(n.averageSeconds)&&n.averageSeconds>=60&&n.averageSeconds<=70;
  lines.push(averageOk?`1-minute average: ${n.uploadAverageMbps.toFixed(2)} Mbps`:networkOk&&n.uploadAverageMbps===null&&n.averageSeconds===0?'1-minute average: warming up':'1-minute average: unavailable');
+ const split=n?.split;
+ const splitOk=split?.available===true&&['lanMbps','internetMbps','otherMbps'].every(k=>num(split[k]))&&num(split.sampleSeconds)&&split.sampleSeconds>0&&split.sampleSeconds<=10;
+ const splitAverageOk=splitOk&&['lanAverageMbps','internetAverageMbps','otherAverageMbps'].every(k=>num(split[k]))&&num(split.averageSeconds)&&split.averageSeconds>=60&&split.averageSeconds<=70;
+ for(const [key,label] of [['lan','Local LAN'],['internet','Internet'],['other','Other']]){
+  if(key==='other'&&splitOk&&split.otherMbps===0&&(!splitAverageOk||split.otherAverageMbps===0))continue;
+  const average=splitAverageOk?`${split[key+'AverageMbps'].toFixed(2)} Mbps`:splitOk&&split[key+'AverageMbps']===null&&split.averageSeconds===0?'warming up':'unavailable';
+  lines.push(splitOk?`${label} upload: ${split[key+'Mbps'].toFixed(2)} Mbps (${split.sampleSeconds.toFixed(0)}s); 1-minute average: ${average}`:`${label} upload: unavailable`);
+ }
  if(highCpu)lines.push('⚠️ CPU usage above 90%');
  if(highLoad)lines.push('⚠️ High CPU load average');
  if(highMemory)lines.push('⚠️ Memory usage above 90%');

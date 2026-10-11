@@ -1,6 +1,16 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {command,report}=require('../n8n/server-health/policy.js');
 const fixture=()=>({version:1,checkedAt:100000,host:{load1:0.2,cores:4,memoryUsed:1,memoryTotal:8,uptimeHours:48},storage:{guard:true,disks:[{label:'Main',freeGiB:600,totalGiB:1800},{label:'SSD',freeGiB:450,totalGiB:465},{label:'Pool',freeGiB:1050,totalGiB:2265}]},services:{Jellyfin:true,Radarr:true,Sonarr:true,Prowlarr:true,SABnzbd:true,qBittorrent:true,n8n:true},playback:{active:2,sample:'ok'}});
+
+test('LAN and internet rates and averages are independent and invalid split never looks idle',()=>{
+ const f=fixture();f.network={available:true,uploadMbps:10,sampleSeconds:2,uploadAverageMbps:5,averageSeconds:60,
+ split:{available:true,lanMbps:8,internetMbps:2,otherMbps:0,sampleSeconds:2,lanAverageMbps:4,internetAverageMbps:1,otherAverageMbps:0,averageSeconds:60}};
+ let s=report(f,110000);assert.match(s,/Local LAN upload: 8.00 Mbps/);assert.match(s,/Internet upload: 2.00 Mbps/);
+ assert.match(s,/LAN.*average: 4.00 Mbps/);assert.match(s,/Internet.*average: 1.00 Mbps/);
+ assert.doesNotMatch(s,/Other upload:/);
+ f.network.split.internetMbps=-1;s=report(f,110000);assert.match(s,/Internet upload: unavailable/);assert.match(s,/Local LAN upload: unavailable/);assert.match(s,/Server upload: 10.00 Mbps/);
+ f.network.split={available:false};assert.match(report(f,110000),/Internet upload: unavailable/);
+});
 test('server command matches exactly and does not capture media status',()=>{assert.equal(command('/serverstatus'),true);assert.equal(command(' serverstatus '),true);for(const s of ['/status','serverstatus The Matrix','add serverstatus'])assert.equal(command(s),false)});
 test('healthy report contains capacity and streaming evidence without private metadata',()=>{const f=fixture();f.playback.viewer='private-viewer';f.playback.title='private-title';const s=report(f,110000);assert.match(s,/600/);assert.match(s,/sample.*passed/i);assert.match(s,/2 active/);assert.match(s,/transcoding.*not tested/i);assert.doesNotMatch(s,/private-viewer|private-title/)});
 test('failed checks, no media and stale data cannot claim healthy playback',()=>{const f=fixture();f.services.Sonarr=false;f.storage.guard=false;f.playback.sample='no_media';const s=report(f,110000);assert.match(s,/Sonarr/);assert.match(s,/storage.*failed/i);assert.match(s,/no.*media/i);assert.doesNotMatch(s,/sample.*passed/i);assert.match(report(f,300000),/out of date/i);assert.match(report({},110000),/unavailable/i)});

@@ -1,0 +1,26 @@
+[Unit]
+Description=Snake Media LAN and internet upload counters
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /mnt/media/appdata/discord-bot/tools/network_accounting.py
+User=chris
+AmbientCapabilities=CAP_NET_ADMIN
+Restart=on-failure
+RestartSec=5
+RuntimeDirectory=snake-network
+RuntimeDirectoryMode=0755
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+ReadWritePaths=/run/snake-network
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target

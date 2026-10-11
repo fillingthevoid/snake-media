@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import threading
 import time
+from bandwidth_metrics import SplitSampler
 
 
 def cpu_counters(text):
@@ -27,7 +28,7 @@ def cpu_usage(before, after):
 
 
 class PerformanceSampler:
-    def __init__(self, stat='/proc/stat', net='/sys/class/net'):
+    def __init__(self, stat='/proc/stat', net='/sys/class/net', split_file='/run/snake-network/counters.json'):
         self.stat = Path(stat)
         self.net = Path(net)
         self.lock = threading.Lock()
@@ -37,6 +38,7 @@ class PerformanceSampler:
         self.latest_network = {'available': False}
         self.when = None
         self.stop_event = threading.Event()
+        self.split = SplitSampler(split_file)
 
     def network_counters(self):
         interfaces = sorted(p.name for p in self.net.iterdir()
@@ -89,6 +91,7 @@ class PerformanceSampler:
                         averageSeconds=coverage)
             except Exception:
                 self.history.clear()
+            self.latest_network['split'] = self.split.read()
             self.when = now
 
     def snapshot(self, now=None):
