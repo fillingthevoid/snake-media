@@ -31,3 +31,14 @@ marker. The existing fallback sends the same text and complete keyboard, and
 registers the returned message normally. Validation and text delivery failures
 still throw. Tests cover both thrown requests and unsuccessful API responses;
 the recovery guard fingerprint is updated for the reviewed node.
+
+Deployed October 10 (October 11 UTC): backed up and replaced only the installed
+custom node and recovery watchdog, after confirming their remaining content
+matched production. The normal restart guard passed its fresh idle and schedule
+checks; n8n restarted and `/healthz` returned 200. Validation passed 35 relevant
+JavaScript tests and 10 Python tests, plus all four sender tests against the
+installed module inside the restarted n8n container. HTTP failures in these
+tests were controlled; no test Telegram messages or media requests were sent.
+The normalized deployed node hash and watchdog fingerprint match. Existing
+workflow definitions and credentials were preserved. The interrupted request
+must be reopened because its five-minute confirmation window has elapsed.

@@ -15,7 +15,7 @@ OWNERS=('snakeRetentionCoordinatorV1','snakeLockRecoveryV1')
 COOLDOWN=120
 READ_CHILDREN=('snakeTargetLibraryV1','snakeStatusInspectV1','snakeInspectRequestV1')
 # Pin reviewed code with CRLF normalized to LF, matching Git's line-ending policy.
-CLEANUP_HASH='c63194d1f0abaa53d768f423397423ddc155691c370d74448a84547aa4e8d3f2'
+CLEANUP_HASH='fff5b1dc5f12ed1b7f41e5323bac8b7d4c310f8b13078647020014dc9c4a6d67'
 
 def timestamp(value):
     if not isinstance(value,str):raise ValueError('missing_timestamp')

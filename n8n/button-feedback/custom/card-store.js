@@ -59,6 +59,17 @@ class CardStore{
    c.expiresAt=now+300000;return true;
   });
  }
+ ownedCard(chat,id,owner){return this.transaction(s=>s.cards.concat(s.jobs).find(c=>c.chat===chat&&c.id===id&&c.owner===owner)||null);}
+ replace(message,owner,now=Date.now()){
+  if(!Number.isSafeInteger(message?.message_id)||message.message_id<=0||!/^[-]?[1-9][0-9]{0,19}$/.test(String(message?.chat?.id))||!/^\d+$/.test(owner))throw Error('Invalid card identity');
+  const chat=String(message.chat.id),id=message.message_id,keys=groups(message),rows=message.reply_markup?.inline_keyboard||[];
+  this.transaction(s=>{
+   const previous=s.cards.concat(s.jobs).find(c=>c.chat===chat&&c.id===id);if(previous&&previous.owner!==owner)throw Error('Card owner conflict');
+   s.cards=s.cards.filter(c=>!(c.chat===chat&&c.id===id));s.jobs=s.jobs.filter(c=>!(c.chat===chat&&c.id===id));
+   if(keys.length||rows.flat().some(b=>typeof b.callback_data==='string'&&b.callback_data.startsWith('snake_menu:')))s.cards.push({chat,id,owner,groups:keys,links:links(rows),text:typeof message.text==='string'?message.text.slice(0,1800):undefined,caption:typeof message.caption==='string'?message.caption.slice(0,950):undefined,createdAt:now,expiresAt:now+300000});
+   for(const active of s.activeCards)if(active.chat===chat&&active.id===id&&active.owner===owner)active.photo=Array.isArray(message.photo)&&message.photo.length>0;
+  });
+ }
  expire(now=Date.now()){
   this.transaction(s=>{s.cards=s.cards.filter(c=>{
    if((c.expiresAt??c.createdAt+300000)>now)return true;

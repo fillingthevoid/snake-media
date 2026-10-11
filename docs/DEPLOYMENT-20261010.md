@@ -14,6 +14,10 @@ User approved deployment of all remaining work, including automatic deletion and
 
 Private credentials, native table changes, request policies and persistent delivery history were preserved. Rollback files and the previous Discord image are retained under the server's private deployment backup directory. Rollback cannot restore files later deleted by an enabled retention policy.
 
+The [October 11 production audit](DEPLOYMENT-AUDIT-20261011.md) verified the active
+published workflows, running container modules and installed host files against
+the maintained release. No production feature or fix remains pending deployment.
+
 ## Follow-up verification
 
 All 17 published workflow payloads still match the prepared release. The five bot modules, alert helpers, Telegram card store and recovery checker match maintained source. n8n returned health 200; the bot and authorization helper are running. Deletion remains enabled with an empty global lock.

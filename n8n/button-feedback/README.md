@@ -5,24 +5,18 @@ before saving. Committed changes report the new expiry or permanent keeping.
 Discord sends a private acknowledgement for expiry choices even when editing the
 original card succeeds. Terminal edits retain Jellyfin links and remove callbacks.
 
-Telegram clears callbacks on both text and poster messages, retaining URL buttons.
-The built-in Telegram node lacks `editMessageReplyMarkup`, so install the small
-local node before importing the current bundle:
+Telegram updates the original interaction card, including its poster/caption and buttons. Confirmed or cancelled actions remove callback buttons and retain Jellyfin links. Download notices and 24-hour reminders use their existing separate delivery paths.
 
-1. Copy `custom/SnakeTelegramControls.node.js` and `custom/card-store.js` to
-   `/home/node/.n8n/custom/` in the n8n container's
-   persistent configuration directory. Make it readable by the n8n user.
+Install the adapter before importing the current bundle:
+
+1. Copy `custom/SnakeTelegramControls.node.js`, `custom/card-store.js` and `custom/telegram-presentation.js` to `/home/node/.n8n/custom/` in n8n's persistent configuration directory. Make them readable by the n8n user.
 2. Restart n8n while idle. The node type is `CUSTOM.snakeTelegramControls`.
-3. Bind the existing Telegram API credential to the card-cleanup node. Its token
-   remains encrypted in n8n; do not put it in workflow JSON or conversation text.
-4. Apply `patch_workflows()` in `patch.py` to a fresh private workflow export;
-   import/publish the four changed workflows through native n8n tools.
+3. Bind the existing encrypted Telegram API credential to the presentation node. Keep tokens out of workflow JSON and conversation text.
+4. For an existing installation, apply `edit_cards.py` to a fresh private export and import/publish only the two changed workflows: Media Request - Telegram and Snake Media's Telegram card renderer. Preserve all other workflows and private bindings.
 
-The editor only calls Telegram's `editMessageReplyMarkup`, uses the official
-HTTPS Bot API, retains URL buttons and removes callback buttons. It validates
-message IDs and never returns API errors or token-bearing URLs. Cleanup failure
-does not block the confirmation message. This node does not implement media or
-retention logic. A custom Telegram API base URL is not supported.
+The editor uses Telegram's [message editing API](https://core.telegram.org/bots/api#updating-messages). It checks card ownership and backend acceptance, keeps the same message identity, and replaces the keyboard and cleanup registration after each successful edit. Photo cards keep their poster when the next response has no replacement image. Only an explicit missing/uneditable-message response permits a replacement card; transient failures never create duplicate cards. An unchanged-message response counts as success. Menus retain their five-minute timeout. The Request title prompt remains a separate reply prompt.
+
+This adapter handles presentation only. n8n retains authorization, media and retention decisions. A custom Telegram API base URL is not supported.
 
 Busy/denied choices keep their controls. Owned expired/done choices can clear
 stale controls. Other older copies of a card are not edited automatically;

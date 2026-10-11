@@ -9,7 +9,7 @@ class SnakeTelegramControls {
    group:['transform'],version:1,description:'Remove handled callback controls while retaining URL buttons',
    defaults:{name:'Snake Telegram Controls'},inputs:['main'],outputs:['main'],
    credentials:[{name:'telegramApi',required:true}],properties:[
-    {displayName:'Operation',name:'operation',type:'options',default:'clear',options:[{name:'Send Dynamic Card',value:'sendCard'},{name:'Clear Handled Card',value:'clear'},{name:'Remember Sent Card',value:'remember'},{name:'Retry Related Cards',value:'retry'},{name:'Update Original Request',value:'update'},{name:'Touch Help Menu',value:'touchMenu'},{name:'Ask For Title',value:'prompt'},{name:'Resolve Title Reply',value:'resolvePrompt'}]},
+    {displayName:'Operation',name:'operation',type:'options',default:'clear',options:[{name:'Present Editable Card',value:'presentCard'},{name:'Send Dynamic Card',value:'sendCard'},{name:'Clear Handled Card',value:'clear'},{name:'Remember Sent Card',value:'remember'},{name:'Retry Related Cards',value:'retry'},{name:'Update Original Request',value:'update'},{name:'Touch Help Menu',value:'touchMenu'},{name:'Ask For Title',value:'prompt'},{name:'Resolve Title Reply',value:'resolvePrompt'}]},
     {displayName:'Send Mode',name:'sendMode',type:'options',default:'text',options:[{name:'Text',value:'text'},{name:'Photo',value:'photo'}]},
     {displayName:'Callback Message',name:'message',type:'json',default:'{}',required:true},
     {displayName:'Owner ID',name:'ownerId',type:'string',default:''},
@@ -25,6 +25,10 @@ class SnakeTelegramControls {
    const supplied=this.getNodeParameter('operation',index,'clear'),operation=typeof supplied==='string'?supplied:'clear';
    const owner=this.getNodeParameter('ownerId',index,''),file=this.getNodeParameter('stateFile',index,'/home/node/.n8n/snake-controls.json');
    const store=(typeof owner==='string'&&/^\d+$/.test(owner)||operation==='retry')&&typeof file==='string'?new CardStore(file):null;
+   if(operation==='presentCard'){
+    const response=await require('./telegram-presentation.js').present(this,reply,store,owner);
+    output.push({json:response,pairedItem:{item:index}});continue;
+   }
    if(operation==='sendCard'){
     const mode=this.getNodeParameter('sendMode',index,'text'),rows=reply.keyboard?.rows;
     if(!['text','photo'].includes(mode)||!/^[-]?[1-9][0-9]{0,19}$/.test(String(reply.chatId))||typeof reply.replyText!=='string'||!reply.replyText.length||!Array.isArray(rows)||rows.length>100)throw Error('Invalid Telegram card');

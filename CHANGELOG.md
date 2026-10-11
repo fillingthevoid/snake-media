@@ -1,6 +1,13 @@
 # Changelog
 
-## October 10, 2026 — retention and reminders deployed
+## October 11, 2026 — Telegram card editing
+
+- Update Telegram season selection, navigation and expiry choices on the original post.
+- Replace posters and buttons together; show final results and remove completed controls.
+- Preserve card ownership, five-minute expiry and separate download/reminder deliveries.
+- Avoid duplicate posts during temporary edit failures.
+
+## October 10, 2026 â€” retention and reminders deployed
 
 - Enable automatic expiry deletion with permanent-keep and playback protections.
 - Send grouped 24-hour expiry reminders with Extend and Keep choices.
@@ -9,7 +16,7 @@
 - Deploy the review and delivery-recovery fixes listed below.
 - Remove installation-specific user IDs from older public workflow examples.
 
-## October 10, 2026 — queue and Telegram recovery
+## October 10, 2026 â€” queue and Telegram recovery
 
 - Normalize cleanup-code line endings before fingerprint verification across Windows and Linux deployments.
 - Bound complete expired-menu messages, including the expiry notice, in public and webhook edits.
@@ -21,7 +28,7 @@
 - Resume exhausted Telegram cleanup jobs with capped backoff and 90-day retirement.
 - Provide a targeted two-node workflow overlay for existing private exports.
 
-## October 9, 2026 — review fixes
+## October 9, 2026 â€” review fixes
 
 - Restore and verify movie monitoring before searching a re-requested missing movie.
 - Monitor recent stalled processing independently of interactive expiry.
