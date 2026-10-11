@@ -1,6 +1,7 @@
 """Apply scoped changes to an exported current bundle; preserve private credentials."""
 import copy
 import json
+import importlib.util
 from pathlib import Path
 
 
@@ -46,7 +47,11 @@ def patch_workflows(workflows):
     # Mutation coordinators, notification writers and recovery proof are untouched.
     status=by_id['snakeStatusInspectV1']
     status.setdefault('settings',{}).update(saveDataSuccessExecution='none',saveDataErrorExecution='all')
-    return result
+    # Regenerating this overlay must preserve queue pagination recovery.
+    spec=importlib.util.spec_from_file_location('queue_cursor_recovery',Path(__file__).with_name('recovery.py'))
+    recovery=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(recovery)
+    return recovery.build(result)
 
 
 if __name__=='__main__':

@@ -95,10 +95,11 @@ class CardStore{
    });return count;
   });
  }
- pending(now){return this.transaction(s=>s.jobs.filter(j=>j.retryAt<=now&&j.attempts<12).slice(0,5).map(j=>({chat:j.chat,id:j.id,expired:j.expired===true,message:{message_id:j.id,chat:{id:j.chat},text:j.text,caption:j.caption,reply_markup:{inline_keyboard:j.links}}})));}
+ pending(now){return this.transaction(s=>s.jobs.filter(j=>j.retryAt<=now).sort((a,b)=>a.retryAt-b.retryAt).slice(0,5).map(j=>({chat:j.chat,id:j.id,expired:j.expired===true,message:{message_id:j.id,chat:{id:j.chat},text:j.text,caption:j.caption,reply_markup:{inline_keyboard:j.links}}})));}
  finish(chat,id){this.transaction(s=>{s.jobs=s.jobs.filter(j=>!(j.chat===chat&&j.id===id));});}
- defer(chat,id,now){this.transaction(s=>{const j=s.jobs.find(j=>j.chat===chat&&j.id===id);if(j){j.attempts++;j.retryAt=now+300;}});}
+ defer(chat,id,now){this.transaction(s=>{const j=s.jobs.find(j=>j.chat===chat&&j.id===id);if(j){j.attempts=Math.min(j.attempts+1,5);j.retryAt=now+Math.min(3600,300*2**(j.attempts-1));}});}
  compact(now){this.transaction(s=>{
+  s.jobs=s.jobs.filter(j=>Number.isFinite(j.createdAt)&&j.createdAt>=now-90*86400000);
   s.activeCards=s.activeCards.filter(c=>Number.isFinite(c.createdAt)&&c.createdAt>=now-90*86400000);
   s.cards=s.cards.filter(c=>Number.isFinite(c.createdAt)&&c.createdAt>=now-90*86400000);
   const known=new Set(s.cards.flatMap(c=>c.groups));

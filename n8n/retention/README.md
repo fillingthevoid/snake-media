@@ -57,6 +57,20 @@ workflows after deployment. Never publish every workflow in the database.
 
 ## State and recovery
 
+Snapshot HTTP GETs use up to three attempts with a one-second pause between
+transport failures. Their existing 20-second timeout and response validation
+remain in place. Monitoring, searches and file deletion are never replayed by
+this retry setting. Apply `read_retries.py INPUT OUTPUT` to a fresh private export
+to preserve its bindings and apply only these five read-node settings.
+
+`snapshot_failures.py INPUT OUTPUT` also defers a title whose initial Radarr or
+Sonarr snapshot read fails. This happens before persistence, monitoring, searches
+or deletion for that title. The scan reports `snapshotUnavailable: true`, logs
+the media identity, and tries again next time. A confirmed404 remains an already
+removed title. Failures after media mutations begin still retain the lock for
+review. Jellyfin user/playback failures still stop the scan because those checks
+protect every title.
+
 `snake_media_retention_control` has one `global` lock row and one `mode` row.
 `snake_media_retention_records` holds request subscriptions and file decisions.
 The coordinator serializes request commits and cleanup. Interrupted/error
@@ -80,6 +94,24 @@ those IDs and restart n8n. Keep the retention ledger for audit. Rollback cannot
 restore media files already deleted by an enabled, expired policy.
 
 ## Validation
+
+### Live review — October 10, 2026
+
+Recovered a stopped scan lock after a Sonarr read timeout. The preview completed
+across 737 files before cleanup was resumed. The enabled scan removed five
+expired movie files, verified their removal and unmonitored state in Radarr,
+and released its lock. A sixth expired movie remained protected during active
+playback. The schedule remains enabled at 15-minute intervals. Permanent keeps,
+explicit extensions, shared claims and preexisting files retain their safeguards.
+
+The next scheduled scan exposed Sonarr restarting its internal application with
+out-of-memory errors, despite abundant host RAM and no container/kernel OOM kill.
+An isolated native n8n test verified that an unreachable snapshot endpoint now
+returns a deferred summary without executing persistence or mutation nodes.
+The read retry and deferral overlays preserve private bindings and mutation
+nodes. Service instability itself remains a separate diagnostic concern.
+After deployment, both a fresh preview and enabled scan succeeded. The next
+scheduled 15-minute scan also succeeded and released the lock normally.
 
 45 JavaScript and 32 Python tests passed. Isolated native n8n workflows exercised
 preview, simulated deletion, watched shortening, permanent/shared protection,

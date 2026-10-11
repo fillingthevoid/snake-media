@@ -1,0 +1,11 @@
+# Review fixes
+
+The user approved the five proposed fixes in the October 9 project review. Apply them to maintained source and the current workflow bundle, preserving the newly committed multi-season work. Prepare an idempotent targeted overlay for existing private installations; do not regenerate workflows from historical builders or deploy during this task.
+
+1. Existing missing movies: after tracking and subscription are saved, restore monitoring through Radarr's movie editor, verify exact movie identity and monitoring, then search. Existing available movies must keep their monitoring unchanged. Unknown or failed monitoring prevents search.
+2. Processing alerts: interactive expiry does not end health monitoring. Examine processing records updated within the last 24 hours with an expiry later than that update; retain the fifteen-minute threshold and reject malformed, future, and older historical records.
+3. Notification history: discard resolved/unalerted historical issue rows before choosing observed IDs, including old state created before the fix. Keep active and pending incidents until delivery/recovery is confirmed. Read watched recovery IDs in bounded SQLite parameter batches, so retained unresolved incidents do not disable the probe; retain the existing overflow safeguard for pending-notice scans.
+4. Title-free extension: send and parse `extend N days` as a guided owned-title selection carrying N through final confirmation. Preserve ordinary bare commands, title-specific commands, authorization and explicit confirmation.
+5. Discord output: measure escaped text at the send boundary. Put oversized content in an embed to preserve all confirmation details. Bound text-only fallback after escaping, retaining mention suppression; exercise poster-free requests and notifications.
+
+Verification: add failing behavioral regressions first, then implement each fix and run focused tests. Finish with full Python and JavaScript suites, current-bundle validation, privacy scan, dependency check and whitespace check. Keep all service credentials and installation bindings intact. Public source is authoritative; update equivalent private workspace source only where the change applies without overwriting newer or private configuration.

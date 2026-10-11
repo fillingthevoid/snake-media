@@ -69,11 +69,12 @@ console.log(JSON.stringify(result));
         workflow = next(w for w in result if w['id']=='snakeTelegramCardV1')
         nodes = {n['name']: n for n in workflow['nodes']}
         sender = nodes['Send Recommendation Poster']
-        self.assertEqual(sender['parameters']['operation'], 'sendPhoto')
-        self.assertIsInstance(sender['parameters']['inlineKeyboard']['rows'], str)
-        self.assertIn('keyboard.rows', sender['parameters']['inlineKeyboard']['rows'])
+        self.assertEqual(sender['type'], 'CUSTOM.snakeTelegramControls')
+        self.assertEqual(sender['parameters']['operation'], 'sendCard')
+        self.assertEqual(sender['parameters']['sendMode'], 'photo')
         text = nodes['Send Recommendation Text']
-        self.assertEqual(text['parameters']['operation'], 'sendMessage')
+        self.assertEqual(text['parameters']['operation'], 'sendCard')
+        self.assertEqual(text['parameters']['sendMode'], 'text')
         self.assertEqual(sender['credentials'], text['credentials'])
 
     def test_overlay_preserves_credentials_and_authorization_and_is_idempotent(self):

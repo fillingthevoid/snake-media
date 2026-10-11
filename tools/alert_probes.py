@@ -69,9 +69,7 @@ def notification_probe(database, now, observed_ids=(), stuck_seconds=900, limit=
     try:
         if not math.isfinite(now) or not 1 <= limit <= 2000 or stuck_seconds < 300:
             raise ValueError('invalid_notification_probe')
-        watched = {str(i) for i in observed_ids if re.fullmatch(r'[1-9][0-9]{0,15}', str(i))}
-        if len(watched) > 2000:
-            raise ValueError('too_many_observed_notices')
+        watched = sorted({str(i) for i in observed_ids if re.fullmatch(r'[1-9][0-9]{0,15}', str(i))})
         with closing(sqlite3.connect(Path(database).resolve().as_uri()+'?mode=ro', uri=True, timeout=5)) as db:
             db.execute('BEGIN')
             def table(name):
@@ -85,7 +83,13 @@ def notification_probe(database, now, observed_ids=(), stuck_seconds=900, limit=
             pending = db.execute(query + "n.state='pending' ORDER BY n.id LIMIT ?", (limit + 1,)).fetchall()
             if len(pending) > limit:
                 raise ValueError('notification_probe_overflow')
-            previous = db.execute(query + "n.state<>'pending' AND n.id IN (" + ','.join('?' for _ in watched) + ')', tuple(watched)).fetchall() if watched else []
+            # Unresolved incidents must remain eligible for recovery. Bound SQL
+            # parameters rather than disabling the probe after a lifetime count.
+            previous = []
+            for offset in range(0, len(watched), 500):
+                batch = watched[offset:offset + 500]
+                previous.extend(db.execute(query + "n.state<>'pending' AND n.id IN (" +
+                                           ','.join('?' for _ in batch) + ')', batch).fetchall())
             result = {}
             seen = set()
             for identifier, source, state, created, user, title, request_source, request_state, baseline in pending + previous:
@@ -143,10 +147,11 @@ def n8n_probe(database, now, users, stuck_seconds=900):
                 healthy=True if state in ('done','cancelled','preview','scope','ready','seasons') else None
                 if state=='processing':
                     try:
-                        age=now-timestamp(updated);valid_until=timestamp(expiry)
-                        # Historical expired confirmations cannot prove a current
-                        # failed request. Never notify their owners retroactively.
-                        if 0<=age and valid_until>now:healthy=age<stuck_seconds
+                        started=timestamp(updated);age=now-started;valid_until=timestamp(expiry)
+                        # Button expiry ends interaction, not processing health.
+                        # Restrict the lookback to recent, valid claims so old
+                        # abandoned confirmations cannot trigger retroactive alerts.
+                        if 0<=age<=86400 and valid_until>started:healthy=age<stuck_seconds
                     except (ValueError,TypeError,AttributeError):pass
                 try:title=str(json.loads(media).get('title','Your request'))
                 except (ValueError,AttributeError,TypeError):title='Your request'

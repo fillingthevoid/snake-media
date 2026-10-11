@@ -3,12 +3,16 @@
 Private input/output stay on snake. Local artifacts contain placeholder headers.
 """
 import copy
+import importlib.util
 import json
 import sys
 import uuid
 from pathlib import Path
 
 R = Path(__file__).parent
+snapshot_spec = importlib.util.spec_from_file_location('retention_snapshot_failures', R / 'snapshot_failures.py')
+snapshot_patch = importlib.util.module_from_spec(snapshot_spec)
+snapshot_spec.loader.exec_module(snapshot_patch)
 OUT = R / 'workflows'
 OUT.mkdir(exist_ok=True)
 POLICY = (R / 'policy.js').read_text(encoding='utf-8')
@@ -214,6 +218,8 @@ scan = wf('snakeRetentionScanV1', 'Snake Media - Scan Retention Under Lock', [tr
     iff('Has Request Group?', '!!$json.requests'), call('Process Each Retention Group', 'snakeRetentionMediaV1', True),
     code('Scan Summary', "const results=$input.all().map(x=>x.json);return [{json:{scanned:results.length,groups:results}}];")])
 get(scan, 'Group Retention Requests')['parameters']['jsCode'] = get(scan, 'Group Retention Requests')['parameters']['jsCode'].replace('return [...groups.values()].map', 'const result=[...groups.values()].map').replace("sessions:$input.all().map(x=>x.json)}}));", "sessions:$input.all().map(x=>x.json)}}));return result.length?result:[{json:{skip:true}}];")
+for name in ['Read Jellyfin Users', 'Read Active Playback']:
+    get(scan, name).update(retryOnFail=True, maxTries=3, waitBetweenTries=1000)
 chain(scan, *[n['name'] for n in scan['nodes']]); edge(scan, 'Has Request Group?', 'Scan Summary', 1); save(scan)
 
 worker = wf('snakeRetentionMediaV1', 'Snake Media - Reconcile Media Retention', [trigger('Media Input'),
@@ -241,6 +247,9 @@ chain(worker, 'Media Input', 'Retention Movie?', 'Read Retention Movie', 'Movie 
 edge(worker, 'Retention Movie?', 'Read Retention Series', 1); chain(worker, 'Read Retention Series', 'Series Snapshot Response','Series Still Exists?', 'Read Retention Episodes', 'Plan Retention')
 edge(worker,'Movie Still Exists?','Media Already Removed',1);edge(worker,'Series Still Exists?','Media Already Removed',1)
 edge(worker, 'Has Retention Record?', 'Monitoring Plan', 1); edge(worker, 'Enable Episode Monitoring?', 'New Episode Search Plan', 1)
+for name in ['Read Retention Movie', 'Read Retention Series', 'Read Retention Episodes']:
+    get(worker, name).update(retryOnFail=True, maxTries=3, waitBetweenTries=1000)
+worker = snapshot_patch.build([worker])[0]
 edge(worker, 'New Aired Episodes?', 'Due File Plan', 1); edge(worker, 'Has Due File?', 'Media Retention Summary', 1); save(worker)
 
 delete = wf('snakeRetentionDeleteV1', 'Snake Media - Delete Expired File', [trigger('Deletion Input'),

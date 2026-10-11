@@ -16,14 +16,31 @@ def notification_view(notice_id):
     return view
 
 
+def discord_length(text):
+    """Count UTF-16 units conservatively, including escaped Markdown/mentions."""
+    return sum(2 if ord(char) > 0xffff else 1 for char in str(text))
+
+
+def bounded_content(reply, limit=2000):
+    text = str(reply)
+    if discord_length(text) <= limit:
+        return text
+    length = 0
+    for index, char in enumerate(text):
+        length += 2 if ord(char) > 0xffff else 1
+        if length > limit - 1:
+            return text[:index].rstrip('\\') + '…'
+    return text
+
+
 def presentation(reply):
     options = {'allowed_mentions': discord.AllowedMentions.none()}
     poster = getattr(reply, 'poster_url', None)
-    if poster:
-        embed = discord.Embed(description=str(reply), colour=0x2ECC71)
-        if getattr(reply, 'choices', None):
+    if poster or discord_length(reply) > 2000:
+        embed = discord.Embed(description=bounded_content(reply, 4096), colour=0x2ECC71)
+        if poster and getattr(reply, 'choices', None):
             embed.set_thumbnail(url=poster)
-        else:
+        elif poster:
             embed.set_image(url=poster)
         options.update(content=None, embed=embed)
     else:

@@ -5,6 +5,8 @@ function parseChange(text){
  const input=text.trim();if(!/^\/?(?:extend|keep)(?:@[A-Za-z0-9_]+)?(?:\s|$)/i.test(input))return null;
  const bare=input.match(/^\/?(extend|keep)(?:@[A-Za-z0-9_]+)?$/i);
  if(bare)return {operation:bare[1].toLowerCase()==='keep'?'permanent':'extend',guided:true};
+ const duration=input.match(/^\/?extend(?:@[A-Za-z0-9_]+)?\s+([0-9]+)\s+days?$/i);
+ if(duration&&Number(duration[1])>=1&&Number(duration[1])<=3650)return {operation:'extend',guided:true,days:Number(duration[1])};
  let m=input.match(/^\/?extend(?:@[A-Za-z0-9_]+)?\s+(.+?)\s+([0-9]+)\s+days?$/i);
  if(m&&Number(m[2])>=1&&Number(m[2])<=3650)return {operation:'extend',query:m[1].trim(),days:Number(m[2])};
  m=input.match(/^\/?keep(?:@[A-Za-z0-9_]+)?\s+(.+?)\s+permanently$/i);
@@ -18,7 +20,7 @@ function titleKey(text){
 function prepareChange(actor,rows,records=[],now=Date.now()){
  if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\d+$/.test(actor.userId))throw Error('Invalid actor');
  const parsed=parseChange(actor.text);if(!parsed||parsed.error)return {notice:parsed?.error||'Not a retention command.'};
- const owned=rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.userId!=='1'&&r.state==='registered'&&r.requestKey&&(!actor.requestKey||r.requestKey===actor.requestKey)&&(!actor.mediaId||(r.mediaType===actor.mediaType&&String(r.mediaId)===actor.mediaId))&&['movie','tv'].includes(r.mediaType)&&/^\d+$/.test(String(r.mediaId))&&typeof r.title==='string'&&r.title.trim());
+ const owned=rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.userId!=='1'&&r.state==='registered'&&r.requestKey&&(Array.isArray(actor.requestKeys)?actor.requestKeys.includes(r.requestKey):(!actor.requestKey||r.requestKey===actor.requestKey))&&(!actor.mediaId||(r.mediaType===actor.mediaType&&String(r.mediaId)===actor.mediaId))&&['movie','tv'].includes(r.mediaType)&&/^\d+$/.test(String(r.mediaId))&&typeof r.title==='string'&&r.title.trim());
  const query=titleKey(parsed.query||'');
  let matches=parsed.guided?owned:query?owned.filter(r=>titleKey(r.title).includes(query)):[];
  if(!parsed.guided&&matches.some(r=>titleKey(r.title)===query))matches=matches.filter(r=>titleKey(r.title)===query);

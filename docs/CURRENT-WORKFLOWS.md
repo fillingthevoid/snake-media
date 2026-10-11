@@ -29,3 +29,16 @@ and output outside Git. Review changed workflows, save rollback, then use native
 n8n import/publish tools while idle. The tool does not deploy or authorize users.
 It checks duplicate IDs, node names and broken workflow/edge references; runtime
 verification and credential/table configuration are still required.
+
+For the October 9 review fixes, prepare a targeted overlay from a fresh private
+export with `python n8n/review-fixes/patch.py private-before.json private-after.json`.
+It restores and verifies monitoring before searching a missing movie, and embeds
+the title-free extension-duration policy. Existing available movies, TV selection,
+credentials, native tables and deployment metadata are preserved. See
+[review fixes](../n8n/review-fixes/README.md) for the separate bot/alert-tool update.
+
+The [short retention locks overlay](../n8n/retention-locks/README.md) moves watch
+history and playback collection outside the mutation lock. Each title refreshes
+its claims under a separate short acquisition of the same global lock. Native
+nodes release verified preparation failures; uncertain mutations still require
+guarded recovery. Apply this overlay last when using historical builders.

@@ -138,7 +138,7 @@ class CardRegistry:
     def pending(self, now, limit=5):
         return [dict(r) for r in self.connection.execute('SELECT cleanup.*,controls.webhook_id,controls.webhook_token,controls.links_json,controls.webhook_original '
             'FROM cleanup LEFT JOIN controls USING(destination_id,message_id) '
-            'WHERE retry_at<=? AND attempts<12 ORDER BY retry_at LIMIT ?', (now, min(limit, 5)))]
+            'WHERE retry_at<=? ORDER BY retry_at LIMIT ?', (now, min(limit, 5)))]
 
     def queued(self, destination, message):
         return bool(self.connection.execute('SELECT 1 FROM cleanup WHERE destination_id=? AND message_id=?',
@@ -151,6 +151,12 @@ class CardRegistry:
 
     def compact(self, before):
         with self.connection:
+            # Failed edits must not retain expired controls and tokens forever.
+            for table in ('cards', 'cleanup'):
+                self.connection.execute(f'DELETE FROM {table} WHERE EXISTS '
+                    f'(SELECT 1 FROM controls WHERE controls.destination_id={table}.destination_id '
+                    f'AND controls.message_id={table}.message_id AND controls.expires_at<?)', (before,))
+            self.connection.execute('DELETE FROM controls WHERE expires_at<?', (before,))
             self.connection.execute('DELETE FROM request_cards WHERE created_at<?', (before,))
             self.connection.execute('DELETE FROM cards WHERE created_at<? AND NOT EXISTS '
                                     '(SELECT 1 FROM cleanup WHERE cleanup.destination_id=cards.destination_id AND cleanup.message_id=cards.message_id)', (before,))
@@ -164,5 +170,11 @@ class CardRegistry:
 
     def defer(self, destination, message, now):
         with self.connection:
-            self.connection.execute('UPDATE cleanup SET attempts=attempts+1,retry_at=? WHERE destination_id=? AND message_id=?',
-                                    (now + 300, destination, message))
+            row = self.connection.execute('SELECT attempts FROM cleanup WHERE destination_id=? AND message_id=?',
+                                          (destination, message)).fetchone()
+            if row is None:
+                return
+            attempts = min(row['attempts'] + 1, 5)
+            delay = min(3600, 300 * 2 ** (attempts - 1))
+            self.connection.execute('UPDATE cleanup SET attempts=?,retry_at=? WHERE destination_id=? AND message_id=?',
+                                    (attempts, now + delay, destination, message))

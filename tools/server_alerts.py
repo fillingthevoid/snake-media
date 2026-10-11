@@ -23,6 +23,12 @@ def load_state(path):
     value = json.loads(Path(path).read_text(encoding='utf-8'))
     if not isinstance(value, dict) or value.get('schema') != 1 or not isinstance(value.get('issues'), dict):
         raise ValueError('invalid_alert_state')
+    # Retire resolved/unalerted notice history, including state saved by older
+    # versions. Active incidents and undelivered alerts still need recovery reads.
+    for identity, row in list(value['issues'].items()):
+        if (row.get('key', '').startswith('notification:') and not row.get('active', True)
+                and not row.get('pending') and not row.get('bad', 0)):
+            del value['issues'][identity]
     return value
 
 
@@ -68,7 +74,8 @@ def observations(snapshot, ops, backup, owner, users, issues, now):
     # A missing database or pruned record cannot establish a recovery.
     for row in issues.values():
         key, user = row['key'], row['recipient']
-        if key.startswith(('request:', 'notification:')) and key not in facts:
+        if (key.startswith(('request:', 'notification:')) and key not in facts
+                and (key.startswith('request:') or row.get('active', True) or row.get('pending'))):
             facts[key] = None
             recipients[key] = [owner]
     return facts, recipients, titles

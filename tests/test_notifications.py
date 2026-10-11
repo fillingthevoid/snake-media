@@ -91,3 +91,17 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                 await client.acknowledge('discord:333:444:movie:12','555')
             self.assertEqual(seen,[('dummy',{'action':'poll'}),('dummy',{'action':'ack','notificationKey':'discord:333:444:movie:12','messageId':'555'})])
         finally:await server.close()
+
+class ExpiryReminderDeliveryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_expiry_reminder_requests_new_message_with_existing_controls(self):
+        class Transport:
+            async def poll(self,exclude=()):
+                return [{'id':'12','notificationKey':'discord:expiry:111:tv:8:123','destinationId':'333',
+                         'payload':{'kind':'expiry_reminder','newMessage':True,'userId':'111','messageId':'444','text':'Expiry warning'}}]
+            async def acknowledge(self,*args): pass
+        sent=[]
+        async def send(*args,**options): sent.append(options);return '555'
+        delivery=NotificationDelivery(Transport(),send,{'111'},{'333'})
+        await delivery.tick()
+        self.assertTrue(sent[0].get('new_message'))
+        self.assertEqual(sent[0]['notice_id'],'12')

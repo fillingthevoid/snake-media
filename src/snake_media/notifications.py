@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 import time
 from collections import deque, OrderedDict
 import aiohttp
@@ -15,6 +16,7 @@ ACK_TIMEOUT_SECONDS = 3
 class NotificationTransport:
     def __init__(self, url, secret):
         self.url, self.secret, self.session = url, secret, None
+        self.poll_cursor = None
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20, connect=5),
@@ -39,13 +41,23 @@ class NotificationTransport:
     async def poll(self,exclude=()):
         body={'action':'poll'}
         if exclude: body['excludeNotificationKeys']=list(exclude)[:1000]
+        if self.poll_cursor is not None: body['afterNotificationId']=self.poll_cursor
         data=await self._post(body)
         rows=data.get('notifications')
         if not isinstance(rows,list) or len(rows)>10: raise ValueError('notification_batch_error')
+        cursor=data.get('nextCursor')
+        if cursor is not None and (not isinstance(cursor,str) or not re.fullmatch(r'[1-9][0-9]{0,19}',cursor)):
+            raise ValueError('notification_cursor_error')
+        self.poll_cursor=cursor
         return rows
 
     async def acknowledge(self,key,message_id):
-        data=await self._post({'action':'ack','notificationKey':key,'messageId':message_id})
+        body={'action':'ack','notificationKey':key}
+        if message_id is None:
+            body['receiptRecovered']=True
+        else:
+            body['messageId']=message_id
+        data=await self._post(body)
         if data.get('acknowledged') is not True: raise ValueError('notification_ack_error')
 
 class NotificationDelivery:
@@ -105,7 +117,8 @@ class NotificationDelivery:
     async def _acknowledge(self,key,message_id,timeout=None):
         if self.journal is not None:
             self.journal.record(key,message_id)
-        await asyncio.wait_for(self.transport.acknowledge(key,message_id),
+        # Compacted receipts prove delivery but no longer retain a message ID.
+        await asyncio.wait_for(self.transport.acknowledge(key,None if message_id=='acknowledged' else message_id),
                                timeout=ACK_TIMEOUT_SECONDS if timeout is None else timeout)
         if self.journal is not None:
             self.journal.acknowledge(key)
@@ -123,6 +136,7 @@ class NotificationDelivery:
         if len(self.pending_acks)>len(self.queued_acks):
             for key in self.pending_acks:
                 self._queue_ack(key)
+        acknowledged_this_tick=set()
         deadline=self.clock()+ACK_RETRY_BUDGET_SECONDS
         for _ in range(min(ACK_BATCH_LIMIT,len(self.ack_queue))):
             remaining=deadline-self.clock()
@@ -132,6 +146,7 @@ class NotificationDelivery:
             if key not in self.pending_acks: continue
             try:
                 await self._acknowledge(key,self.pending_acks[key],min(ACK_TIMEOUT_SECONDS,remaining))
+                acknowledged_this_tick.add(key)
             except Exception as exc:
                 self._queue_ack(key)
                 log.warning('Notification acknowledgement deferred error_type=%s',type(exc).__name__)
@@ -148,7 +163,16 @@ class NotificationDelivery:
                 key=row.get('notificationKey'); channel=row.get('destinationId'); payload=row.get('payload')
                 if not isinstance(key,str) or not 1<=len(key)<=300 or not isinstance(payload,dict): continue
                 if self.retries.get(key,(0,0))[1]>self.clock(): continue
-                if key in self.pending_acks or key in self.delivered or (self.journal is not None and self.journal.get(key)): continue
+                if key in self.pending_acks or key in acknowledged_this_tick: continue
+                receipt=self.journal.get(key) if self.journal is not None else None
+                if receipt is None and key in self.delivered:
+                    receipt='acknowledged'
+                if receipt is not None:
+                    # A restored backend may list an already delivered notice as pending.
+                    self.pending_acks[key]=receipt
+                    await self._acknowledge(key,receipt)
+                    acknowledged_this_tick.add(key)
+                    continue
                 if payload.get('userId') not in self.users or channel not in self.channels:
                     self._defer(key)
                     continue
@@ -164,6 +188,8 @@ class NotificationDelivery:
                 nonce=hashlib.sha256(json.dumps(['snake-media-notice-v1',channel,key],
                                               separators=(',',':')).encode('utf-8')).hexdigest()[:24]
                 options={'nonce':nonce, 'owner_id':payload['userId']}
+                if payload.get('newMessage') is True:
+                    options['new_message']=True
                 if (payload.get('retentionControls') is not False and notice_id.isascii()
                         and notice_id.isdigit() and 0<int(notice_id)<10**16):
                     options['notice_id']=notice_id

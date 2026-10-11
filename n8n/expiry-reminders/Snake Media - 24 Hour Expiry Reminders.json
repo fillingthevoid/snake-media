@@ -1,0 +1,469 @@
+{
+  "id": "snakeExpiryRemindersV1",
+  "name": "Snake Media - 24 Hour Expiry Reminders",
+  "nodes": [
+    {
+      "id": "92d7c424-6fec-51d1-aae4-bf1a0c7181b0",
+      "name": "Reminder Input",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "0fa44f9c-4f01-5193-9ad9-a6e9eb1f8866",
+      "name": "One Reminder Mode",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      }
+    },
+    {
+      "id": "499f5d45-9422-55c6-96fe-f60ccc972b12",
+      "name": "Reminder Mode",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0ZVcAedXFLCitl1z"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "mode"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        270,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "26c1be31-caab-583d-8e74-a879438878f7",
+      "name": "One Reminder Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      }
+    },
+    {
+      "id": "b8b6eb14-4f7c-5c76-9b86-9fedbc300a93",
+      "name": "Reminder Requests",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "wWQ3hhif5v6vP9EU"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "state",
+              "condition": "eq",
+              "keyValue": "registered"
+            },
+            {
+              "keyName": "userId",
+              "condition": "neq",
+              "keyValue": "1"
+            }
+          ]
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        810,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "80e5970a-69a7-5e2b-a47e-cd48059aa055",
+      "name": "One Reminder Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      }
+    },
+    {
+      "id": "0be67a8b-f638-57f5-a6bc-9d7ad23d5f3b",
+      "name": "Reminder Records",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "REnZ2UFCOl2njaoB"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        1350,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f9169ff3-0199-5579-a6c8-ac723d34092a",
+      "name": "One Reminder Notices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{}}];"
+      }
+    },
+    {
+      "id": "6683bcf4-0a7a-5bbc-b182-5871966f56c3",
+      "name": "Reminder Notices",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "HZ2inujBfAj6zwDl"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": []
+        },
+        "options": {},
+        "returnAll": true
+      },
+      "position": [
+        810,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "id": "e9d3b546-dfe4-5a25-977a-ec85eefb3549",
+      "name": "Plan Expiry Reminders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Shared n8n expiry policy. No media scans, transport, or deletion here.\nconst REMINDER_WINDOW=24*3600000, MAX_SNAPSHOT_AGE=30*60000;\nfunction reminderData(row){try{return JSON.parse(row.payloadJson);}catch{return null;}}\nfunction reminderFiles(records,now){\n const seen=new Set();for(const r of records)if(r.key){if(seen.has(r.key))return [];seen.add(r.key);}\n return records.filter(r=>r.kind==='file').map(r=>({...reminderData(r),key:r.key})).filter(d=>\n  d.state==='tracked'&&!d.identityProtected&&['movie','tv'].includes(d.mediaType)&&\n  Number.isSafeInteger(d.fileId)&&d.fileId>0&&typeof d.path==='string'&&\n  d.path.startsWith(d.mediaType==='movie'?'/movies/':'/tv/')&&!d.path.includes('/../')&&\n  Number.isFinite(Date.parse(d.importedAt))&&d.checkedAt&&Date.parse(d.checkedAt)<=now+60000&&\n  Date.parse(d.checkedAt)>=now-MAX_SNAPSHOT_AGE&&Date.parse(d.expiresAt)>now&&\n  Date.parse(d.expiresAt)<=now+REMINDER_WINDOW&&d.deadlines&&typeof d.deadlines==='object');\n}\nfunction reminderValid(row,records,mode,now=Date.now()){\n const p=reminderData(row);if(p?.kind!=='expiry_reminder')return true;\n if(mode!=='enabled'||!Array.isArray(p.expiryFiles)||!p.expiryFiles.length)return false;\n const files=reminderFiles(records,now);\n return p.expiryFiles.every(f=>files.some(d=>d.key===f.key&&d.path===f.path&&\n  d.importedAt===f.importedAt&&d.expiresAt===f.expiresAt));\n}\nfunction planReminders({requests,records,notices,mode,now=Date.now()}){\n if(mode!=='enabled'||!Number.isFinite(now))return [];\n const files=reminderFiles(records,now),groups=new Map(),existing=new Set(notices.map(n=>n.notificationKey));\n for(const r of requests){\n  if(!r.baselineCaptured||r.state!=='registered'||r.userId==='1'||!['discord','telegram'].includes(r.source)||\n   !r.requestKey||!r.title||!r.destinationId||!r.messageId)continue;\n  const owned=files.filter(d=>d.mediaType===r.mediaType&&String(d.mediaId)===String(r.mediaId)&&\n   Object.keys(d.deadlines).some(k=>k.startsWith(r.requestKey+':')));\n  for(const d of owned){\n   const groupKey=JSON.stringify([r.source,r.userId,r.destinationId,r.mediaType,String(r.mediaId)]);\n   if(!groups.has(groupKey))groups.set(groupKey,{r,files:new Map(),requestKeys:new Set()});\n   groups.get(groupKey).files.set(d.key,d);groups.get(groupKey).requestKeys.add(r.requestKey);\n  }\n }\n const result=[];\n for(const {r,files:map,requestKeys} of groups.values()){\n  const fs=[...map.values()].sort((a,b)=>a.key.localeCompare(b.key));\n  // Each file/deadline is notified once, even when the rest of a batch changes.\n  const fresh=fs.filter(d=>!notices.some(n=>{const p=reminderData(n);return p?.kind==='expiry_reminder'&&\n   n.source===r.source&&p.userId===r.userId&&n.destinationId===r.destinationId&&\n   p.expiryFiles?.some(f=>f.key===d.key&&f.expiresAt===d.expiresAt&&f.importedAt===d.importedAt);}));\n  if(!fresh.length)continue;\n  const earliest=Math.min(...fresh.map(d=>Date.parse(d.expiresAt)));\n  const key=`${r.source}:expiry:${r.userId}:${r.mediaType}:${r.mediaId}:${earliest}`;\n  if(existing.has(key))continue;\n  const count=new Set(fresh.flatMap(d=>d.episodeIds||[])).size;\n  const subject=r.mediaType==='tv'?`${count} episode${count===1?'':'s'} of ${r.title}`:r.title;\n  const text=`\u23f3 ${subject}\\n\\nScheduled for automatic deletion within 24 hours (earliest: ${new Date(earliest).toISOString().replace('T',' ').replace(':00.000Z',' UTC')}).\\n\\nWant more time? Extend 7 days, extend 30 days, or keep permanently.\\nButtons last 5 minutes; /extend and /keep remain available.`;\n  result.push({notificationKey:key,requestKey:r.requestKey,fileKey:fresh[0].key,source:r.source,\n   destinationId:r.destinationId,payloadJson:JSON.stringify({kind:'expiry_reminder',newMessage:true,text,\n    userId:r.userId,messageId:r.messageId,retentionControls:true,requestKeys:[...requestKeys],\n    expiryFiles:fresh.map(d=>({key:d.key,path:d.path,importedAt:d.importedAt,expiresAt:d.expiresAt}))}),\n   state:'pending',attempts:0,nextAttemptAt:new Date(now).toISOString(),deliveredAt:null,deliveredMessageId:''});\n }\n return result;\n}\nif(typeof module!=='undefined')module.exports={planReminders,reminderValid};\n\nconst modes=$('Reminder Mode').all().map(x=>x.json).filter(r=>r.key==='mode');return planReminders({mode:modes.length===1?modes[0].owner:null,requests:$('Reminder Requests').all().map(x=>x.json),records:$('Reminder Records').all().map(x=>x.json),notices:$('Reminder Notices').all().map(x=>x.json)}).map(json=>({json}));"
+      }
+    },
+    {
+      "id": "cdb46699-0ed0-5a80-990e-9da23ebaf880",
+      "name": "Store Expiry Reminder",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "HZ2inujBfAj6zwDl",
+          "cachedResultName": "snake_media_notifications"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "notificationKey",
+              "condition": "eq",
+              "keyValue": "={{ $json.notificationKey }}"
+            }
+          ]
+        },
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "notificationKey": "={{ $json.notificationKey }}",
+            "requestKey": "={{ $json.requestKey }}",
+            "fileKey": "={{ $json.fileKey }}",
+            "source": "={{ $json.source }}",
+            "destinationId": "={{ $json.destinationId }}",
+            "payloadJson": "={{ $json.payloadJson }}",
+            "state": "={{ $json.state }}",
+            "deliveredMessageId": "={{ $json.deliveredMessageId }}",
+            "attempts": "={{ $json.attempts }}",
+            "nextAttemptAt": "={{ $json.nextAttemptAt }}",
+            "deliveredAt": "={{ $json.deliveredAt }}"
+          },
+          "schema": [
+            {
+              "id": "notificationKey",
+              "displayName": "notificationKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "requestKey",
+              "displayName": "requestKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fileKey",
+              "displayName": "fileKey",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "destinationId",
+              "displayName": "destinationId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "payloadJson",
+              "displayName": "payloadJson",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "state",
+              "displayName": "state",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deliveredMessageId",
+              "displayName": "deliveredMessageId",
+              "type": "string",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "attempts",
+              "displayName": "attempts",
+              "type": "number",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nextAttemptAt",
+              "displayName": "nextAttemptAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deliveredAt",
+              "displayName": "deliveredAt",
+              "type": "date",
+              "display": true,
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "position": [
+        1300,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Reminder Input": {
+      "main": [
+        [
+          {
+            "node": "One Reminder Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Reminder Mode": {
+      "main": [
+        [
+          {
+            "node": "Reminder Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Mode": {
+      "main": [
+        [
+          {
+            "node": "One Reminder Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Reminder Requests": {
+      "main": [
+        [
+          {
+            "node": "Reminder Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Requests": {
+      "main": [
+        [
+          {
+            "node": "One Reminder Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Reminder Records": {
+      "main": [
+        [
+          {
+            "node": "Reminder Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Records": {
+      "main": [
+        [
+          {
+            "node": "One Reminder Notices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Reminder Notices": {
+      "main": [
+        [
+          {
+            "node": "Reminder Notices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Notices": {
+      "main": [
+        [
+          {
+            "node": "Plan Expiry Reminders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Expiry Reminders": {
+      "main": [
+        [
+          {
+            "node": "Store Expiry Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 120
+  }
+}

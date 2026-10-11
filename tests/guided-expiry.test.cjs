@@ -40,3 +40,15 @@ test('ambiguous explicit extension preserves chosen days and still requires conf
  const out=p.guideAction(pending(g),{...actor,action:'rettitle_1'},Date.now());
  const c=JSON.parse(out.contextJson).retentionChange;a.equal(c.days,14);a.equal(c.mediaId,'5');a.equal(out.state,'preview');
 });
+
+test('title-free explicit duration survives owned selection until confirmation',()=>{
+ for(const text of ['/extend 30 days','extend 14 days','/extend@SnakeBot 3650 days']){
+  const who={...actor,text},g=p.prepareChange(who,[req(4,'Example'),req(5,'Private',{userId:'9'})]).guide;
+  a.ok(g,'the command must open owned title selection');a.equal(g.candidates.length,1);
+  const out=p.guideAction(pending(g),{...actor,action:'rettitle_0'},Date.now());
+  const change=JSON.parse(out.contextJson).retentionChange;
+  a.equal(change.days,Number(text.match(/([0-9]+) days$/)[1]));a.equal(change.mediaId,'4');a.equal(out.state,'preview');
+  a.deepEqual(p.changeCard({...pending(g),...out}).choices.map(c=>c.action),['confirm','retback','cancel']);
+ }
+ for(const text of ['/extend 0 days','/extend 3651 days','/extend -1 days'])a.ok(p.parseChange(text).error);
+});

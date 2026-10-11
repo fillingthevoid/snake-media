@@ -14,8 +14,8 @@ TERMINAL=('success','error','canceled','crashed')
 OWNERS=('snakeRetentionCoordinatorV1','snakeLockRecoveryV1')
 COOLDOWN=120
 READ_CHILDREN=('snakeTargetLibraryV1','snakeStatusInspectV1','snakeInspectRequestV1')
-# Pin the bounded presentation-only cleanup implementation, not just its name.
-CLEANUP_HASH='25eda8498cfe3e1fab2781b1bf78298b0f4a8d96c73b09064372a26ddb843546'
+# Pin reviewed code with CRLF normalized to LF, matching Git's line-ending policy.
+CLEANUP_HASH='c63194d1f0abaa53d768f423397423ddc155691c370d74448a84547aa4e8d3f2'
 
 def timestamp(value):
     if not isinstance(value,str):raise ValueError('missing_timestamp')
@@ -27,9 +27,12 @@ def blocking_activity(rows,parents,executions,now,cleanup_safe=False):
     def harmless(row):
         if row.get('status')!='running':return False
         if row.get('workflowId')=='snakeTelegramControlsRetryV1':return cleanup_safe
-        if row.get('deletedAt') is not None:return False
         if row.get('workflowId') not in READ_CHILDREN:return False
         try:
+            # Retained read snapshots may be soft-deleted while still labelled
+            # running. Deletion alone proves nothing: require a valid old marker
+            # AND the same retained terminal-ancestor proof below.
+            if row.get('deletedAt') is not None and now-timestamp(row['deletedAt'])<COOLDOWN:return False
             if now-timestamp(row.get('startedAt'))<COOLDOWN:return False
             current=str(row['id']);seen=set()
             while current in parents:
@@ -67,7 +70,7 @@ def activity_count(connection,now):
             nodes=json.loads(cleanup[0])
             shape=[(n['type'],n['parameters'].get('operation')) for n in nodes]
             cleanup_safe=(shape==[('n8n-nodes-base.scheduleTrigger',None),('CUSTOM.snakeTelegramControls','retry')] and
-                hashlib.sha256(Path('/mnt/media/appdata/n8n/custom/SnakeTelegramControls.node.js').read_bytes()).hexdigest()==CLEANUP_HASH)
+                hashlib.sha256(Path('/mnt/media/appdata/n8n/custom/SnakeTelegramControls.node.js').read_bytes().replace(b'\r\n',b'\n')).hexdigest()==CLEANUP_HASH)
         return blocking_activity(rows,parents,executions,now,cleanup_safe)
     except Exception:return count
 

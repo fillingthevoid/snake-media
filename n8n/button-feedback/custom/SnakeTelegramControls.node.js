@@ -9,7 +9,8 @@ class SnakeTelegramControls {
    group:['transform'],version:1,description:'Remove handled callback controls while retaining URL buttons',
    defaults:{name:'Snake Telegram Controls'},inputs:['main'],outputs:['main'],
    credentials:[{name:'telegramApi',required:true}],properties:[
-    {displayName:'Operation',name:'operation',type:'options',default:'clear',options:[{name:'Clear Handled Card',value:'clear'},{name:'Remember Sent Card',value:'remember'},{name:'Retry Related Cards',value:'retry'},{name:'Update Original Request',value:'update'},{name:'Touch Help Menu',value:'touchMenu'},{name:'Ask For Title',value:'prompt'},{name:'Resolve Title Reply',value:'resolvePrompt'}]},
+    {displayName:'Operation',name:'operation',type:'options',default:'clear',options:[{name:'Send Dynamic Card',value:'sendCard'},{name:'Clear Handled Card',value:'clear'},{name:'Remember Sent Card',value:'remember'},{name:'Retry Related Cards',value:'retry'},{name:'Update Original Request',value:'update'},{name:'Touch Help Menu',value:'touchMenu'},{name:'Ask For Title',value:'prompt'},{name:'Resolve Title Reply',value:'resolvePrompt'}]},
+    {displayName:'Send Mode',name:'sendMode',type:'options',default:'text',options:[{name:'Text',value:'text'},{name:'Photo',value:'photo'}]},
     {displayName:'Callback Message',name:'message',type:'json',default:'{}',required:true},
     {displayName:'Owner ID',name:'ownerId',type:'string',default:''},
     {displayName:'Callback Data',name:'callbackData',type:'string',default:''},
@@ -24,6 +25,35 @@ class SnakeTelegramControls {
    const supplied=this.getNodeParameter('operation',index,'clear'),operation=typeof supplied==='string'?supplied:'clear';
    const owner=this.getNodeParameter('ownerId',index,''),file=this.getNodeParameter('stateFile',index,'/home/node/.n8n/snake-controls.json');
    const store=(typeof owner==='string'&&/^\d+$/.test(owner)||operation==='retry')&&typeof file==='string'?new CardStore(file):null;
+   if(operation==='sendCard'){
+    const mode=this.getNodeParameter('sendMode',index,'text'),rows=reply.keyboard?.rows;
+    if(!['text','photo'].includes(mode)||!/^[-]?[1-9][0-9]{0,19}$/.test(String(reply.chatId))||typeof reply.replyText!=='string'||!reply.replyText.length||!Array.isArray(rows)||rows.length>100)throw Error('Invalid Telegram card');
+    const keyboard=rows.map(r=>{
+     const buttons=r?.row?.buttons;if(!Array.isArray(buttons)||buttons.length<1||buttons.length>8)throw Error('Invalid Telegram keyboard');
+     return buttons.map(b=>{
+      const a=b?.additionalFields||{};
+      if(typeof b?.text!=='string'||!b.text.length||b.text.length>100)throw Error('Invalid Telegram button');
+      if(typeof a.callback_data==='string'&&Buffer.byteLength(a.callback_data)<=64&&/^(snake:[1-9][0-9]{0,15}:[a-z_0-9]+|snake_menu:[a-z_]+)$/.test(a.callback_data)&&!a.url)return {text:b.text,callback_data:a.callback_data};
+      if(typeof a.url==='string'&&!a.callback_data){try{const u=new URL(a.url);if(['http:','https:'].includes(u.protocol)&&!u.username&&!u.password&&a.url.length<=2048)return {text:b.text,url:a.url};}catch{}}
+      throw Error('Invalid Telegram button');
+     });
+    });
+    if(keyboard.flat().length>100)throw Error('Invalid Telegram keyboard');
+    const credentials=await this.getCredentials('telegramApi'),base=credentials.baseUrl||'https://api.telegram.org';
+    if(base!=='https://api.telegram.org'||!/^\d+:[A-Za-z0-9_-]+$/.test(credentials.accessToken||''))throw Error('Invalid Telegram credentials');
+    const body={chat_id:reply.chatId,reply_markup:{inline_keyboard:keyboard}};
+    if(mode==='photo'){
+     if(typeof reply.posterUrl!=='string'||!/^https:\/\/(image\.tmdb\.org|artworks\.thetvdb\.com)\/[A-Za-z0-9_./%~-]+$/.test(reply.posterUrl))throw Error('Invalid Telegram poster');
+     body.photo=reply.posterUrl;body.caption=reply.replyText.slice(0,1000);
+    }else{body.text=reply.replyText.slice(0,4000);body.link_preview_options={is_disabled:true};}
+    let response;try{response=await this.helpers.httpRequest({method:'POST',url:base+'/bot'+credentials.accessToken+'/'+(mode==='photo'?'sendPhoto':'sendMessage'),body,json:true,timeout:10000});if(response?.ok!==true)throw Error('unconfirmed');}catch{
+     // n8n's continueRegularOutput forwards the input without an error marker.
+     // Preserve the card explicitly so the photo-failure branch can send its text and buttons.
+     if(mode==='photo'){output.push({json:{...reply,error:'Telegram card delivery failed'},pairedItem:{item:index}});continue;}
+     throw Error('Telegram card delivery failed');
+    }
+    output.push({json:response,pairedItem:{item:index}});continue;
+   }
    if(operation==='prompt'){
     if(!store||!/^[-]?[1-9][0-9]{0,19}$/.test(String(reply.chatId)))throw Error('Invalid prompt actor');
     const credentials=await this.getCredentials('telegramApi'),base=credentials.baseUrl||'https://api.telegram.org';

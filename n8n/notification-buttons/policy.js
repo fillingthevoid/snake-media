@@ -12,6 +12,6 @@ function noticeActor(actor,notices,requests,executionId,now=Date.now()){
  const title=rows[0].title.replace(/\s+/g,' ').trim();
  const text=actor.action==='notice_keep'?`keep ${title} permanently`:`extend ${title} ${actor.action==='notice_7'?7:30} days`;
  return {source:actor.source,userId:actor.userId,destinationId:actor.destinationId,
-  requestKey:n.requestKey,messageId:`notice:${n.id}:${actor.action}:${executionId}`,text};
+  requestKey:n.requestKey,...(payload.kind==='expiry_reminder'&&Array.isArray(payload.requestKeys)?{requestKeys:requests.filter(r=>payload.requestKeys.includes(r.requestKey)&&r.source===actor.source&&r.userId===actor.userId&&r.state==='registered'&&r.mediaType===rows[0].mediaType&&String(r.mediaId)===String(rows[0].mediaId)).map(r=>r.requestKey)}:{}),messageId:`notice:${n.id}:${actor.action}:${executionId}`,text};
 }
 if(typeof module!=='undefined')module.exports={noticeActor};

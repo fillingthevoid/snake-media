@@ -10,12 +10,13 @@ from discord import app_commands
 from .requests import IncomingMessage
 from .service import RequestService
 from .notifications import NotificationDelivery
-from .confirmations import CUSTOM_ID, presentation, edit_presentation, notification_view
+from .confirmations import CUSTOM_ID, presentation, edit_presentation, notification_view, discord_length, bounded_content
 from .n8n_client import MediaReply
 from .command_menu import menu_text, menu_choices, NAVIGATION
 from .request_prompt import RequestTitleModal
 
 log = logging.getLogger("snake_media")
+EXPIRY_NOTE = '\n\nMenu expired. Use /help or /status to reopen.'
 
 
 class SnakeMediaClient(discord.Client):
@@ -108,7 +109,13 @@ class SnakeMediaClient(discord.Client):
             self.wake_notifications()
             options = presentation(reply or '⚠️ This request could not be prepared.')
             options.setdefault('view', None)
-            await card.edit(**options)
+            try:
+                await card.edit(**options)
+            except discord.Forbidden:
+                if not options['embed']:
+                    raise
+                options.update(content=bounded_content(reply), embed=None)
+                await card.edit(**options)
             self.remember_card(reply, card, str(interaction.user.id), str(interaction.channel_id))
             await interaction.followup.send('Your request: '+card.jump_url, ephemeral=True)
         except Exception as exc:
@@ -133,8 +140,10 @@ class SnakeMediaClient(discord.Client):
         await self.read_command(interaction, 'recommend')
 
     async def extend_command(self, interaction: discord.Interaction, title: str = '',
-                             days: app_commands.Range[int, 1, 3650] = 7):
-        await self.read_command(interaction, f'extend {title.strip()} {days} days' if title.strip() else 'extend')
+                             days: app_commands.Range[int, 1, 3650] | None = None):
+        text = (f'extend {title.strip()} {days if days is not None else 7} days' if title.strip()
+                else f'extend {days} days' if days is not None else 'extend')
+        await self.read_command(interaction, text)
 
     async def keep_command(self, interaction: discord.Interaction, title: str = ''):
         await self.read_command(interaction, f'keep {title.strip()} permanently' if title.strip() else 'keep')
@@ -148,8 +157,14 @@ class SnakeMediaClient(discord.Client):
             is_bot=False, message_id=str(interaction.id),
             requested_at=discord.utils.snowflake_time(interaction.id).isoformat(timespec='milliseconds').replace('+00:00', 'Z'))
         reply = await self.service.handle(incoming, str(self.user.id))
-        sent = await interaction.followup.send(ephemeral=True, wait=True,
-            **presentation(reply or 'Use Snake Media in an authorized server channel.'))
+        options = presentation(reply or 'Use Snake Media in an authorized server channel.')
+        try:
+            sent = await interaction.followup.send(ephemeral=True, wait=True, **options)
+        except discord.Forbidden:
+            if not options['embed']:
+                raise
+            options.update(content=bounded_content(reply), embed=None)
+            sent = await interaction.followup.send(ephemeral=True, wait=True, **options)
         self.remember_card(reply, sent, str(interaction.user.id), str(interaction.channel_id), interaction)
 
     async def setup_hook(self):
@@ -183,7 +198,7 @@ class SnakeMediaClient(discord.Client):
             self.notification_worker.wake()
 
     async def send_notification(self, channel_id, message_id, text, notice_id=None,
-                                poster_url=None, jellyfin_url=None, local_jellyfin_url=None, nonce=None, owner_id=None):
+                                poster_url=None, jellyfin_url=None, local_jellyfin_url=None, nonce=None, owner_id=None, new_message=False):
         channel = self.get_channel(int(channel_id)) or await self.fetch_channel(int(channel_id))
         reference = discord.MessageReference(message_id=int(message_id), channel_id=int(channel_id),
                                              fail_if_not_exists=False)
@@ -191,7 +206,7 @@ class SnakeMediaClient(discord.Client):
                            poster_url, jellyfin_url, notice_id, local_jellyfin_url)
         options = presentation(reply)
         options.setdefault('view', None)
-        original = self.card_registry.request_card(channel_id, message_id, owner_id) if self.card_registry and owner_id else None
+        original = self.card_registry.request_card(channel_id, message_id, owner_id) if self.card_registry and owner_id and not new_message else None
         if original:
             try:
                 message = await asyncio.wait_for(channel.fetch_message(int(original)), timeout=10)
@@ -210,7 +225,13 @@ class SnakeMediaClient(discord.Client):
             # Temporary/unknown edit outcomes propagate to the existing durable
             # retry worker. Repeating an edit is safe; a new post may duplicate it.
         # discord.py enforces supplied nonce uniqueness for Discord's recent window.
-        message = await channel.send(reference=reference, nonce=nonce, **options)
+        try:
+            message = await channel.send(reference=reference, nonce=nonce, **options)
+        except discord.Forbidden:
+            if not options['embed']:
+                raise
+            options.update(content=bounded_content(reply), embed=None)
+            message = await channel.send(reference=reference, nonce=nonce, **options)
         if owner_id:
             self.remember_card(reply, message, owner_id, channel_id)
         log.info('Completion notice delivered channel_id=%s', channel_id)
@@ -297,7 +318,7 @@ class SnakeMediaClient(discord.Client):
                             message = await asyncio.wait_for(webhook.fetch_message(target), timeout=10)
                             if not self.card_registry.queued(destination, ident):
                                 continue
-                            options['content'] = (message.content or '')[:1900] + '\n\nMenu expired. Use /help or /status to reopen.'
+                            options['content'] = bounded_content(message.content or '', 2000-discord_length(EXPIRY_NOTE)) + EXPIRY_NOTE
                         await asyncio.wait_for(webhook.edit_message(target, **options), timeout=10)
                     self.card_registry.finish(destination, ident)
                     continue
@@ -311,7 +332,7 @@ class SnakeMediaClient(discord.Client):
                 options = edit_presentation('', [], message.components)
                 edit = {'view': options['view']}
                 if self.card_registry.expired(destination, ident):
-                    edit['content'] = (getattr(message, 'content', '') or '')[:1900] + '\n\nMenu expired. Use /help or /status to reopen.'
+                    edit['content'] = bounded_content(getattr(message, 'content', '') or '', 2000-discord_length(EXPIRY_NOTE)) + EXPIRY_NOTE
                 await asyncio.wait_for(message.edit(**edit), timeout=10)
                 self.card_registry.finish(destination, ident)
             except discord.NotFound:
@@ -396,8 +417,7 @@ class SnakeMediaClient(discord.Client):
                         self.card_registry.finish(str(interaction.channel_id), str(interaction.message.id))
                     if (match[2].startswith(('notice_', 'ret'))
                             or getattr(reply, 'retention_updated', False)):
-                        await interaction.followup.send(ephemeral=True, content=str(reply),
-                            allowed_mentions=discord.AllowedMentions.none())
+                        await interaction.followup.send(ephemeral=True, **presentation(str(reply)))
                         return
                     return
             sent = await interaction.followup.send(ephemeral=True, wait=True, **presentation(reply))
@@ -423,12 +443,13 @@ class SnakeMediaClient(discord.Client):
                 self.wake_notifications()
             if response is not None:
                 if (getattr(response, 'choices', None) or getattr(response, 'jellyfin_url', None)
-                        or getattr(response, 'notice_id', None) or getattr(response, 'local_jellyfin_url', None)):
+                        or getattr(response, 'notice_id', None) or getattr(response, 'local_jellyfin_url', None)
+                        or discord_length(response) > 2000):
                     options = presentation(response)
                     try:
                         sent = await message.reply(mention_author=False, **options)
                     except discord.Forbidden:
-                        options.update(content=str(response), embed=None)
+                        options.update(content=bounded_content(response), embed=None)
                         sent = await message.reply(mention_author=False, **options)
                     self.remember_card(response, sent, incoming.user_id, incoming.channel_id)
                     return
@@ -442,7 +463,7 @@ class SnakeMediaClient(discord.Client):
                         return
                     except discord.Forbidden:
                         log.warning('Embed permission unavailable; using text reply')
-                await message.reply(str(response), mention_author=False,
+                await message.reply(bounded_content(response), mention_author=False,
                                     allowed_mentions=discord.AllowedMentions.none())
         except Exception as exc:
             log.error("Discord message handling failed message_id=%s error_type=%s",

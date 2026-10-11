@@ -73,19 +73,30 @@ def synchronize(env_path, state_path, payload):
 
 
 class Handler(BaseHTTPRequestHandler):
+    # StreamRequestHandler applies this in setup(), before reading HTTP headers.
+    timeout = 10
+
     def log_message(self, *args):
         pass
+
+    def handle(self):
+        # Reject other local users before parsing any HTTP input.
+        try:
+            uid = struct.unpack('3i', self.connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[1]
+        except (OSError, struct.error):
+            return
+        if uid != self.server.peer_uid:
+            return
+        super().handle()
 
     def do_POST(self):
         status, result = 503, {'version': 1, 'synchronized': False}
         try:
-            uid = struct.unpack('3i', self.connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[1]
-            if uid != self.server.peer_uid or self.path != '/authorize':
-                raise ValueError('invalid_peer')
+            if self.path != '/authorize':
+                raise ValueError('invalid_path')
             length = int(self.headers.get('Content-Length', '0'))
             if not 0 < length <= 4096:
                 raise ValueError('invalid_body')
-            self.connection.settimeout(10)
             payload = json.loads(self.rfile.read(length))
             result = synchronize(self.server.env_path, self.server.state_path, payload)
             status = 200

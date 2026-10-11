@@ -1186,7 +1186,7 @@
             "conditions": [
               {
                 "id": "8e0a2c4c-112a-48f3-9fed-a45ae53c2d13",
-                "leftValue": "={{ [1005350592,8752658721].includes(Number($json.userId)) }}",
+                "leftValue": "={{ [100000001,100000002].includes(Number($json.userId)) }}",
                 "rightValue": "",
                 "operator": {
                   "type": "boolean",

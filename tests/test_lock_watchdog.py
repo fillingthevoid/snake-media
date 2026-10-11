@@ -15,6 +15,10 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual(watchdog.blocking_activity([child],{'2':'1'},{'1':root},now),0)
         for override in [{'workflowId':'unknown'},{'status':'waiting'},{'startedAt':'2026-10-10T14:29:30Z'},{'deletedAt':'removed'}]:
             self.assertEqual(watchdog.blocking_activity([{**child,**override}],{'2':'1'},{'1':root},now),1)
+        deleted={**child,'deletedAt':'2026-10-10T14:02:00Z'}
+        self.assertEqual(watchdog.blocking_activity([deleted],{'2':'1'},{'1':root},now),0)
+        self.assertEqual(watchdog.blocking_activity([deleted],{}, {},now),1)
+        self.assertEqual(watchdog.blocking_activity([deleted],{'2':'1'},{'1':{**root,'deletedAt':'2026-10-10T14:02:00Z'}},now),1)
         self.assertEqual(watchdog.blocking_activity([child],{}, {},now),1)
         self.assertEqual(watchdog.blocking_activity([child],{'2':'2'},{},now),1)
         self.assertEqual(watchdog.blocking_activity([child],{'2':'1'},{'1':{**root,'status':'running'}},now),1)

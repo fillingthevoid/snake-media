@@ -73,3 +73,13 @@ n8n can retain read-only child snapshots marked running after their parent has s
 The two-node Telegram keyboard cleanup schedule is presentation-only and cannot change media. It is excluded only when its workflow shape matches and the installed custom node matches `CLEANUP_HASH`. That exception also covers its soft-deleted snapshots. Update the hash deliberately when deploying a reviewed cleanup implementation; a mismatch defers recovery.
 
 The proof's `activeExecutions` counts blocking operations. The checker only reads SQLite; conditional lock changes and the recovery audit still use native authenticated n8n nodes. Automatic deletion remains paused after recovery.
+
+Retained soft-deleted read snapshots are also eligible for that exception when
+their deletion timestamp is valid and at least two minutes old, and a retained,
+non-deleted terminal ancestor proves completion. Missing or deleted ancestors,
+malformed timestamps, recent records and other workflow types remain blocking.
+The cleanup fingerprint includes the Telegram dynamic keyboard sender repair.
+Fingerprinting converts CRLF line endings to LF before hashing, matching the
+repository's Git line-ending policy. LF and CRLF copies of the reviewed code
+therefore produce the same proof; code changes still require a deliberately
+reviewed fingerprint update. Missing or mismatched files remain blocking.

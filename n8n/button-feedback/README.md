@@ -9,8 +9,8 @@ Telegram clears callbacks on both text and poster messages, retaining URL button
 The built-in Telegram node lacks `editMessageReplyMarkup`, so install the small
 local node before importing the current bundle:
 
-1. Copy `custom/SnakeTelegramControls.node.js` to
-   `/home/node/.n8n/custom/SnakeTelegramControls.node.js` in the n8n container's
+1. Copy `custom/SnakeTelegramControls.node.js` and `custom/card-store.js` to
+   `/home/node/.n8n/custom/` in the n8n container's
    persistent configuration directory. Make it readable by the n8n user.
 2. Restart n8n while idle. The node type is `CUSTOM.snakeTelegramControls`.
 3. Bind the existing Telegram API credential to the card-cleanup node. Its token
@@ -28,6 +28,13 @@ Busy/denied choices keep their controls. Owned expired/done choices can clear
 stale controls. Other older copies of a card are not edited automatically;
 clicking a completed pending choice clears that card when ownership is verified.
 Download buttons remain reusable for later extensions through a new preview.
+
+Cleanup jobs retry with exponential backoff starting at five minutes, capped at
+one hour. Previously exhausted twelve-attempt jobs become eligible without
+resetting stored state. Compaction retires jobs older than 90 days. Retry times
+use seconds; creation and compaction timestamps use milliseconds. To apply this
+repair to an existing custom-node installation, replace `card-store.js` and
+restart n8n while idle, preserving its state file and credentials.
 
 References: [Telegram markup editing](https://core.telegram.org/bots/api#editmessagereplymarkup)
 and [n8n's built-in Telegram operations](https://docs.n8n.io/integrations/builtin/app-nodes/n8n-nodes-base.telegram/).

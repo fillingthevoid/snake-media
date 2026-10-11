@@ -7,9 +7,14 @@ independently of n8n so an n8n outage can still be reported. No inbound port is 
 All problems go to the owner’s Discord DMs, including a confirmation stuck for over
 15 minutes. Completion notices for Discord and Telegram that remain pending for 15 minutes
 are also checked. Alerts identify the platform and title; delivery retries continue.
+Processing health remains monitored after interactive controls expire. Only valid
+processing claims updated within the last 24 hours are considered; malformed,
+future and older historical records remain unknown.
 Two healthy observations after recorded delivery confirm recovery. A missing record
 or unavailable tracking database does not imply delivery. The probe reads at most
-2,000 pending records plus previously observed IDs and never reads message payloads.
+2,000 pending records plus unresolved incident IDs and never reads message payloads.
+Resolved and unalerted notice history is retired when state loads; unresolved
+recovery reads use bounded SQL batches instead of a lifetime notice limit.
 Normal waiting for
 a release or a future episode does not trigger an alert. All alerts are delivered
 through the owner's Discord DMs.

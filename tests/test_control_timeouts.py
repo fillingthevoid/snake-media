@@ -1,5 +1,6 @@
 from pathlib import Path
 import tempfile
+import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -61,7 +62,7 @@ class CleanupTimeouts(unittest.IsolatedAsyncioTestCase):
                 cards.track('333','100','111')
                 return message
             client.get_channel=lambda _:SimpleNamespace(fetch_message=fetch)
-            cards.track('333','100','111',now=0)
+            cards.track('333','100','111',now=time.time()-301)
             await client.cleanup_cards()
             message.edit.assert_not_awaited()
             self.assertFalse(cards.expired('333','100'))
@@ -70,7 +71,7 @@ class CleanupTimeouts(unittest.IsolatedAsyncioTestCase):
     async def test_private_expiry_uses_webhook_and_deletes_private_reference(self):
         with tempfile.TemporaryDirectory() as folder, CardRegistry(Path(folder) / 'state.sqlite3') as cards:
             client = SnakeMediaClient(RequestService(config(), SimpleNamespace()), card_registry=cards)
-            cards.track('333', '100', '111', now=0, webhook_id='999', webhook_token='private-token')
+            cards.track('333', '100', '111', now=time.time()-301, webhook_id='999', webhook_token='private-token')
             webhook = SimpleNamespace(edit_message=AsyncMock(), fetch_message=AsyncMock(return_value=SimpleNamespace(content='My requests')))
             client.fetch_channel = AsyncMock()
             with patch('snake_media.bot.discord.Webhook.partial', return_value=webhook):
@@ -85,7 +86,7 @@ class CleanupTimeouts(unittest.IsolatedAsyncioTestCase):
             backend = SimpleNamespace(action=AsyncMock())
             client = SnakeMediaClient(RequestService(config(), backend), card_registry=cards)
             client.cleanup_cards = AsyncMock()
-            cards.track('333', '100', '111', now=0)
+            cards.track('333', '100', '111', now=time.time()-301)
             i = SimpleNamespace(type=discord.InteractionType.component, data={'custom_id':'snake:12:notice_7'},
                 user=SimpleNamespace(id=111), channel_id=333, guild_id=444,
                 message=SimpleNamespace(id=100), response=SimpleNamespace(send_message=AsyncMock()))
@@ -103,7 +104,7 @@ class CleanupTimeouts(unittest.IsolatedAsyncioTestCase):
                 choice = SimpleNamespace(url=None, custom_id='snake:12:notice_7')
                 message = SimpleNamespace(author=SimpleNamespace(id=999), components=[SimpleNamespace(children=[choice, watch])], edit=AsyncMock())
                 client.get_channel = lambda _: SimpleNamespace(fetch_message=AsyncMock(return_value=message))
-                cards.track('333', '100', '111', now=0)
+                cards.track('333', '100', '111', now=time.time()-301)
                 await client.cleanup_cards()
                 self.assertEqual([b.label for b in message.edit.call_args.kwargs['view'].children], ['Watch'])
                 self.assertEqual(cards.pending(1000), [])
