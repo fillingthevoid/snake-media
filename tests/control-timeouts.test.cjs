@@ -6,10 +6,10 @@ const now=Date.parse(actor.requestedAt);
 test('expired download controls reject only after stored ownership is proved',()=>{
  const p=require('../n8n/notification-buttons/policy.js'),r={id:12,source:'discord',destinationId:'333',requestKey:'r',updatedAt:new Date(now).toISOString(),payloadJson:JSON.stringify({userId:'111'})};
  const req={requestKey:'r',source:'discord',userId:'111',state:'registered',title:'Example'};
- a.equal(p.noticeActor({...actor,pendingId:'12',action:'notice_keep'},[r],[req],'c',now+299999).source,'discord');
- const expired=p.noticeActor({...actor,pendingId:'12',action:'notice_keep'},[r],[req],'c',now+300000);
+ a.equal(p.noticeActor({...actor,pendingId:'12',action:'notice_keep'},[r],[req],'c',now+21599999).source,'discord');
+ const expired=p.noticeActor({...actor,pendingId:'12',action:'notice_keep'},[r],[req],'c',now+21600000);
  a.equal(expired.clearControls,true);a.equal(expired.status,'notice');
- a.notEqual(p.noticeActor({...actor,userId:'222',pendingId:'12',action:'notice_keep'},[r],[req],'c',now+300000).clearControls,true);
+ a.notEqual(p.noticeActor({...actor,userId:'222',pendingId:'12',action:'notice_keep'},[r],[req],'c',now+21600000).clearControls,true);
 });
 test('owned request browsing renews five minutes and refuses expired selections',()=>{
  let row={...p.create(actor,[{...actor,state:'registered',requestKey:'r',mediaType:'tv',mediaId:'9',title:'Example'}],now),id:12};

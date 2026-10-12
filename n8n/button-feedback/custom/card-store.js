@@ -15,6 +15,7 @@ function groups(message){
  }
  return [...new Set(values)];
 }
+function lifetime(message){return groups(message).some(g=>g.startsWith('notice:'))?21600000:300000;}
 class CardStore{
  constructor(file){this.file=file;}
  transaction(change){
@@ -48,15 +49,15 @@ class CardStore{
    const existing=s.cards.find(c=>c.chat===chat&&c.id===id);
    if(existing&&existing.owner!==owner)throw Error('Card owner conflict');
    const body={text:typeof message.text==='string'?message.text.slice(0,1800):undefined,caption:typeof message.caption==='string'?message.caption.slice(0,950):undefined};
-   if(!existing)s.cards.push({chat,id,owner,groups:keys,links:links(message.reply_markup.inline_keyboard),...body,createdAt:now,expiresAt:now+300000});
-   else{existing.groups=[...new Set([...existing.groups,...keys])];existing.links=links(message.reply_markup.inline_keyboard);Object.assign(existing,body);existing.expiresAt=now+300000;}
+   if(!existing)s.cards.push({chat,id,owner,groups:keys,links:links(message.reply_markup.inline_keyboard),...body,createdAt:now,expiresAt:now+lifetime(message),fixedDeadline:lifetime(message)===21600000});
+   else{existing.groups=[...new Set([...existing.groups,...keys])];existing.links=links(message.reply_markup.inline_keyboard);Object.assign(existing,body);existing.expiresAt=now+lifetime(message);existing.fixedDeadline=lifetime(message)===21600000;}
    s.jobs=s.jobs.filter(j=>!(j.chat===chat&&j.id===id));
   });
  }
  touch(chat,id,owner,now=Date.now()){
   return this.transaction(s=>{const c=s.cards.find(c=>c.chat===chat&&c.id===id&&c.owner===owner);
    if(!c||(c.expiresAt??c.createdAt+300000)<=now)return false;
-   c.expiresAt=now+300000;return true;
+   if(!c.fixedDeadline)c.expiresAt=now+300000;return true;
   });
  }
  ownedCard(chat,id,owner){return this.transaction(s=>s.cards.concat(s.jobs).find(c=>c.chat===chat&&c.id===id&&c.owner===owner)||null);}
@@ -66,7 +67,7 @@ class CardStore{
   this.transaction(s=>{
    const previous=s.cards.concat(s.jobs).find(c=>c.chat===chat&&c.id===id);if(previous&&previous.owner!==owner)throw Error('Card owner conflict');
    s.cards=s.cards.filter(c=>!(c.chat===chat&&c.id===id));s.jobs=s.jobs.filter(c=>!(c.chat===chat&&c.id===id));
-   if(keys.length||rows.flat().some(b=>typeof b.callback_data==='string'&&b.callback_data.startsWith('snake_menu:')))s.cards.push({chat,id,owner,groups:keys,links:links(rows),text:typeof message.text==='string'?message.text.slice(0,1800):undefined,caption:typeof message.caption==='string'?message.caption.slice(0,950):undefined,createdAt:now,expiresAt:now+300000});
+   if(keys.length||rows.flat().some(b=>typeof b.callback_data==='string'&&b.callback_data.startsWith('snake_menu:')))s.cards.push({chat,id,owner,groups:keys,links:links(rows),text:typeof message.text==='string'?message.text.slice(0,1800):undefined,caption:typeof message.caption==='string'?message.caption.slice(0,950):undefined,createdAt:now,expiresAt:now+lifetime(message),fixedDeadline:lifetime(message)===21600000});
    for(const active of s.activeCards)if(active.chat===chat&&active.id===id&&active.owner===owner)active.photo=Array.isArray(message.photo)&&message.photo.length>0;
   });
  }

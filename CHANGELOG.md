@@ -1,5 +1,10 @@
 # Changelog
 
+## October 11, 2026 — six-hour expiry buttons
+
+- Keep Extend and Keep buttons on download notices and deletion reminders active for six hours on both bots.
+- Remove expired controls while keeping Watch links; other menus and confirmations retain five-minute timeouts.
+
 ## October 11, 2026 — simpler bot responses
 
 - Start server status with a short summary; Details, Back and Refresh update the same post.

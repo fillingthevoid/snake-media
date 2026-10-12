@@ -2,6 +2,7 @@ import logging
 import asyncio
 import time
 import json
+import re
 import aiohttp
 
 import discord
@@ -263,9 +264,11 @@ class SnakeMediaClient(discord.Client):
             return
         if not any(getattr(b, 'custom_id', None) for b in view.children):
             return
+        expiry_notice = any(re.fullmatch(r'snake:[1-9][0-9]{0,15}:notice_(7|30|keep)',
+                            getattr(b, 'custom_id', '') or '') for b in view.children)
         links = [{'label': b.label, 'url': b.url} for b in view.children if getattr(b, 'url', None)]
         try:
-            self.card_registry.track(destination, str(message.id), owner, links=links,
+            self.card_registry.track(destination, str(message.id), owner, links=links, lifetime=21600 if expiry_notice else 300,
                 webhook_id=str(interaction.application_id) if interaction else None,
                 webhook_token=interaction.token if interaction else None)
         except Exception as exc:

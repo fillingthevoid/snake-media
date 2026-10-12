@@ -29,6 +29,8 @@ class CardRegistry:
                                 'PRIMARY KEY(destination_id,message_id))')
         if 'webhook_original' not in {r[1] for r in self.connection.execute('PRAGMA table_info(controls)')}:
             self.connection.execute('ALTER TABLE controls ADD COLUMN webhook_original INTEGER NOT NULL DEFAULT 0')
+        if 'fixed_deadline' not in {r[1] for r in self.connection.execute('PRAGMA table_info(controls)')}:
+            self.connection.execute('ALTER TABLE controls ADD COLUMN fixed_deadline INTEGER NOT NULL DEFAULT 0')
         self.connection.execute('INSERT OR IGNORE INTO controls(destination_id,message_id,owner_id,expires_at,webhook_id,webhook_token,links_json) SELECT destination_id,message_id,owner_id, '
                                 'MIN(created_at)+300,NULL,NULL,\'[]\' FROM cards GROUP BY destination_id,message_id')
         self.connection.commit()
@@ -67,16 +69,18 @@ class CardRegistry:
                                       (destination, message)).fetchone()
         return dict(row) if row else None
 
-    def track(self, destination, message, owner, now=None, links=(), webhook_id=None, webhook_token=None):
+    def track(self, destination, message, owner, now=None, links=(), webhook_id=None, webhook_token=None, lifetime=300):
+        if lifetime not in (300, 21600):
+            raise ValueError('invalid_control_lifetime')
         self.valid('pending:1', destination, message, owner)
         old = self.control(destination, message)
         if old and old['owner_id'] != owner:
             raise ValueError('card_owner_conflict')
         with self.connection:
-            self.connection.execute('INSERT OR REPLACE INTO controls VALUES (?,?,?,?,?,?,?,?)',
-                (destination, message, owner, (time.time() if now is None else now) + 300,
+            self.connection.execute('INSERT OR REPLACE INTO controls VALUES (?,?,?,?,?,?,?,?,?)',
+                (destination, message, owner, (time.time() if now is None else now) + lifetime,
                  webhook_id or (old or {}).get('webhook_id'),
-                 webhook_token or (old or {}).get('webhook_token'), json.dumps(list(links)), (old or {}).get('webhook_original', 0)))
+                 webhook_token or (old or {}).get('webhook_token'), json.dumps(list(links)), (old or {}).get('webhook_original', 0), int(lifetime == 21600)))
             self.connection.execute('DELETE FROM cleanup WHERE destination_id=? AND message_id=?', (destination, message))
 
     def expired(self, destination, message, now=None):
@@ -86,7 +90,7 @@ class CardRegistry:
     def touch(self, destination, message, owner, now=None, webhook_id=None, webhook_token=None):
         now = time.time() if now is None else now
         with self.connection:
-            changed = self.connection.execute('UPDATE controls SET expires_at=? WHERE destination_id=? '
+            changed = self.connection.execute('UPDATE controls SET expires_at=CASE WHEN fixed_deadline=1 THEN expires_at ELSE ? END WHERE destination_id=? '
                 'AND message_id=? AND owner_id=? AND expires_at>?', (now + 300, destination, message, owner, now)).rowcount
             if changed and webhook_token:
                 self.connection.execute('UPDATE controls SET webhook_id=?,webhook_token=?,webhook_original=1 WHERE destination_id=? AND message_id=?',
