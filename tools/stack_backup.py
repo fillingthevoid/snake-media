@@ -31,11 +31,22 @@ def open_readonly_database(source):
             time.sleep(2**attempt)
 
 def snapshot_database(source, target):
-    with closing(open_readonly_database(source)) as live:
-        with closing(sqlite3.connect(target)) as backup:
-            live.backup(backup, pages=512, sleep=0.05)
-            if backup.execute('PRAGMA quick_check').fetchall() != [('ok',)]:
-                raise ValueError('snapshot_integrity_failed')
+    stage = 'source-open'
+    try:
+        with closing(open_readonly_database(source)) as live:
+            stage = 'target-open'
+            with closing(sqlite3.connect(target)) as backup:
+                stage = 'snapshot'
+                live.backup(backup, pages=512, sleep=0.05)
+                stage = 'integrity-check'
+                if backup.execute('PRAGMA quick_check').fetchall() != [('ok',)]:
+                    raise ValueError('snapshot_integrity_failed')
+    except sqlite3.Error as error:
+        code = getattr(error, 'sqlite_errorcode', None)
+        # Raw exception messages can include private paths or values.
+        safe_code = str(code) if type(code) is int else 'unknown'
+        print('SQLite snapshot failed: stage=' + stage + ' code=' + safe_code, flush=True)
+        raise
     os.chmod(target, 0o600)
 
 

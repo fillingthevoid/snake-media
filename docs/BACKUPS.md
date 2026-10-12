@@ -78,3 +78,7 @@ The server configuration can include an explicit `private_files` map of archive 
 6. Start the target application and verify settings, credentials and workflows before enabling automation. Delete temporary decrypted material after recovery.
 
 Never extract onto working appdata or restore a database while its application is running. Public templates cannot replace these private recovery files.
+
+### Failed snapshot diagnostics
+
+SQLite snapshot failures log the operation stage and numeric SQLite error code. Raw exception messages stay private because they can contain paths or other sensitive values. A failed snapshot still stops the backup; these diagnostics do not weaken integrity checks or change source database access.

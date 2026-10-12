@@ -1,4 +1,6 @@
 import importlib.util
+import io
+from contextlib import redirect_stdout
 from contextlib import closing
 import json
 from pathlib import Path
@@ -9,6 +11,37 @@ from unittest.mock import patch
 
 
 class StackBackupTests(unittest.TestCase):
+    def test_snapshot_failure_logs_only_stage_and_numeric_sqlite_code(self):
+        error = sqlite3.OperationalError('private credential must not appear')
+        error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN
+        output = io.StringIO()
+        with patch.object(self.backup.sqlite3, 'connect', side_effect=error), patch.object(self.backup.time, 'sleep'), redirect_stdout(output):
+            with self.assertRaises(sqlite3.OperationalError):
+                self.backup.snapshot_database('/private/source.db', '/private/target.db')
+        self.assertIn('SQLite snapshot failed: stage=source-open code=14', output.getvalue())
+        self.assertNotIn('private credential', output.getvalue())
+        self.assertNotIn('/private', output.getvalue())
+
+    def test_snapshot_failure_identifies_read_step_without_logging_error_text(self):
+        error = sqlite3.OperationalError('secret-path-and-token')
+        error.sqlite_errorcode = sqlite3.SQLITE_READONLY
+        output = io.StringIO()
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / 'source.db'
+            with closing(sqlite3.connect(source)) as db:
+                db.execute('create table sample(value text)')
+                db.commit()
+            class UnavailableReader:
+                def backup(self, *args, **kwargs):
+                    raise error
+                def close(self):
+                    pass
+            with patch.object(self.backup, 'open_readonly_database', return_value=UnavailableReader()), redirect_stdout(output):
+                with self.assertRaises(sqlite3.OperationalError):
+                    self.backup.snapshot_database(source, Path(folder) / 'target.db')
+        self.assertIn('stage=snapshot code=8', output.getvalue())
+        self.assertNotIn('secret-path-and-token', output.getvalue())
+
     def test_readonly_open_retries_only_transient_cantopen_and_stays_bounded(self):
         error=sqlite3.OperationalError('temporary source unavailable')
         error.sqlite_errorcode=sqlite3.SQLITE_CANTOPEN
