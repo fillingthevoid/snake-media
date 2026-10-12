@@ -93,7 +93,7 @@ function changeCard(row){
    choices=g.candidates.slice(g.page*8,g.page*8+8).map((r,i)=>({label:((r.mediaType==='tv'?'TV: ':'Movie: ')+r.title).slice(0,80),action:'rettitle_'+(g.page*8+i)}));
    if(g.page>0)choices.push({label:'Previous',action:'retpage_'+(g.page-1)});
    if((g.page+1)*8<g.candidates.length)choices.push({label:'Next',action:'retpage_'+(g.page+1)});
-  }else{text=g.candidates[g.selected].title+'\nHow much time would you like to add?\nFor a custom duration, send /extend <title> <days> days.';choices=[{label:'Extend by 7 days',action:'retdays_7'},{label:'Extend by 30 days',action:'retdays_30'},{label:'Back',action:'retback'}];}
+  }else{text=g.candidates[g.selected].title+'\nHow much time would you like to add?\nFor a custom duration, send /extend <title> <days> days.';choices=[{label:'Extend 7 days',action:'retdays_7'},{label:'Extend 30 days',action:'retdays_30'},{label:'Back',action:'retback'}];}
   choices.push({label:'Cancel',action:'cancel'});
   return {version:1,status:'confirmation',text,pendingId:String(row.id),choices};
  }

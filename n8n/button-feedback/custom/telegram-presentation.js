@@ -11,7 +11,7 @@ function keyboard(r){
   rows.push([{text:c.label,callback_data:data}]);
  }
  for(const c of menus){
-  if(typeof c.label!=='string'||!c.label||c.label.length>100||!['help','request','expiry','recommend','status','serverstatus','extend','keep'].includes(c.action))throw Error('Invalid Telegram menu');
+  if(typeof c.label!=='string'||!c.label||c.label.length>100||!['help','request','expiry','recommend','status','serverstatus', 'serverdetails','extend','keep'].includes(c.action))throw Error('Invalid Telegram menu');
   rows.push([{text:c.label,callback_data:'snake_menu:'+c.action}]);
  }
  const links=[];

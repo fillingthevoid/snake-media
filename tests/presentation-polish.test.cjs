@@ -20,7 +20,7 @@ test('progress notifications are once per request and do not notify after verifi
  const r={requestKey:'discord:2:3',source:'discord',destinationId:'4',userId:'2',messageId:'3',requestedAt:'2026-10-01T00:00:00Z'};
  const now=Date.parse('2026-10-01T00:20:00Z');
  const result=p.progressNotice(r,{text:'Example\n⬇️ Downloading\n⬇️ 75% · ETA 00:04:00 · WEB-1080p',progressState:'downloading'},[],now);
- a.equal(result.notificationKey,'discord:2:3:progress:downloading');a.match(JSON.parse(result.payloadJson).text,/Download started.*75%/s);
+ a.equal(result.notificationKey,'discord:2:3:progress:downloading');a.match(JSON.parse(result.payloadJson).text,/Downloading.*75%/s);
  a.equal(p.progressNotice(r,{text:'Downloading',progressState:'downloading'},[result],now),null);
  a.equal(p.progressNotice(r,{text:'waiting for a release',progressState:'waiting'},[],now).notificationKey,'discord:2:3:progress:no-release');
  a.equal(p.progressNotice(r,{text:'waiting for a release',progressState:'waiting'},[{requestKey:r.requestKey,notificationKey:r.requestKey+':tv-ready'}],now),null);

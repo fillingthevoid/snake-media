@@ -16,9 +16,9 @@ A lightweight Discord front end for an n8n media-request backend. Discord handle
 - New media requests keep progress and download availability on the original request card. Missing cards use normal message delivery; temporary edit failures retry.
 - `/recommend` on Discord and Telegram: choose Movie or TV and a genre, then browse personal suggestions with posters and Jellyfin availability. Selecting a title uses the existing confirmation flow. See [recommendations](n8n/recommendations/README.md).
 - Recommendation cards offer Change genre and More suggestions; previously shown titles are excluded and generation is limited to five sets per menu. Telegram genres use three columns.
-- `/extend` and `/keep` offer your tracked titles and expiry choices on Discord and Telegram. Extend by 7/30 days shows proposed dates from the latest expiry check before final confirmation; the saved result acknowledges the date. Custom durations remain available through command arguments.
+- `/extend` and `/keep` offer your tracked titles and expiry choices on Discord and Telegram. Extend 7 days / Extend 30 days shows proposed dates from the latest expiry check before final confirmation; the saved result acknowledges the date. Custom durations remain available through command arguments.
 - Title matching handles punctuation, accents and “and”/“&”; ambiguous expiry matches offer title buttons.
-- `/serverstatus` for CPU and memory usage, GPU temperature/video activity, upload speed and average, storage, service availability and Jellyfin sample streaming checks. Requires the optional [host collector and n8n route](n8n/server-health/README.md).
+- `/serverstatus` opens a short health summary on both platforms. Details shows CPU, memory, GPU, LAN/internet upload, storage and service checks; Back and Refresh update the same post. Requires the optional [host collector and n8n route](n8n/server-health/README.md).
 - Owner-only `/authorize user_id`, synchronizing the bot and n8n allowlists through an optional host helper.
 - Discord Gateway reconnects, bounded HTTP requests and friendly errors.
 - Persistent notification receipts to reduce duplicate delivery after restart.

@@ -4,7 +4,7 @@ from pathlib import Path
 
 MENU = json.loads(Path(__file__).with_suffix('.json').read_text(encoding='utf-8'))
 NAVIGATION = frozenset({'help', 'request', 'expiry', 'recommend', 'status',
-                        'serverstatus', 'extend', 'keep'})
+                        'serverstatus', 'serverdetails', 'extend', 'keep'})
 
 
 def menu_text(section):

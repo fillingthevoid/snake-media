@@ -1,5 +1,13 @@
 # Changelog
 
+## October 11, 2026 — simpler bot responses
+
+- Start server status with a short summary; Details, Back and Refresh update the same post.
+- Clarify Finding, Downloading and Available request stages.
+- Use consistent Extend 7 days, Extend 30 days and Keep permanently buttons.
+- Confirm saved expiry changes on the original card without a duplicate reply.
+- Reduce repeated progress notices and avoid showing release-search updates after downloading starts.
+
 ## October 11, 2026 — LAN and internet upload
 
 - Split server status upload into local LAN and internet traffic on both bots.

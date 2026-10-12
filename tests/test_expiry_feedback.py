@@ -68,6 +68,6 @@ class ExpiryFeedbackTests(unittest.IsolatedAsyncioTestCase):
             message=SimpleNamespace(embeds=[],components=rows,edit=AsyncMock()),delete_original_response=AsyncMock())
         i.edit_original_response=i.message.edit
         await client.on_interaction(i)
-        i.followup.send.assert_awaited_once()
-        self.assertIn('Kept permanently',i.followup.send.await_args.kwargs['content'])
+        i.followup.send.assert_not_awaited()
+        self.assertIn('Kept permanently',i.message.edit.await_args.kwargs['content'])
         await client.close()

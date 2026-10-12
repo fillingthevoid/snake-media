@@ -1,5 +1,5 @@
 const SERVICES=['Jellyfin','Radarr','Sonarr','Prowlarr','SABnzbd','qBittorrent','n8n'];
-function command(text){return typeof text==='string'&&/^\/?serverstatus\s*$/i.test(text.trim());}
+function command(text){return typeof text==='string'&&/^\/?(?:serverstatus|serverdetails)\s*$/i.test(text.trim());}
 function report(r,now=Date.now()){
  if(!r||r.version!==1||!Number.isFinite(r.checkedAt)||!r.host||!r.storage||!r.services||!r.playback)return '⚠️ Server health is temporarily unavailable.';
  if(now-r.checkedAt>120000||now<r.checkedAt-5000)return '⚠️ Server health report is out of date. Please try again.';
@@ -39,4 +39,16 @@ function report(r,now=Date.now()){
  lines.push('Client playback and transcoding were not tested.',`Health and GPU checked ${Math.max(0,Math.floor((now-r.checkedAt)/1000))} seconds ago.`);
  return lines.join('\n').slice(0,1800);
 }
-if(typeof module!=='undefined')module.exports={command,report};
+function reply(r,details=false,now=Date.now()){
+ const full=report(r,now),lines=full.split('\n');
+ let text=full;
+ if(!details&&lines.length>1){
+  const issues=lines.filter((l,i)=>i>0&&(/^(?:⚠️|🔴)/.test(l)));
+  const session=lines.find(l=>/active playback session/.test(l));
+  text=[lines[0],...issues,issues.length?'':'Media services are responding.',
+   r.playback.sample==='ok'?'Jellyfin sample stream passed.':'',session||'',
+   'Client playback is not tested. Use Details for readings.'].filter(Boolean).join('\n');
+ }
+ return {version:1,status:'notice',text,menuChoices:[{label:details?'Back':'Details',action:details?'serverstatus':'serverdetails'},{label:'Refresh',action:details?'serverdetails':'serverstatus'}]};
+}
+if(typeof module!=='undefined')module.exports={command,report,reply};

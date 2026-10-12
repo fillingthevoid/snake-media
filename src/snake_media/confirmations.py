@@ -9,7 +9,7 @@ def notification_view(notice_id):
     if not isinstance(notice_id, str) or not re.fullmatch(r'[1-9][0-9]{0,15}', notice_id):
         return None
     view = discord.ui.View(timeout=None)
-    for label, action in [('Extend by 7 days', 'notice_7'), ('Extend by 30 days', 'notice_30'),
+    for label, action in [('Extend 7 days', 'notice_7'), ('Extend 30 days', 'notice_30'),
                           ('Keep permanently', 'notice_keep')]:
         view.add_item(discord.ui.Button(label=label, custom_id=f'snake:{notice_id}:{action}',
                                        style=discord.ButtonStyle.secondary))

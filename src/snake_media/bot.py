@@ -66,7 +66,7 @@ class SnakeMediaClient(discord.Client):
         if section == 'request':
             await self.request_command(interaction)
             return
-        if section in ('recommend', 'status', 'serverstatus', 'extend', 'keep'):
+        if section in ('recommend', 'status', 'serverstatus', 'serverdetails', 'extend', 'keep'):
             await self.read_command(interaction, section)
             return
         await interaction.response.defer(ephemeral=True, thinking=getattr(interaction, 'type', None) != discord.InteractionType.component)
@@ -149,7 +149,13 @@ class SnakeMediaClient(discord.Client):
         await self.read_command(interaction, f'keep {title.strip()} permanently' if title.strip() else 'keep')
 
     async def read_command(self, interaction: discord.Interaction, text: str):
-        await interaction.response.defer(ephemeral=True, thinking=getattr(interaction, 'type', None) != discord.InteractionType.component)
+        component = getattr(interaction, 'type', None) == discord.InteractionType.component and getattr(interaction, 'message', None) is not None
+        if component:
+            owned = self.card_registry.control(str(interaction.channel_id), str(interaction.message.id)) if self.card_registry else None
+            if not owned or owned['owner_id'] != str(interaction.user.id):
+                await interaction.response.send_message('Open your own menu with /serverstatus or /help.', ephemeral=True)
+                return
+        await interaction.response.defer(ephemeral=True, thinking=not component)
         incoming = IncomingMessage(text=f'<@{self.user.id}> {text}',
             user_id=str(interaction.user.id), username=interaction.user.name,
             channel_id=str(interaction.channel_id),
@@ -159,13 +165,19 @@ class SnakeMediaClient(discord.Client):
         reply = await self.service.handle(incoming, str(self.user.id))
         options = presentation(reply or 'Use Snake Media in an authorized server channel.')
         try:
+            if component:
+                options.setdefault('view', None)
+                sent = await interaction.edit_original_response(**options)
+                self.remember_card(reply, sent or interaction.message, str(interaction.user.id), str(interaction.channel_id), interaction)
+                return
             sent = await interaction.followup.send(ephemeral=True, wait=True, **options)
         except discord.Forbidden:
             if not options['embed']:
                 raise
             options.update(content=bounded_content(reply), embed=None)
-            sent = await interaction.followup.send(ephemeral=True, wait=True, **options)
-        self.remember_card(reply, sent, str(interaction.user.id), str(interaction.channel_id), interaction)
+            sent = (await interaction.edit_original_response(**options) if component else
+                    await interaction.followup.send(ephemeral=True, wait=True, **options))
+        self.remember_card(reply, sent or getattr(interaction, 'message', None), str(interaction.user.id), str(interaction.channel_id), interaction)
 
     async def setup_hook(self):
         if self.card_registry is not None:
@@ -416,7 +428,7 @@ class SnakeMediaClient(discord.Client):
                     if self.card_registry is not None and not getattr(reply, 'choices', None):
                         self.card_registry.finish(str(interaction.channel_id), str(interaction.message.id))
                     if (match[2].startswith(('notice_', 'ret'))
-                            or getattr(reply, 'retention_updated', False)):
+                            and not getattr(reply, 'retention_updated', False)):
                         await interaction.followup.send(ephemeral=True, **presentation(str(reply)))
                         return
                     return
@@ -442,7 +454,7 @@ class SnakeMediaClient(discord.Client):
                     incoming.channel_id, message.guild.id if message.guild else None) and not incoming.is_bot:
                 self.wake_notifications()
             if response is not None:
-                if (getattr(response, 'choices', None) or getattr(response, 'jellyfin_url', None)
+                if (getattr(response, 'choices', None) or getattr(response, 'menu_choices', None) or getattr(response, 'jellyfin_url', None)
                         or getattr(response, 'notice_id', None) or getattr(response, 'local_jellyfin_url', None)
                         or discord_length(response) > 2000):
                     options = presentation(response)

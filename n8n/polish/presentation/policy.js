@@ -27,28 +27,29 @@ function completion(c,records,item,media){
  return {posterUrl:poster(media),...jellyfinLinks(item,'http://192.168.1.10:8096',LOCAL_JELLYFIN_BASE),expiryText,quality:c.quality};
 }
 function feedback(r){
- if(r.status==='added')return '✅ Request accepted: '+r.title+'\n'+(r.searchStarted?'🔎 Search started. Checking for an acceptable release; use /status for download updates.':'Search has not been confirmed; use /status for updates.');
+ if(r.status==='added')return '✅ Request accepted: '+r.title+'\n'+(r.searchStarted?'🔎 Finding — Search started. Checking for an acceptable release; use /status for download updates.':'Search has not been confirmed; use /status for updates.');
  if(r.status==='already_added')return '✅ '+r.title+' is already registered. Use /status to see availability, download progress and expiry.';
  if(r.status==='notice'&&r.actionAccepted===true&&/\bSearch started\b/i.test(r.text||''))return '✅ Request accepted.\n'+r.text+'\nUse /status for download quality, progress and expiry.';
  return r.text;
 }
 function progressNotice(r,snapshot,notices,now){
  if(!r.requestKey||r.userId==='1'||!['discord','telegram'].includes(r.source)||!Number.isFinite(Date.parse(r.requestedAt)))return null;
- const own=notices.filter(n=>n.requestKey===r.requestKey);
- if(own.some(n=>!n.notificationKey.includes(':progress:')))return null;
+ const own=notices.filter(n=>n.requestKey===r.requestKey||(()=>{try{const p=JSON.parse(n.payloadJson);return ['pending','delivered'].includes(n.state)&&Date.parse(n.createdAt||n.nextAttemptAt)>=Date.parse(r.requestedAt)-10*60000&&n.source===r.source&&String(n.destinationId)===String(r.destinationId)&&p.userId===r.userId&&p.mediaType===r.mediaType&&String(p.mediaId)===String(r.mediaId)&&String(n.notificationKey).includes(':progress:');}catch{return false;}})());
+ if(own.some(n=>!n.notificationKey.includes(':progress:')&&!n.notificationKey.includes(':expiry:')))return null;
  const text=String(snapshot.text||'');
  const downloading=snapshot.progressState==='downloading';
  const waiting=snapshot.progressState==='waiting'&&now-Date.parse(r.requestedAt)>=10*60000;
  if(!downloading&&!waiting)return null;
+ if(waiting&&own.some(n=>String(n.notificationKey).endsWith(':progress:downloading')))return null;
  const state=downloading?'downloading':'no-release',notificationKey=r.requestKey+':progress:'+state;
- if(own.some(n=>n.notificationKey===notificationKey))return null;
- const label=downloading?'⬇️ Download started.':'🔎 No acceptable release is downloading yet. Snake Media will continue looking.';
- const payload={text:(label+'\n\n'+text).slice(0,1800),userId:r.userId,messageId:r.messageId,retentionControls:false};
+ if(own.some(n=>String(n.notificationKey).endsWith(':progress:'+state)))return null;
+ const label=downloading?'⬇️ Downloading — download started.':'🔎 Finding — no acceptable release is downloading yet. Snake Media will continue looking.';
+ const payload={text:(label+'\n\n'+text).slice(0,1800),userId:r.userId,messageId:r.messageId,mediaType:r.mediaType,mediaId:String(r.mediaId),retentionControls:false};
  return {notificationKey,requestKey:r.requestKey,fileKey:'progress:'+state,source:r.source,destinationId:r.destinationId,payloadJson:JSON.stringify(payload),state:'pending',attempts:0,nextAttemptAt:new Date(now).toISOString(),deliveredAt:null,deliveredMessageId:''};
 }
 function completionExists(c,notices){
  const key=c.request.requestKey+':'+(c.mediaType==='tv'?'tv-ready':c.fileKey);
- return notices.some(r=>r.notificationKey===key || (c.mediaType==='tv'&&r.requestKey===c.request.requestKey&&r.state==='delivered'&&!String(r.notificationKey).includes(':progress:')));
+ return notices.some(r=>r.notificationKey===key || (c.mediaType==='tv'&&r.requestKey===c.request.requestKey&&r.state==='delivered'&&!String(r.notificationKey).includes(':progress:')&&!String(r.notificationKey).includes(':expiry:')));
 }
 function scopedQueue(requests,episodes,queue,records=[]){
  const r=requests[0];

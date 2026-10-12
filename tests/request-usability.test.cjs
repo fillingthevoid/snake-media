@@ -57,7 +57,7 @@ test('retention confirmation previews dates from fresh scoped records and Back r
  row={...row,...r.guideAction(row,actor('retdays_7'),now)};
  const card=r.changeCard(row);assert.match(card.text,/Nov 8, 2026/);assert.ok(card.choices.some(c=>c.action==='retback'));
  const back=r.guideAction(row,actor('retback'),now);assert.equal(JSON.parse(back.contextJson).retentionGuide.days,undefined);
- assert.match(r.changeCard({...row,...back}).choices[0].label,/Extend by 7 days/);
+ assert.match(r.changeCard({...row,...back}).choices[0].label,/Extend 7 days/);
 });
 test('recommendation Back restores type or genre without generating or downloading',()=>{
  const r=require('../n8n/recommendations/policy.js'),a={...actor(''),messageId:'444',requestedAt:new Date(now).toISOString()};
