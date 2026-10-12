@@ -49,16 +49,32 @@ function availability(media,type,pages,episodes){
  const available=files.some(i=>typeof i?.Path==='string'&&/^\/data\/(movies|tv)\//.test(i.Path)&&i.IsVirtual!==true);
  return {available,...(available?{itemId:item.Id}:{})};
 }
-function record(actor,now){
+function savedPreference(rows,actor){
+ const key='recommend-settings:'+actor.source+':'+actor.userId;
+ const matching=Array.isArray(rows)?rows.filter(r=>r.source===actor.source&&r.userId===actor.userId&&r.state==='recommendation-settings'&&r.requestKey===key).sort((a,b)=>Number(b.id)-Number(a.id)):[];
+ try{const p=JSON.parse(matching[0]?.contextJson||'{}').recommendationPreference;
+  return ['movie','tv'].includes(p?.type)&&GENRES.some(g=>g[0]===p.genre)?{type:p.type,genre:p.genre}:null;
+ }catch{return null;}
+}
+function preferenceRecord(row){
+ const r=JSON.parse(row.contextJson).recommendation;
+ if(!actorValid(row)||row.state!=='processing'||!row.claimId||!['movie','tv'].includes(r?.type)||!GENRES.some(g=>g[0]===r.genre))throw Error('Invalid recommendation preference');
+ return {source:row.source,userId:row.userId,destinationId:row.destinationId,requestKey:'recommend-settings:'+row.source+':'+row.userId,state:'recommendation-settings',contextJson:JSON.stringify({recommendationPreference:{type:r.type,genre:r.genre}}),mediaType:r.type,mediaJson:'{}',claimId:'',choice:'',expiresAt:'2099-01-01T00:00:00.000Z'};
+}
+function record(actor,now,settings=[]){
  if(!actorValid(actor)||!/^\d+$/.test(actor.messageId)||!Number.isFinite(Date.parse(actor.requestedAt)))throw Error('Missing recommendation context');
+ const pref=savedPreference(settings,actor);
  const context={source:actor.source,userId:actor.userId,destinationId:actor.destinationId,messageId:actor.messageId,requestedAt:actor.requestedAt,text:'recommend',recommendation:{stage:'type',type:null,genre:null,items:[],cursor:0}};
- return {source:actor.source,userId:actor.userId,destinationId:actor.destinationId,requestKey:['recommend',actor.source,actor.destinationId,actor.messageId].join(':'),contextJson:JSON.stringify(context),mediaType:'movie',mediaJson:'{}',state:'preview',claimId:'',choice:'',expiresAt:new Date(now+300000).toISOString()};
+ if(pref)Object.assign(context.recommendation,{stage:'saved',...pref});
+ return {source:actor.source,userId:actor.userId,destinationId:actor.destinationId,requestKey:['recommend',actor.source,actor.destinationId,actor.messageId].join(':'),contextJson:JSON.stringify(context),mediaType:pref?.type||'movie',mediaJson:'{}',state:'preview',claimId:'',choice:'',expiresAt:new Date(now+300000).toISOString()};
 }
 function transition(row,actor,now,claimId){
  if(!actorValid(actor)||!row||['source','userId','destinationId'].some(k=>row[k]!==actor[k])||!RECACTION.test(actor.action)||row.state!=='preview'||!Number.isFinite(Date.parse(row.expiresAt))||Date.parse(row.expiresAt)<=now)throw Error('Stale or unauthorized recommendation');
  const ctx=JSON.parse(row.contextJson),rec=ctx.recommendation;if(!rec)throw Error('Not a recommendation');
  const next={...row,claimId,expiresAt:new Date(now+300000).toISOString()},a=actor.action;let generate=false,preview=null;
  if(a==='rec_cancel')next.state='cancelled';
+ else if(rec.stage==='saved'&&a==='rec_change'){rec.stage='type';rec.type=null;rec.genre=null;}
+ else if(rec.stage==='saved'&&a==='rec_more'){rec.generations=1;rec.stage='generating';next.state='processing';generate=true;}
  else if(a==='rec_back'&&['genre','results'].includes(rec.stage)){rec.stage=rec.stage==='genre'?'type':'genre';rec.items=[];rec.cursor=0;}
  else if(rec.stage==='type'&&['rec_movie','rec_tv'].includes(a)){rec.type=a.slice(4);rec.stage='genre';next.mediaType=rec.type;}
  else if(rec.stage==='genre'&&/^rec_genre_/.test(a)){
@@ -100,10 +116,11 @@ function card(row,now=Date.now(),remoteBase='',localBase=''){
  if(row.state!=='preview'||Date.parse(row.expiresAt)<=now)return notice('These suggestions expired or were already selected. Use /recommend again.');
  const ctx=JSON.parse(row.contextJson),r=ctx.recommendation;if(!r)return notice('Use /recommend to start a new recommendation.');
  const out={version:1,status:'confirmation',pendingId:String(row.id),text:'',choices:[]};
- if(r.stage==='type'){out.text='What would you like to watch?';out.choices=[{label:'Movie',action:'rec_movie'},{label:'TV show',action:'rec_tv'}];}
- else if(r.stage==='genre'){out.text=(r.type==='movie'?'Movies':'TV shows')+' — choose a genre.';if((r.generations||0)>=5)out.text='This menu reached its suggestion limit. Use /recommend to start again.';else {if(r.items?.length===0&&r.historyCount!==undefined)out.text+='\nNo verified suggestions matched. Try another genre.';out.choices=GENRES.map(([_,label],i)=>({label,action:'rec_genre_'+i}));}}
+ if(r.stage==='saved'){out.text=(r.type==='movie'?'Movies':'TV shows')+' — '+GENRES.find(g=>g[0]===r.genre)[1]+'\nUse your last choices or change them.';out.choices=[{label:'Find suggestions',action:'rec_more'},{label:'Change preferences',action:'rec_change'}];}
+ else if(r.stage==='type'){out.text='What would you like to watch?';out.choices=[{label:'Movie',action:'rec_movie'},{label:'TV show',action:'rec_tv'}];}
+ else if(r.stage==='genre'){out.text=(r.type==='movie'?'Movies':'TV shows')+' â€” choose a genre.';if((r.generations||0)>=5)out.text='This menu reached its suggestion limit. Use /recommend to start again.';else {if(r.items?.length===0&&r.historyCount!==undefined)out.text+='\nNo verified suggestions matched. Try another genre.';out.choices=GENRES.map(([_,label],i)=>({label,action:'rec_genre_'+i}));}}
  else if(r.stage==='results'){
-  const item=r.items[r.cursor],m=item.media;out.text=`${r.type==='movie'?'🎬':'📺'} ${m.title} (${m.year})\nSuggestion ${r.cursor+1} of ${r.items.length}\n\n${item.reason}\n\n${item.available===true?(r.type==='tv'?'Available in Jellyfin (some episodes).':'Available in Jellyfin.'):item.available===false?'Needs downloading.':'Jellyfin availability could not be checked.'}\n${r.historyCount?'Based on your requests.':'Genre-based suggestion; no request history yet.'}`;
+  const item=r.items[r.cursor],m=item.media;out.text=`${r.type==='movie'?'ðŸŽ¬':'ðŸ“º'} ${m.title} (${m.year})\nSuggestion ${r.cursor+1} of ${r.items.length}\n\n${item.reason}\n\n${item.available===true?(r.type==='tv'?'Available in Jellyfin (some episodes).':'Available in Jellyfin.'):item.available===false?'Needs downloading.':'Jellyfin availability could not be checked.'}\n${r.historyCount?'Based on your requests.':'Genre-based suggestion; no request history yet.'}`;
   const poster=m.images?.find(x=>x.coverType==='poster'),url=poster?.remoteUrl||poster?.url;if(typeof url==='string'&&/^https:\/\/(image\.tmdb\.org|artworks\.thetvdb\.com)\/[A-Za-z0-9_./%~-]+$/.test(url))out.posterUrl=url;
   if(item.available&&item.itemId&&remoteBase){const suffix='/web/index.html#!/details?id='+encodeURIComponent(item.itemId);out.jellyfinUrl=remoteBase+suffix;if(localBase&&localBase!==remoteBase)out.localJellyfinUrl=localBase+suffix;}
   out.choices=[{label:r.type==='tv'?'Choose seasons':'Choose this movie',action:'rec_choose'}];if(r.items.length>1)out.choices.push({label:'Previous',action:'rec_previous'},{label:'Next',action:'rec_next'});

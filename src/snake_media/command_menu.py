@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 MENU = json.loads(Path(__file__).with_suffix('.json').read_text(encoding='utf-8'))
-NAVIGATION = frozenset({'help', 'request', 'expiry', 'recommend', 'status',
+NAVIGATION = frozenset({'help', 'more', 'request', 'expiry', 'recommend', 'status',
                         'serverstatus', 'serverdetails', 'extend', 'keep'})
 
 

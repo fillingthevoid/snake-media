@@ -1,13 +1,13 @@
 {
   "help": {
-    "text": "Snake Media\n\nChoose Request to enter a title, Recommend to find something to watch, or My requests to check progress and change expiry.\n\nMenus expire after 5 minutes of inactivity. Use /help to reopen.\n\nCommands: /request, /recommend, /status, /serverstatus.",
+    "text": "Snake Media\n\nRequest a movie or show, find recommendations, or check My requests.\n\n/request \u00b7 /recommend \u00b7 /status \u00b7 /serverstatus\n\nMenus close after 5 minutes of inactivity. Use /help to reopen.",
     "choices": [
       {
-        "label": "Request",
+        "label": "Request media",
         "action": "request"
       },
       {
-        "label": "Recommend",
+        "label": "Recommendations",
         "action": "recommend"
       },
       {
@@ -15,12 +15,12 @@
         "action": "status"
       },
       {
-        "label": "Seasons & expiry",
-        "action": "expiry"
-      },
-      {
         "label": "Server status",
         "action": "serverstatus"
+      },
+      {
+        "label": "More",
+        "action": "more"
       }
     ]
   },
@@ -58,6 +58,27 @@
       },
       {
         "label": "Help",
+        "action": "help"
+      }
+    ]
+  },
+  "more": {
+    "text": "More options\n\nUse My requests to change expiry for a title. Choose Seasons & expiry for download and deletion rules.",
+    "choices": [
+      {
+        "label": "Seasons & expiry",
+        "action": "expiry"
+      },
+      {
+        "label": "Extend expiry",
+        "action": "extend"
+      },
+      {
+        "label": "Keep forever",
+        "action": "keep"
+      },
+      {
+        "label": "Back to Help",
         "action": "help"
       }
     ]

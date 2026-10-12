@@ -13,7 +13,7 @@ class CommandMenu(unittest.TestCase):
         self.assertIn('30 days', menu_text('expiry'))
         self.assertIn('never extends', menu_text('expiry'))
         self.assertEqual([c['label'] for c in menu_choices('help')][:3],
-                         ['Request', 'Recommend', 'My requests'])
+                         ['Request media', 'Recommendations', 'My requests'])
 
     def test_unknown_navigation_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -27,7 +27,7 @@ class MenuNavigation(unittest.IsolatedAsyncioTestCase):
             owner, _ = interaction()
             await bot.help_command(owner)
             buttons = owner.followup.send.call_args.kwargs['view'].children
-            self.assertEqual([b.label for b in buttons][:3], ['Request', 'Recommend', 'My requests'])
+            self.assertEqual([b.label for b in buttons][:3], ['Request media', 'Recommendations', 'My requests'])
             denied, _ = interaction(999)
             await bot.menu_command(denied, 'recommend')
             backend.submit.assert_not_awaited()

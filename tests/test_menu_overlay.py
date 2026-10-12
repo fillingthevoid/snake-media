@@ -44,4 +44,4 @@ class MenuOverlay(unittest.TestCase):
         run=subprocess.run(['node','-e',script],input=json.dumps(help_body),capture_output=True,text=True)
         self.assertEqual(run.returncode,0,run.stderr)
         r=json.loads(run.stdout);self.assertLess(len(r['commandReply']),350)
-        self.assertEqual([c['label'] for c in r['menuChoices']][:3],['Request','Recommend','My requests'])
+        self.assertEqual([c['label'] for c in r['menuChoices']][:3],['Request media','Recommendations','My requests'])

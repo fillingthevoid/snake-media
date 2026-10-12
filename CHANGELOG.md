@@ -84,3 +84,8 @@
 Telegram poster confirmation controls can remain visible after use. Backend
 authorization and action validity checks still apply. Workflow templates require
 private setup before use; see the backend guide.
+
+## October 12, 2026 — Help and recommendation defaults
+
+- Shorter Help menu on Discord and Telegram, with expiry and season guidance under More.
+- Recommendations remember your last Movie/TV and genre choices, with an easy option to change them.

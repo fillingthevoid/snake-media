@@ -5,7 +5,7 @@ function prepare(u,botUsername){
  const d=q?.data?.match(/^snake:([1-9][0-9]{0,15}):([a-z_0-9]+)$/);
  const p={text:q?'confirmation':m.text||'',chatId:m.chat.id,userId:(q?.from||m.from).id,messageId:String(m.message_id),requestedAt:new Date(m.date*1000).toISOString(),action:d?.[2],pendingId:d?.[1],callbackId:q?.id};
  if(q){
-  const nav=q.data?.match(/^snake_menu:(help|request|expiry|recommend|status|serverstatus|serverdetails|extend|keep)$/);
+  const nav=q.data?.match(/^snake_menu:(help|more|request|expiry|recommend|status|serverstatus|serverdetails|extend|keep)$/);
   if(nav){const name=nav[1];p.text='/'+name;p.messageId=/^[0-9]+$/.test(String(q.id))?String(q.id):p.messageId;p.requestedAt=new Date().toISOString();if(name==='request'){p.requestPrompt=true;p.commandReply='What would you like to watch?';}else if(menus[name]){p.commandReply=menus[name].text;p.menuChoices=menus[name].choices;}}
   return [{json:p}];
  }

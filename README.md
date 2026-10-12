@@ -169,3 +169,5 @@ On PowerShell, use `$env:PYTHONPATH='src'` before running Python tests. Tests us
   dependencies and native table IDs before import.
 
 Licensed under [MIT](LICENSE). Dependency licenses remain with their respective projects.
+
+Help shows the four main tasks and a More menu for season and expiry guidance. Recommendations remember your last media type and genre separately for each platform; Find suggestions reuses them, and Change preferences opens the pickers. Opening the menu does not generate suggestions or add media.
