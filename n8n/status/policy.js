@@ -4,7 +4,7 @@ function select(rows,actor){
  if(!['discord','telegram'].includes(actor.source)||typeof actor.userId!=='string'||!/^\d+$/.test(actor.userId))throw new Error('Invalid status actor');
  const query=String(actor.query||'').toLowerCase();const groups=new Map();
  for(const r of [...rows].sort((a,b)=>Date.parse(b.requestedAt)-Date.parse(a.requestedAt))){
-  if(r.source!==actor.source||r.userId!==actor.userId||r.userId==='1'||r.state!=='registered'||!r.requestKey||!['movie','tv'].includes(r.mediaType)||!/^\d+$/.test(String(r.mediaId))||!String(r.title).toLowerCase().includes(query))continue;
+  if(r.source!==actor.source||r.userId!==actor.userId||r.userId==='1'||r.state!=='registered'||!r.requestKey||(actor.requestKey&&r.requestKey!==actor.requestKey)||!['movie','tv'].includes(r.mediaType)||!/^\d+$/.test(String(r.mediaId))||!String(r.title).toLowerCase().includes(query))continue;
   const key=r.mediaType+':'+r.mediaId;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);
  }
  const values=[...groups.values()];
@@ -15,7 +15,7 @@ function select(rows,actor){
 function dateLabel(stamp){return new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(stamp));}
 function describe({requests,records,media,episodes,queue,library,now},projection=false){
  const r=requests[0],title=String(r.title).replace(/[\r\n]/g,' ').slice(0,100),header=(r.mediaType==='movie'?'🎬 ':'📺 ')+title;
- if(!media||media.id!==Number(r.mediaId)){const text=header+'\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');return projection?{text,summaryText:text,retentionActions:{canExtend:false,canKeep:false,permanent:false}}:text;}
+ if(!media||media.id!==Number(r.mediaId)){const text=header+'\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');return projection?{text,summaryText:text,availability:null,retentionActions:{canExtend:false,canKeep:false,permanent:false}}:text;}
  const saved=new Map(records.filter(x=>x.key).map(x=>[x.key,JSON.parse(x.payloadJson)]));
  const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]').map(String)));
  for(const request of requests){const profile=saved.get('request:'+request.requestKey);if(profile)for(const id of profile.episodeIds||[])ids.add(String(id));}
@@ -60,7 +60,7 @@ function describe({requests,records,media,episodes,queue,library,now},projection
  if(!counts.available)summary.push(next);
  if(Number.isFinite(oldest)&&now-oldest>30*60000)summary.push('Expiry reading is stale; refresh after the next check.');
  if(deferred)summary.push('Cleanup deferred for active playback.');
- return {text,summaryText:summary.filter(Boolean).join('\n'),retentionActions:{permanent,canExtend:!permanent&&eligible>0,canKeep:!permanent}};
+ return {text,availability:{...counts,total:items.length},summaryText:summary.filter(Boolean).join('\n'),retentionActions:{permanent,canExtend:!permanent&&eligible>0,canKeep:!permanent}};
 
 }
 if(typeof module!=='undefined')module.exports={command,select,describe};

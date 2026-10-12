@@ -1,5 +1,12 @@
 # Changelog
 
+## October 12, 2026 — faster TV requests and clearer repeats
+
+- Select seasons directly from the first series poster, alongside Latest and All.
+- Keep multi-season selection and one final confirmation before downloading.
+- Explain whether repeated requests are ready to watch, downloading or searching again.
+- Add Watch links when Jellyfin confirms availability; label partially available seasons clearly.
+
 ## October 11, 2026 — fewer taps in My requests
 
 - Put Extend 7 days and Extend 30 days directly on selected titles.

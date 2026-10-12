@@ -54,7 +54,7 @@ test('requesting a previously expired movie restores monitoring before its searc
 
 test('available movies keep existing monitoring and skip both mutation and search',()=>{
  const r=requestMovie({available:true});assert.ifError(r.error);assert.equal(r.movie.monitored,false);
- assert.deepEqual(r.calls,[]);assert.match(r.reply.text,/Already available/);
+ assert.deepEqual(r.calls,[]);assert.match(r.reply.text,/Already imported/);
 });
 
 test('failed or mismatched monitoring verification cannot authorize a movie search',()=>{
