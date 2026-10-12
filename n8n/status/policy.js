@@ -13,9 +13,9 @@ function select(rows,actor){
  return values.slice(0,3).map(requests=>({requests}));
 }
 function dateLabel(stamp){return new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(stamp));}
-function describe({requests,records,media,episodes,queue,library,now}){
+function describe({requests,records,media,episodes,queue,library,now},projection=false){
  const r=requests[0],title=String(r.title).replace(/[\r\n]/g,' ').slice(0,100),header=(r.mediaType==='movie'?'🎬 ':'📺 ')+title;
- if(!media||media.id!==Number(r.mediaId))return header+'\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');
+ if(!media||media.id!==Number(r.mediaId)){const text=header+'\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');return projection?{text,summaryText:text,retentionActions:{canExtend:false,canKeep:false,permanent:false}}:text;}
  const saved=new Map(records.filter(x=>x.key).map(x=>[x.key,JSON.parse(x.payloadJson)]));
  const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]').map(String)));
  for(const request of requests){const profile=saved.get('request:'+request.requestKey);if(profile)for(const id of profile.episodeIds||[])ids.add(String(id));}
@@ -32,7 +32,7 @@ function describe({requests,records,media,episodes,queue,library,now}){
  let status;
  if(r.mediaType==='movie')status=counts.available?'✅ Available in Jellyfin':counts.imported?'📥 Imported; waiting for Jellyfin':counts.downloading?'⬇️ Downloading':counts.queued?'⏳ In download queue / awaiting import':counts.unreleased?'📅 Awaiting release':'🔎 Finding — waiting for a release';
  else {const labels={available:'available in Jellyfin',imported:'imported; waiting for Jellyfin',downloading:'downloading',queued:'queued / awaiting import',unreleased:'awaiting release',waiting:'waiting for a release',removed:'previously expired'};status=Object.entries(counts).filter(([,v])=>v).map(([k,v])=>v+' '+labels[k]).join(' · ')||'Episode metadata pending';}
- let protectedCount=0,pending=0,earliest=null,oldest=Infinity,deferred=0;
+ let protectedCount=0,pending=0,earliest=null,oldest=Infinity,deferred=0,eligible=0;
  for(const file of files.values()){
   const v=saved.get(`file:${r.mediaType}:${r.mediaId}:${file.id}`);
   if(!v||v.state!=='tracked'||v.path!==file.path||Date.parse(v.importedAt)!==Date.parse(file.dateAdded)||!Number.isFinite(Date.parse(v.checkedAt))){pending++;continue;}
@@ -40,6 +40,7 @@ function describe({requests,records,media,episodes,queue,library,now}){
   if(v.identityProtected||!v.expiresAt||v.reason==='protected claim'||v.reason==='unclaimed'||v.reason==='unclaimed episode in shared file'){protectedCount++;continue;}
   if(!Number.isFinite(Date.parse(v.expiresAt))){pending++;continue;}
   earliest=Math.min(earliest??Infinity,Date.parse(v.expiresAt));
+  if(Date.parse(v.checkedAt)>=now-30*60000&&Date.parse(v.checkedAt)<=now+60000)eligible++;
   if(v.reason==='currently playing or unresolved active session')deferred++;
  }
  const next=counts.available?'Watch now in Jellyfin.':counts.downloading?'No action needed — download in progress.':counts.queued||counts.imported?'No action needed — waiting for download or import to finish.':counts.waiting||counts.unreleased?'No action needed — monitored for an available release.':counts.removed?'Use /request if you want to download it again.':'Episode details are pending. Try Refresh in a moment.';
@@ -52,6 +53,14 @@ function describe({requests,records,media,episodes,queue,library,now}){
  if(Number.isFinite(oldest))lines.push('Retention checked '+dateLabel(oldest)+(now-oldest>30*60000?' — stale; dates may change.':'.'));
  if(deferred)lines.push('Cleanup deferred for active playback.');
  if(r.mediaType==='tv'&&requests.some(x=>saved.has('request:'+x.requestKey)))lines.push('Future regular seasons monitored.');
- return lines.join('\n');
+ const text=lines.join('\n');if(!projection)return text;
+ const permanent=requests.every(x=>x.retentionDays===null||[...saved.entries()].some(([key,e])=>key.startsWith('change:')&&e.version===1&&e.operation==='permanent'&&e.source===x.source&&e.userId===x.userId&&e.mediaType===x.mediaType&&String(e.mediaId)===String(x.mediaId)&&e.requestKeys?.includes(x.requestKey)));
+ const expiry=permanent?'Kept permanently — no automatic deletion.':earliest!==null?(r.mediaType==='tv'?'Next episode expiry: ':'Expiry: ')+dateLabel(earliest)+(earliest<=now?' (due; cleanup pending)':''):protectedCount&&!pending?'No automatic deletion currently — protected files.':!files.size?lines.find(l=>/^(Expiry starts|Permanent\/protected)/.test(l)):'Expiry check pending.';
+ const summary=[header,stage||status,expiry];
+ if(!counts.available)summary.push(next);
+ if(Number.isFinite(oldest)&&now-oldest>30*60000)summary.push('Expiry reading is stale; refresh after the next check.');
+ if(deferred)summary.push('Cleanup deferred for active playback.');
+ return {text,summaryText:summary.filter(Boolean).join('\n'),retentionActions:{permanent,canExtend:!permanent&&eligible>0,canKeep:!permanent}};
+
 }
 if(typeof module!=='undefined')module.exports={command,select,describe};

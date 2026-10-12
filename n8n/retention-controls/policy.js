@@ -31,6 +31,7 @@ function prepareChange(actor,rows,records=[],now=Date.now()){
   candidates.sort((a,b)=>a.title.localeCompare(b.title)||a.mediaId.localeCompare(b.mediaId));
   if(actor.mediaId&&candidates.length===1){
    if(parsed.operation==='permanent')return {change:{...candidates[0],operation:'permanent'}};
+   if(parsed.days)return {change:{...candidates[0],operation:'extend',days:parsed.days}};
    return {guide:{operation:'extend',candidates,page:0,selected:0}};
   }
   return {guide:{operation:parsed.operation,...(parsed.days?{days:parsed.days}:{}),candidates,page:0}};
@@ -98,7 +99,12 @@ function changeCard(row){
   return {version:1,status:'confirmation',text,pendingId:String(row.id),choices};
  }
  const text=(c.mediaType==='tv'?'📺 ':'🎬 ')+c.title+'\n\n'+(c.operation==='permanent'?'Keep your requests for this title permanently, including future episodes attached to them?':`Extend by ${c.days} days?\n`+usabilityEvidence.expiryPreview(c,c.expiryFiles,Date.now())+'\nWatching cannot shorten this extension. Upcoming episodes keep their existing retention.')+'\n\nNo media will be re-downloaded.';
- const choices=[{label:'Confirm',action:'confirm'}];if(ctx.retentionReturn||c.requestKeys?.length)choices.push({label:'Back',action:'retback'});choices.push({label:'Cancel',action:'cancel'});
+ let label=c.operation==='permanent'?'Keep permanently':`Extend ${c.days} days`;
+ if(c.operation==='extend'){
+  const now=Date.now(),files=(c.expiryFiles||[]).filter(f=>!f.identityProtected&&Number.isFinite(Date.parse(f.expiresAt))&&Date.parse(f.checkedAt)>=now-30*60000&&Date.parse(f.checkedAt)<=now+60000);
+  if(files.length){const date=Math.min(...files.map(f=>Math.max(now,Date.parse(f.expiresAt))+c.days*86400000));label='Extend '+(files.length>1?'earliest ':'')+'to '+new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric'}).format(date);}
+ }
+ const choices=[{label,action:'confirm'}];if(ctx.retentionReturn||c.requestKeys?.length)choices.push({label:'Back',action:'retback'});choices.push({label:'Cancel',action:'cancel'});
  return {version:1,status:'confirmation',text,pendingId:String(row.id),choices};
 }
 if(typeof module!=='undefined')module.exports={parseChange,prepareChange,planChange,changeCard,guideAction,titleKey};

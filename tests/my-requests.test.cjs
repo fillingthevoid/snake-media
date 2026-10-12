@@ -15,7 +15,7 @@ test('selection reads exact media identity and expiry actions still enter confir
  let row={...p.create(actor,rows,now),id:7};
  const pick=p.advance(row,{...actor,action:'mr_title_1'},now,'a');row=pick.record;
  assert.equal(pick.statusActor.mediaId,'11');assert.equal(pick.statusActor.mediaType,'tv');
- assert.deepEqual(p.card(row,now,{version:1,status:'notice',text:'Available',jellyfinUrl:'http://media/web/index.html#!/details?id=abc'}).choices.slice(0,3).map(c=>c.action),['mr_refresh','mr_extend','mr_keep']);
+ assert.deepEqual(p.card(row,now,{version:1,status:'notice',text:'Available',retentionActions:{canExtend:true,canKeep:true},jellyfinUrl:'http://media/web/index.html#!/details?id=abc'}).choices.slice(0,4).map(c=>c.action),['mr_details','mr_refresh','mr_extend_7','mr_extend_30']);
  const keep=p.advance(row,{...actor,action:'mr_keep'},now,'b');assert.equal(keep.changeActor.text,'keep');assert.equal(keep.changeActor.mediaId,'11');assert.equal(keep.record.state,'preview');
  const second=p.advance(keep.record,{...actor,action:'mr_extend'},now,'c');assert.equal(second.changeActor.mediaId,'11');assert.notEqual(second.changeActor.messageId,keep.changeActor.messageId);
  assert.throws(()=>p.advance(row,{...actor,userId:'222',action:'mr_refresh'},now,'c'));

@@ -1,6 +1,6 @@
 // Owned request navigation. Status reads and retention confirmations stay separate.
 const usabilityEvidence=require('../request-usability/evidence.js');
-const MY_ACTION=/^(?:mr_(?:title_[0-9]{1,3}|page_[0-9]{1,2}|filter_(?:all|downloading|ready|expiring)|refresh|extend|keep|back|close|watch)|wp_(?:local|tailscale|both))$/;
+const MY_ACTION=/^(?:mr_(?:title_[0-9]{1,3}|page_[0-9]{1,2}|filter_(?:all|downloading|ready|expiring)|refresh|details|summary|extend|extend_(?:7|30)|keep|back|close|watch)|wp_(?:local|tailscale|both))$/;
 function validActor(a){return a&&['discord','telegram'].includes(a.source)&&/^[1-9][0-9]{0,19}$/.test(a.userId)&&/^-?[1-9][0-9]{0,19}$/.test(a.destinationId);}
 function create(a,rows,now,evidence={}){
  if(!validActor(a)||!/^\d+$/.test(a.messageId)||!Number.isFinite(Date.parse(a.requestedAt)))throw Error('Invalid request browser actor');
@@ -22,7 +22,7 @@ function advance(row,a,now,claimId){
  const selected=b.titles[b.selected],title=a.action.match(/^mr_title_(\d+)$/),page=a.action.match(/^mr_page_(\d+)$/);
  const visible=b.titles.map((t,i)=>({...t,index:i})).filter(t=>!b.filter||b.filter==='all'||t.category===b.filter||(b.filter==='ready'&&t.ready===true));
  if(a.action==='mr_close')next.state='cancelled';
- else if(a.action==='mr_back'&&selected){if(b.settings)b.settings=false;else b.selected=null;}
+ else if(a.action==='mr_back'&&selected){if(b.settings)b.settings=false;else{b.selected=null;b.details=false;}}
  else if(/^mr_filter_(all|downloading|ready|expiring)$/.test(a.action)&&b.selected===null){b.filter=a.action.slice(10);b.page=0;}
  else if(page&&b.selected===null&&Number(page[1])*8<visible.length)b.page=Number(page[1]);
  else if(title&&b.selected===null&&visible.slice(b.page*8,b.page*8+8).some(t=>t.index===Number(title[1])))b.selected=Number(title[1]);
@@ -30,9 +30,11 @@ function advance(row,a,now,claimId){
  else if(/^wp_(local|tailscale|both)$/.test(a.action)&&b.settings&&selected){
   const choice=a.action.slice(3);b.settings=false;
   preference={source:row.source,userId:row.userId,destinationId:row.destinationId,requestKey:'watchpref:'+row.source+':'+row.userId,contextJson:JSON.stringify({watchPreference:choice}),mediaType:'movie',mediaJson:'{}',state:'settings',claimId,choice:'',expiresAt:'2100-01-01T00:00:00.000Z'};
- }else if(a.action==='mr_refresh'&&selected&&!b.settings){}
- else if(['mr_extend','mr_keep'].includes(a.action)&&selected&&!b.settings){
-  changeActor={source:row.source,userId:row.userId,destinationId:row.destinationId,messageId:'myrequests-'+row.id+'-'+claimId,requestedAt:new Date(now).toISOString(),text:a.action==='mr_keep'?'keep':'extend',...selected};
+ }else if(a.action==='mr_details'&&selected&&!b.settings)b.details=true;
+ else if(a.action==='mr_summary'&&selected&&!b.settings)b.details=false;
+ else if(a.action==='mr_refresh'&&selected&&!b.settings){}
+ else if(['mr_extend','mr_extend_7','mr_extend_30','mr_keep'].includes(a.action)&&selected&&!b.settings){
+  changeActor={source:row.source,userId:row.userId,destinationId:row.destinationId,messageId:'myrequests-'+row.id+'-'+claimId,requestedAt:new Date(now).toISOString(),text:a.action==='mr_keep'?'keep':a.action==='mr_extend_7'?'extend 7 days':a.action==='mr_extend_30'?'extend 30 days':'extend',...selected};
  }else throw Error('Stale request browser action');
  if(next.state==='preview'&&b.selected!==null&&!b.settings)statusActor={source:row.source,userId:row.userId,query:'',...b.titles[b.selected]};
  next.contextJson=JSON.stringify(ctx);return {record:next,statusActor,changeActor,preference};
@@ -46,9 +48,16 @@ function card(row,now,status=null){
   out.text='Which Watch address should Snake Media use for you on this platform?\nLocal is for your home network. Tailscale is for devices on your Tailscale network.';
   out.choices=[{label:'Local',action:'wp_local'},{label:'Tailscale',action:'wp_tailscale'},{label:'Show both',action:'wp_both'},{label:'Back',action:'mr_back'}];
  }else if(selected){
-  out.text=typeof status?.text==='string'?status.text.slice(0,1700):selected.title+'\nStatus is temporarily unavailable. Use Refresh to try again.';
+  const display=b.details?status?.text:status?.summaryText||status?.text;
+  out.text=typeof display==='string'?display.slice(0,1700):selected.title+'\nStatus is temporarily unavailable. Use Refresh to try again.';
   for(const field of ['posterUrl','jellyfinUrl','localJellyfinUrl'])if(typeof status?.[field]==='string')out[field]=status[field];
-  out.choices=[{label:'Refresh',action:'mr_refresh'},{label:'Extend',action:'mr_extend'},{label:'Keep permanently',action:'mr_keep'},{label:'Watch address',action:'mr_watch'},{label:'Back',action:'mr_back'}];
+  out.choices=[{label:b.details?'Back':'Details',action:b.details?'mr_summary':'mr_details'},{label:'Refresh',action:'mr_refresh'}];
+  if(!b.details){
+   if(status?.retentionActions?.canExtend===true&&!status.retentionActions.permanent)out.choices.push({label:'Extend 7 days',action:'mr_extend_7'},{label:'Extend 30 days',action:'mr_extend_30'});
+   if(status?.retentionActions?.canKeep===true&&!status.retentionActions.permanent)out.choices.push({label:'Keep permanently',action:'mr_keep'});
+   out.choices.push({label:'Watch address',action:'mr_watch'},{label:'Back',action:'mr_back'});
+  }
+
  }else{
   const visible=b.titles.map((t,i)=>({...t,index:i})).filter(t=>!b.filter||b.filter==='all'||t.category===b.filter||(b.filter==='ready'&&t.ready===true));
   out.text+='\nSaved tracking snapshot; open a title for live status. Ready may mean some episodes are available.\nPage '+(b.page+1)+' of '+Math.max(1,Math.ceil(visible.length/8))+'.';

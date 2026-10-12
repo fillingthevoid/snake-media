@@ -1,5 +1,12 @@
 # Changelog
 
+## October 11, 2026 — fewer taps in My requests
+
+- Put Extend 7 days and Extend 30 days directly on selected titles.
+- Hide redundant expiry actions for permanently kept titles and unavailable extensions.
+- Lead title cards with availability and expiry; Details shows the fuller report.
+- Name the final action on confirmation buttons, including the proposed expiry date when available.
+
 ## October 11, 2026 — six-hour expiry buttons
 
 - Keep Extend and Keep buttons on download notices and deletion reminders active for six hours on both bots.
