@@ -76,4 +76,6 @@ def build(source,env):
         for n in workflow['nodes']:
             body=n.get('parameters',{}).get('jsCode')
             if body and '// Shared n8n expiry policy' in body:n['parameters']['jsCode']=re.sub(pattern,lambda m:reminder,body)
-    return out
+    spec=importlib.util.spec_from_file_location('review_poster_overlay',ROOT/'n8n/review-posters/patch.py')
+    posters=importlib.util.module_from_spec(spec);spec.loader.exec_module(posters)
+    return posters.build(out)

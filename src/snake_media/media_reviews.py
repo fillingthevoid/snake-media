@@ -73,7 +73,7 @@ def review_embed(data,footer):
     title=discord.utils.escape_mentions(str(data['title']))[:250]
     embed=discord.Embed(title=title,description=str(data.get('summary',''))+'\n\nUse the buttons or react ❤️ Loved it / 🙃 Not for me. Your latest choice counts.',colour=0x2ECC71)
     poster=MediaReply('',poster_url=data.get('posterUrl')).poster_url
-    if poster:embed.set_thumbnail(url=poster)
+    if poster:embed.set_image(url=poster)
     embed.set_footer(text=footer);return embed
 
 class ReviewController:
@@ -113,9 +113,9 @@ class ReviewController:
             if message.author.id==self.client.user.id and any(e.footer.text==tag for e in message.embeds):return message
         return None
 
-    async def upgrade_posts(self,body):
+    async def upgrade_posts(self,body,posters=False):
         """Edit registered starter controls only. Never invent posts or votes."""
-        cursor=0;updated=failed=0
+        cursor=0;updated=failed=missing_artwork=0
         for _ in range(4001):
             data=await self.call(body,op='posts',cursor=cursor)
             for post in data['posts']:
@@ -123,11 +123,24 @@ class ReviewController:
                     channel=self.client.get_channel(int(post['messageChannelId'])) or await self.client.fetch_channel(int(post['messageChannelId']))
                     message=await channel.fetch_message(int(post['messageId']))
                     if message.author.id!=self.client.user.id:raise ValueError('review_starter_author_changed')
-                    await message.edit(view=review_post_view(),allowed_mentions=discord.AllowedMentions.none())
+                    options={'view':review_post_view(),'allowed_mentions':discord.AllowedMentions.none()}
+                    if posters:
+                        tag=marker('post',body['guildId'],post['channelId'],post['mediaKey'])
+                        if len(message.embeds)!=1 or message.embeds[0].footer.text!=tag:
+                            raise ValueError('review_starter_identity_changed')
+                        artwork=await self.call(body,op='artwork',channelId=post['messageChannelId'],postMessageId=post['messageId'])
+                        url=MediaReply('',poster_url=artwork.get('posterUrl')).poster_url
+                        if not url:missing_artwork+=1;continue
+                        embed=message.embeds[0].copy();embed.set_thumbnail(url=None);embed.set_image(url=url)
+                        options['embed']=embed
+                    await message.edit(**options)
                     updated+=1
                 except Exception as exc:
                     failed+=1;log.warning('Review starter control upgrade deferred error_type=%s',type(exc).__name__)
-            if data.get('nextCursor') is None:return {'updated':updated,'failed':failed}
+            if data.get('nextCursor') is None:
+                result={'updated':updated,'failed':failed}
+                if posters:result['missing_artwork']=missing_artwork
+                return result
             if type(data['nextCursor']) is not int or data['nextCursor']<=cursor:raise ValueError('invalid_review_cursor')
             cursor=data['nextCursor']
         raise ValueError('review_upgrade_limit')

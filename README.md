@@ -183,8 +183,9 @@ Threads. Forums that require tags need an available tag the bot can use.
 Expiry reminders offer **❤️ Loved it** and **🙃 Not for me** for six hours.
 Any authorized Discord user can review, while expiry changes stay requester-only.
 The first review creates a title's discussion. Each person has one vote and one
-review comment; a later choice updates both. The starter post shows vote counts
-and a playful group verdict. Users can also react ❤️ or 🙃 to that starter post.
+review comment; a later choice updates both. The starter post shows the movie or
+series poster, vote counts and a playful group verdict. Users can also react ❤️
+or 🙃 to that starter post.
 Removing a reaction does not erase a saved vote. Review reactions remain available
 after reminder buttons expire and reviews survive media deletion.
 
@@ -200,6 +201,12 @@ After updating an existing installation, upgrade registered starter-post control
 `docker compose exec -T discord-bot python -m snake_media.review_post_upgrade`.
 The owner-authorized helper edits buttons only and reports inaccessible posts;
 it does not create posts or submit ratings.
+
+To add full-size artwork to existing registered posts, run
+`docker compose exec -T discord-bot python -m snake_media.review_post_upgrade --posters`.
+This owner-only helper lets n8n recover artwork from exact saved media IDs and
+updates existing starter embeds. Missing artwork leaves the post usable; votes
+and discussion comments are preserved. New posts receive artwork automatically.
 
 The bot uses the existing authenticated n8n server address at
 `/webhook/snake-media-reviews`. Native n8n rows own votes and settings; the bot's

@@ -1,5 +1,41 @@
 // Review decisions and storage belong to n8n, independently of media jobs.
 function reviewId(x){return typeof x==='string'&&/^[1-9][0-9]{0,19}$/.test(x)&&BigInt(x)<2n**64n;}
+function reviewPoster(url){return typeof url==='string'&&url.length<=2048&&/^https:\/\/(image\.tmdb\.org|artworks\.thetvdb\.com)\/[A-Za-z0-9_./%~-]+$/.test(url)?url:null;}
+function reviewRequestPoster(r){try{return reviewPoster(JSON.parse(r.contextJson)?.posterUrl);}catch{return null;}}
+function reviewArtworkIdentity({body:b,rows,users,owners}){
+ if(b?.op!=='artwork'||![b.userId,b.guildId,b.channelId,b.postMessageId].every(reviewId)||
+    !users.includes(b.userId)||!owners.includes(b.userId)||!Array.isArray(rows))return null;
+ const posts=[];
+ for(const row of rows.filter(r=>r.source==='discord'&&r.state==='review')){
+  let d;try{d=JSON.parse(row.contextJson);}catch{continue;}
+  if(d.kind==='post'&&d.guildId===b.guildId&&d.messageChannelId===b.channelId&&d.messageId===b.postMessageId)posts.push(d);
+ }
+ if(posts.length!==1||!/^(movie|tv):[1-9][0-9]{0,19}$/.test(posts[0].mediaKey))return null;
+ const [mediaType,externalId]=posts[0].mediaKey.split(':');
+ return {mediaKey:posts[0].mediaKey,mediaType,externalId};
+}
+function reviewArtworkTarget(input){
+ let identity=reviewArtworkIdentity(input);const requests=input.requests;
+ if(!identity&&input.body?.noticeId&&input.body.op==='vote'){
+  const result=reviewOperation({...input,body:{...input.body,op:'resolve'}});
+  if(result.reply.ok&&!result.reply.posterUrl){
+   const [mediaType,externalId]=result.reply.mediaKey.split(':');identity={mediaKey:result.reply.mediaKey,mediaType,externalId};
+  }
+ }
+ if(!identity||!Array.isArray(requests))return null;
+ const {mediaType,externalId,mediaKey}=identity;
+ const candidates=requests.filter(r=>r.source==='discord'&&r.state==='registered'&&r.mediaType===mediaType&&
+  String(r.externalId)===externalId&&reviewId(String(r.mediaId)));
+ if(!candidates.length||new Set(candidates.map(r=>String(r.mediaId))).size!==1)return null;
+ return {mediaKey,externalId,requests:[{mediaType,mediaId:String(candidates[0].mediaId)}]};
+}
+function reviewArtworkPoster(target,response){
+ const r=target?.requests?.[0],m=response?.body;
+ if(!r||response.statusCode!==200||!m||String(m.id)!==r.mediaId||
+    String(r.mediaType==='movie'?m.tmdbId:m.tvdbId)!==target.externalId||!Array.isArray(m.images))return null;
+ for(const image of m.images){if(image?.coverType==='poster'){const url=reviewPoster(image.remoteUrl)||reviewPoster(image.url);if(url)return url;}}
+ return null;
+}
 function verdict(loved,total){
  if(!Number.isInteger(loved)||!Number.isInteger(total)||total<1||loved<0||loved>total)throw Error('invalid_votes');
  const label=loved===0?'🗑️ Straight to the bargain bin':loved*4<total?'🐍 The snake demands a refund':
@@ -24,7 +60,7 @@ function reviewRequestSelection({body:b,menus,requests,channels,now=Date.now()})
  return {menu:matches[0],mediaKey,mediaType:r.mediaType,mediaId:String(r.mediaId),title:String(r.title).slice(0,250),
   statusActor:{source:'discord',userId:b.userId,query:'',mediaType:r.mediaType,mediaId:String(r.mediaId)}};
 }
-function reviewOperation({body:b,rows,notices,requests,users,owners,channels,menus=[],availability=null,now=Date.now()}){
+function reviewOperation({body:b,rows,notices,requests,users,owners,channels,menus=[],availability=null,posterUrl=null,now=Date.now()}){
  const fail=error=>({row:null,reply:{version:1,ok:false,error}});
  if(!Array.isArray(rows)||!Array.isArray(notices)||!Array.isArray(requests))return fail('invalid_snapshot');
  if(!b||![b.userId,b.guildId,b.channelId].every(reviewId)||!users.includes(b.userId))return fail('denied');
@@ -51,6 +87,7 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
  }
  let media,post,menuOriginal,destination=config?.channelId;
  if(b.postMessageId){
+  if(b.op==='artwork'&&!owners.includes(b.userId))return fail('denied');
   post=[...saved.values()].find(d=>d.kind==='post'&&d.messageId===b.postMessageId&&d.messageChannelId===b.channelId);
   if(!post)return fail('unknown_post');
   media=post;destination=post.channelId;
@@ -58,6 +95,7 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
   media=reviewRequestSelection({body:b,menus,requests,channels,now});
   if(!media)return fail('invalid_menu');
   if(!Number.isSafeInteger(availability?.available)||availability.available<1)return fail('unavailable');
+  media.posterUrl=reviewPoster(posterUrl)||reviewRequestPoster(requests.find(r=>r.source==='discord'&&r.userId===b.userId&&r.mediaType===media.mediaType&&String(r.mediaId)===media.mediaId));
  }else if(b.noticeId){
   const n=notices.find(n=>String(n.id)===b.noticeId);let payload;
   try{payload=JSON.parse(n?.payloadJson);}catch{return fail('invalid_notice');}
@@ -68,7 +106,7 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
   const r=requests.find(r=>r.requestKey===n.requestKey&&r.source==='discord');
   if(!r||!['movie','tv'].includes(r.mediaType)||!reviewId(String(r.externalId))||!r.title)return fail('missing_identity');
   media={mediaKey:r.mediaType+':'+r.externalId,title:String(r.title).slice(0,250)};
-  try{media.posterUrl=JSON.parse(r.contextJson)?.posterUrl;}catch{}
+  media.posterUrl=reviewPoster(posterUrl)||reviewPoster(payload.posterUrl)||reviewRequestPoster(r);
  }else if(['bind','comment','summary'].includes(b.op)){
   media=[...saved.values()].find(d=>d.kind==='vote'&&d.mediaKey===b.mediaKey&&(owners.includes(b.userId)||d.userId===b.userId));
   if(!media||!owners.includes(b.userId)&&media.userId!==b.userId)return fail('missing_identity');
@@ -76,8 +114,15 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
  if(!destination)return fail('unconfigured');
  const mk=media.mediaKey,pk=key('post',destination+':'+mk);
  post=post||saved.get(pk);
+ media={...media,posterUrl:reviewPoster(media.posterUrl)||reviewPoster(post?.posterUrl)||
+  [...saved.values()].filter(d=>d.kind==='vote'&&d.mediaKey===mk).map(d=>reviewPoster(d.posterUrl)).find(Boolean)||null};
  let row=null;
- if(b.op==='open'&&b.myRequestsId){
+ if(b.op==='artwork'){
+  if(!post||!owners.includes(b.userId)||!b.postMessageId)return fail('denied');
+  const url=reviewPoster(posterUrl)||media.posterUrl;
+  if(url&&url!==post.posterUrl){const {_row,...fields}=post;post={...fields,posterUrl:url};row=record(pk,post);}
+  media.posterUrl=url;
+ }else if(b.op==='open'&&b.myRequestsId){
   menuOriginal=media.menu;row={...menuOriginal,expiresAt:new Date(now+300000).toISOString()};
  }else if(b.op==='vote'){
   if(!['loved','not_for_me'].includes(b.vote))return fail('invalid_vote');
@@ -102,4 +147,4 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
   channelId:destination,post:post?{threadId:post.threadId,messageId:post.messageId,messageChannelId:post.messageChannelId}:null,
   total,loved,summary:summary.text,vote:mine?.vote,username:mine?.username,commentId:comment?.messageId||null}};
 }
-if(typeof module!=='undefined')module.exports={verdict,reviewOperation,reviewRequestSelection};
+if(typeof module!=='undefined')module.exports={verdict,reviewOperation,reviewRequestSelection,reviewArtworkIdentity,reviewArtworkTarget,reviewArtworkPoster};
