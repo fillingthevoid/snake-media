@@ -190,6 +190,8 @@ after reminder buttons expire and reviews survive media deletion.
 
 You can also review anytime from **My requests**: open an available title and tap
 **Review**. The private choices last five minutes and keep My requests usable.
+Direct `/status title:<title>` queries offer the same card, including Review in
+the Details view.
 For a series, at least one requested episode must be ready in Jellyfin. The main
 review post has the same two buttons with no menu timeout; they survive bot
 restarts. Buttons and reactions always update the same vote and review comment.
