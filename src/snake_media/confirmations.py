@@ -5,7 +5,7 @@ import discord
 CUSTOM_ID = re.compile(r'snake:([1-9][0-9]{0,15}):(confirm|cancel|wrong|back|match_[0-7]|retback|latest|all|choose|review|season_[1-9][0-9]{0,3}|page_[0-9]{1,3}|notice_7|notice_30|notice_keep|rettitle_[0-9]{1,4}|retpage_[0-9]{1,3}|retdays_(?:7|30)|mr_(?:title_[0-9]{1,3}|page_[0-9]{1,2}|filter_(?:all|downloading|ready|expiring)|refresh|details|summary|extend|extend_(?:7|30)|keep|back|close|watch)|wp_(?:local|tailscale|both)|rec_(?:movie|tv|genre_(?:[0-9]|1[0-6])|next|previous|choose|cancel|change|more|back))')
 
 
-def notification_view(notice_id):
+def notification_view(notice_id, review_available=False):
     if not isinstance(notice_id, str) or not re.fullmatch(r'[1-9][0-9]{0,15}', notice_id):
         return None
     view = discord.ui.View(timeout=None)
@@ -13,6 +13,10 @@ def notification_view(notice_id):
                           ('Keep permanently', 'notice_keep')]:
         view.add_item(discord.ui.Button(label=label, custom_id=f'snake:{notice_id}:{action}',
                                        style=discord.ButtonStyle.secondary))
+    if review_available:
+        for label,vote in [('❤️ Loved it','loved'),('🙃 Not for me','not_for_me')]:
+            view.add_item(discord.ui.Button(label=label,custom_id=f'snake_review:{notice_id}:{vote}',
+                                           style=discord.ButtonStyle.secondary))
     return view
 
 
@@ -60,7 +64,7 @@ def presentation(reply):
         options['view'] = view
     elif (getattr(reply, 'notice_id', None) or getattr(reply, 'jellyfin_url', None)
           or getattr(reply, 'local_jellyfin_url', None)):
-        view = notification_view(getattr(reply, 'notice_id', None)) or discord.ui.View(timeout=None)
+        view = notification_view(getattr(reply, 'notice_id', None), getattr(reply,'review_available',False)) or discord.ui.View(timeout=None)
         remote = getattr(reply, 'jellyfin_url', None)
         local = getattr(reply, 'local_jellyfin_url', None)
         if remote or local:

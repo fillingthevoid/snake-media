@@ -171,3 +171,28 @@ On PowerShell, use `$env:PYTHONPATH='src'` before running Python tests. Tests us
 Licensed under [MIT](LICENSE). Dependency licenses remain with their respective projects.
 
 Help shows the four main tasks and a More menu for season and expiry guidance. Recommendations remember your last media type and genre separately for each platform; Find suggestions reuses them, and Change preferences opens the pickers. Opening the menu does not generate suggestions or add media.
+## Discord reviews
+
+The owner can run `/setupreview channel:#reviews` in an authorized request channel.
+Choose a forum or text channel in the same server. Snake Media checks permissions
+and saves the destination in n8n; this setting survives restarts. Give the bot
+View Channel, Send Messages/Create Posts, Read Message History, Embed Links,
+Add Reactions, and Send Messages in Threads. Text channels also need Create Public
+Threads. Forums that require tags need an available tag the bot can use.
+
+Expiry reminders offer **❤️ Loved it** and **🙃 Not for me** for six hours.
+Any authorized Discord user can review, while expiry changes stay requester-only.
+The first review creates a title's discussion. Each person has one vote and one
+review comment; a later choice updates both. The starter post shows vote counts
+and a playful group verdict. Users can also react ❤️ or 🙃 to that starter post.
+Removing a reaction does not erase a saved vote. Review reactions remain available
+after reminder buttons expire and reviews survive media deletion.
+
+The bot uses the existing authenticated n8n server address at
+`/webhook/snake-media-reviews`. Native n8n rows own votes and settings; the bot's
+`/state/reviews.sqlite3` holds delivery receipts only. Reviews do not acquire the
+media management lock. A saved vote with failed publication gets a partial-success
+message; tapping again retries publication without adding another vote. If Discord
+accepted a post but its receipt was lost, the bot looks for its marker before
+retrying. Unresolved creation outcomes are left for recovery rather than generating
+duplicate posts. Changing the destination preserves prior discussions and votes.

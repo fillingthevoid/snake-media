@@ -4,7 +4,7 @@ import json
 import logging
 import re
 import ipaddress
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
 from discord.utils import escape_markdown, escape_mentions
@@ -186,3 +186,24 @@ class N8NClient:
         except aiohttp.ClientError as exc:
             log.error('n8n transport failed error_type=%s', type(exc).__name__)
             raise N8NError('transport_error') from None
+
+    async def review(self, payload):
+        """Separate authenticated contract; transport only."""
+        if self._session is None:raise N8NError('client_not_open')
+        target=urlsplit(self._url)
+        url=urlunsplit((target.scheme,target.netloc,'/webhook/snake-media-reviews','',''))
+        try:
+            async with self._session.post(url,json=payload,allow_redirects=False,
+                    timeout=aiohttp.ClientTimeout(total=25,connect=5)) as response:
+                if response.status!=200 or response.content_type!='application/json':raise N8NError('review_http_error')
+                body=bytearray()
+                async for chunk in response.content.iter_chunked(8192):
+                    body.extend(chunk)
+                    if len(body)>MAX_RESPONSE_BYTES:raise N8NError('review_response_too_large')
+                data=json.loads(body)
+                if not isinstance(data,dict) or data.get('version')!=1 or type(data.get('ok')) is not bool:
+                    raise N8NError('invalid_review_response')
+                return data
+        except (aiohttp.ClientError,asyncio.TimeoutError,ValueError) as exc:
+            log.warning('Review backend failed error_type=%s',type(exc).__name__)
+            raise N8NError('review_transport_error') from None

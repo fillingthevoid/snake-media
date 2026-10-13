@@ -45,7 +45,7 @@ function planReminders({requests,records,notices,mode,now=Date.now()}){
   if(existing.has(key))continue;
   const count=new Set(fresh.flatMap(d=>d.episodeIds||[])).size;
   const subject=r.mediaType==='tv'?`${count} episode${count===1?'':'s'} of ${r.title}`:r.title;
-  const text=`⏳ ${subject}\n\nScheduled for automatic deletion within 24 hours (earliest: ${new Date(earliest).toISOString().replace('T',' ').replace(':00.000Z',' UTC')}).\n\nWant more time? Extend 7 days, extend 30 days, or keep permanently.\nButtons last 5 minutes; /extend and /keep remain available.`;
+  const text=`⏳ ${subject}\n\nScheduled for automatic deletion within 24 hours (earliest: ${new Date(earliest).toISOString().replace('T',' ').replace(':00.000Z',' UTC')}).\n\nWant more time? Extend 7 days, extend 30 days, or keep permanently.\nButtons last 6 hours; /extend and /keep remain available.`;
   result.push({notificationKey:key,requestKey:r.requestKey,fileKey:fresh[0].key,source:r.source,
    destinationId:r.destinationId,payloadJson:JSON.stringify({kind:'expiry_reminder',newMessage:true,text,
     userId:r.userId,messageId:r.messageId,retentionControls:true,requestKeys:[...requestKeys],

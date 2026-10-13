@@ -15,16 +15,18 @@ from .confirmations import CUSTOM_ID, presentation, edit_presentation, notificat
 from .n8n_client import MediaReply
 from .command_menu import menu_text, menu_choices, NAVIGATION
 from .request_prompt import RequestTitleModal
+from .media_reviews import ReviewController, destination_error
 
 log = logging.getLogger("snake_media")
 EXPIRY_NOTE = '\n\nMenu expired. Use /help or /status to reopen.'
 
 
 class SnakeMediaClient(discord.Client):
-    def __init__(self, service: RequestService, notification_transport=None, notification_journal=None, card_registry=None):
+    def __init__(self, service: RequestService, notification_transport=None, notification_journal=None, card_registry=None, review_journal=None):
         intents = discord.Intents.none()
         intents.guilds = True
         intents.guild_messages = True
+        intents.guild_reactions = True
         super().__init__(intents=intents, max_messages=None,
                          allowed_mentions=discord.AllowedMentions.none())
         self.service = service
@@ -34,7 +36,11 @@ class SnakeMediaClient(discord.Client):
         self.notification_journal = notification_journal
         self.card_registry = card_registry
         self.card_cleanup_task = None
+        self.reviews = ReviewController(self, review_journal)
         self.tree = app_commands.CommandTree(self)
+        self.tree.add_command(app_commands.Command(name='setupreview',
+            description='Owner only: choose a forum or text channel for media reviews.',
+            callback=self.setup_review_command))
         self.tree.add_command(app_commands.Command(name='authorize',
             description='Owner only: authorize a Discord account in Snake Media.',
             callback=self.authorize_command))
@@ -62,6 +68,34 @@ class SnakeMediaClient(discord.Client):
 
     async def help_command(self, interaction: discord.Interaction):
         await self.menu_command(interaction, 'help')
+
+    async def setup_review_command(self, interaction: discord.Interaction,
+                                   channel: discord.ForumChannel | discord.TextChannel):
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        actor=str(interaction.user.id)
+        if (actor not in self.service.config.admin_user_ids or not interaction.guild_id
+                or not self.service.command_allowed(actor,str(interaction.channel_id),interaction.guild_id)):
+            text='⛔ Only the Snake Media owner can set up reviews in an authorized request channel.'
+        else:
+            text=destination_error(channel,interaction.guild_id)
+            if text is None:
+                try:
+                    await self.reviews.call({'userId':actor,'channelId':str(interaction.channel_id),
+                        'guildId':str(interaction.guild_id)},op='setup',targetChannelId=str(channel.id))
+                    text=f'✅ Reviews will go to {channel.mention}. Each title gets its own discussion.'
+                except Exception as exc:
+                    log.warning('Review setup failed error_type=%s',type(exc).__name__)
+                    text='⚠️ The review destination could not be saved. Please try again.'
+        await interaction.followup.send(text,ephemeral=True,allowed_mentions=discord.AllowedMentions.none())
+
+    async def on_raw_reaction_add(self, payload):
+        vote={'❤':'loved','❤️':'loved','🙃':'not_for_me'}.get(str(payload.emoji))
+        if (not vote or not payload.guild_id or payload.user_id==self.user.id
+                or str(payload.user_id) not in self.service.allowed_users
+                or payload.member and payload.member.bot):return
+        await self.reviews.vote({'userId':str(payload.user_id),'guildId':str(payload.guild_id),
+            'channelId':str(payload.channel_id),'postMessageId':str(payload.message_id),
+            'eventId':str(time.time_ns())},vote)
 
     async def menu_command(self, interaction, section):
         if section == 'request':
@@ -211,12 +245,13 @@ class SnakeMediaClient(discord.Client):
             self.notification_worker.wake()
 
     async def send_notification(self, channel_id, message_id, text, notice_id=None,
-                                poster_url=None, jellyfin_url=None, local_jellyfin_url=None, nonce=None, owner_id=None, new_message=False):
+                                poster_url=None, jellyfin_url=None, local_jellyfin_url=None, nonce=None, owner_id=None, new_message=False, review_available=False):
         channel = self.get_channel(int(channel_id)) or await self.fetch_channel(int(channel_id))
         reference = discord.MessageReference(message_id=int(message_id), channel_id=int(channel_id),
                                              fail_if_not_exists=False)
         reply = MediaReply(discord.utils.escape_mentions(discord.utils.escape_markdown(text)),
                            poster_url, jellyfin_url, notice_id, local_jellyfin_url)
+        reply.review_available = review_available
         options = presentation(reply)
         options.setdefault('view', None)
         original = self.card_registry.request_card(channel_id, message_id, owner_id) if self.card_registry and owner_id and not new_message else None
@@ -390,6 +425,16 @@ class SnakeMediaClient(discord.Client):
                     log.error('Menu navigation failed error_type=%s', type(exc).__name__)
                     if interaction.response.is_done():
                         await interaction.followup.send('⚠️ This menu could not be opened. Try its slash command.', ephemeral=True)
+            return
+        review_match=re.fullmatch(r'snake_review:([1-9][0-9]{0,15}):(loved|not_for_me)',custom_id)
+        if review_match:
+            await interaction.response.defer(ephemeral=True,thinking=True)
+            text=await self.reviews.vote({'userId':str(interaction.user.id),
+                'guildId':str(interaction.guild_id) if interaction.guild_id else '',
+                'channelId':str(interaction.channel_id),'noticeId':review_match[1],
+                'originMessageId':str(interaction.message.id),'username':interaction.user.name,
+                'eventId':str(interaction.id)},review_match[2])
+            await interaction.followup.send(text,ephemeral=True,allowed_mentions=discord.AllowedMentions.none())
             return
         match = CUSTOM_ID.fullmatch((interaction.data or {}).get('custom_id', ''))
         if not match:

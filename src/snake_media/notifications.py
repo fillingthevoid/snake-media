@@ -188,6 +188,8 @@ class NotificationDelivery:
                 nonce=hashlib.sha256(json.dumps(['snake-media-notice-v1',channel,key],
                                               separators=(',',':')).encode('utf-8')).hexdigest()[:24]
                 options={'nonce':nonce, 'owner_id':payload['userId']}
+                if payload.get('kind')=='expiry_reminder':
+                    options['review_available']=True
                 if payload.get('newMessage') is True:
                     options['new_message']=True
                 if (payload.get('retentionControls') is not False and notice_id.isascii()

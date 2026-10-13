@@ -8262,7 +8262,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "parameters": {
-          "jsCode": "// Shared n8n expiry policy. No media scans, transport, or deletion here.\nconst REMINDER_WINDOW=24*3600000, MAX_SNAPSHOT_AGE=30*60000;\nfunction reminderData(row){try{return JSON.parse(row.payloadJson);}catch{return null;}}\nfunction reminderFiles(records,now){\n const seen=new Set();for(const r of records)if(r.key){if(seen.has(r.key))return [];seen.add(r.key);}\n return records.filter(r=>r.kind==='file').map(r=>({...reminderData(r),key:r.key})).filter(d=>\n  d.state==='tracked'&&!d.identityProtected&&['movie','tv'].includes(d.mediaType)&&\n  Number.isSafeInteger(d.fileId)&&d.fileId>0&&typeof d.path==='string'&&\n  d.path.startsWith(d.mediaType==='movie'?'/movies/':'/tv/')&&!d.path.includes('/../')&&\n  Number.isFinite(Date.parse(d.importedAt))&&d.checkedAt&&Date.parse(d.checkedAt)<=now+60000&&\n  Date.parse(d.checkedAt)>=now-MAX_SNAPSHOT_AGE&&Date.parse(d.expiresAt)>now&&\n  Date.parse(d.expiresAt)<=now+REMINDER_WINDOW&&d.deadlines&&typeof d.deadlines==='object');\n}\nfunction reminderValid(row,records,mode,now=Date.now()){\n const p=reminderData(row);if(p?.kind!=='expiry_reminder')return true;\n if(mode!=='enabled'||!Array.isArray(p.expiryFiles)||!p.expiryFiles.length)return false;\n const files=reminderFiles(records,now);\n return p.expiryFiles.every(f=>files.some(d=>d.key===f.key&&d.path===f.path&&\n  d.importedAt===f.importedAt&&d.expiresAt===f.expiresAt));\n}\nfunction planReminders({requests,records,notices,mode,now=Date.now()}){\n if(mode!=='enabled'||!Number.isFinite(now))return [];\n const files=reminderFiles(records,now),groups=new Map(),existing=new Set(notices.map(n=>n.notificationKey));\n for(const r of requests){\n  if(!r.baselineCaptured||r.state!=='registered'||r.userId==='1'||!['discord','telegram'].includes(r.source)||\n   !r.requestKey||!r.title||!r.destinationId||!r.messageId)continue;\n  const owned=files.filter(d=>d.mediaType===r.mediaType&&String(d.mediaId)===String(r.mediaId)&&\n   Object.keys(d.deadlines).some(k=>k.startsWith(r.requestKey+':')));\n  for(const d of owned){\n   const groupKey=JSON.stringify([r.source,r.userId,r.destinationId,r.mediaType,String(r.mediaId)]);\n   if(!groups.has(groupKey))groups.set(groupKey,{r,files:new Map(),requestKeys:new Set()});\n   groups.get(groupKey).files.set(d.key,d);groups.get(groupKey).requestKeys.add(r.requestKey);\n  }\n }\n const result=[];\n for(const {r,files:map,requestKeys} of groups.values()){\n  const fs=[...map.values()].sort((a,b)=>a.key.localeCompare(b.key));\n  // Each file/deadline is notified once, even when the rest of a batch changes.\n  const fresh=fs.filter(d=>!notices.some(n=>{const p=reminderData(n);return p?.kind==='expiry_reminder'&&\n   n.source===r.source&&p.userId===r.userId&&n.destinationId===r.destinationId&&\n   p.expiryFiles?.some(f=>f.key===d.key&&f.expiresAt===d.expiresAt&&f.importedAt===d.importedAt);}));\n  if(!fresh.length)continue;\n  const earliest=Math.min(...fresh.map(d=>Date.parse(d.expiresAt)));\n  const key=`${r.source}:expiry:${r.userId}:${r.mediaType}:${r.mediaId}:${earliest}`;\n  if(existing.has(key))continue;\n  const count=new Set(fresh.flatMap(d=>d.episodeIds||[])).size;\n  const subject=r.mediaType==='tv'?`${count} episode${count===1?'':'s'} of ${r.title}`:r.title;\n  const text=`\u23f3 ${subject}\\n\\nScheduled for automatic deletion within 24 hours (earliest: ${new Date(earliest).toISOString().replace('T',' ').replace(':00.000Z',' UTC')}).\\n\\nWant more time? Extend 7 days, extend 30 days, or keep permanently.\\nButtons last 5 minutes; /extend and /keep remain available.`;\n  result.push({notificationKey:key,requestKey:r.requestKey,fileKey:fresh[0].key,source:r.source,\n   destinationId:r.destinationId,payloadJson:JSON.stringify({kind:'expiry_reminder',newMessage:true,text,\n    userId:r.userId,messageId:r.messageId,retentionControls:true,requestKeys:[...requestKeys],\n    expiryFiles:fresh.map(d=>({key:d.key,path:d.path,importedAt:d.importedAt,expiresAt:d.expiresAt}))}),\n   state:'pending',attempts:0,nextAttemptAt:new Date(now).toISOString(),deliveredAt:null,deliveredMessageId:''});\n }\n return result;\n}\nif(typeof module!=='undefined')module.exports={planReminders,reminderValid};\n\nconst expiryModes=$('Telegram Reminder Mode').all().map(x=>x.json).filter(r=>r.key==='mode');const expiryDeliveryMode=expiryModes.length===1?expiryModes[0].owner:null;const expiryRecords=$('Telegram Reminder Records').all().map(x=>x.json);\nconst r=$('Notice Input').first().json;if(!reminderValid(r,expiryRecords,expiryDeliveryMode))return [];const p=JSON.parse(r.payloadJson);if(r.source!=='telegram'||!/^[-]?[1-9][0-9]*$/.test(r.destinationId)||p.userId==='1')return [];return [{json:{...r,text:String(p.text).slice(0,1800),messageId:p.messageId}}];\n"
+          "jsCode": "// Shared n8n expiry policy. No media scans, transport, or deletion here.\nconst REMINDER_WINDOW=24*3600000, MAX_SNAPSHOT_AGE=30*60000;\nfunction reminderData(row){try{return JSON.parse(row.payloadJson);}catch{return null;}}\nfunction reminderFiles(records,now){\n const seen=new Set();for(const r of records)if(r.key){if(seen.has(r.key))return [];seen.add(r.key);}\n return records.filter(r=>r.kind==='file').map(r=>({...reminderData(r),key:r.key})).filter(d=>\n  d.state==='tracked'&&!d.identityProtected&&['movie','tv'].includes(d.mediaType)&&\n  Number.isSafeInteger(d.fileId)&&d.fileId>0&&typeof d.path==='string'&&\n  d.path.startsWith(d.mediaType==='movie'?'/movies/':'/tv/')&&!d.path.includes('/../')&&\n  Number.isFinite(Date.parse(d.importedAt))&&d.checkedAt&&Date.parse(d.checkedAt)<=now+60000&&\n  Date.parse(d.checkedAt)>=now-MAX_SNAPSHOT_AGE&&Date.parse(d.expiresAt)>now&&\n  Date.parse(d.expiresAt)<=now+REMINDER_WINDOW&&d.deadlines&&typeof d.deadlines==='object');\n}\nfunction reminderValid(row,records,mode,now=Date.now()){\n const p=reminderData(row);if(p?.kind!=='expiry_reminder')return true;\n if(mode!=='enabled'||!Array.isArray(p.expiryFiles)||!p.expiryFiles.length)return false;\n const files=reminderFiles(records,now);\n return p.expiryFiles.every(f=>files.some(d=>d.key===f.key&&d.path===f.path&&\n  d.importedAt===f.importedAt&&d.expiresAt===f.expiresAt));\n}\nfunction planReminders({requests,records,notices,mode,now=Date.now()}){\n if(mode!=='enabled'||!Number.isFinite(now))return [];\n const files=reminderFiles(records,now),groups=new Map(),existing=new Set(notices.map(n=>n.notificationKey));\n for(const r of requests){\n  if(!r.baselineCaptured||r.state!=='registered'||r.userId==='1'||!['discord','telegram'].includes(r.source)||\n   !r.requestKey||!r.title||!r.destinationId||!r.messageId)continue;\n  const owned=files.filter(d=>d.mediaType===r.mediaType&&String(d.mediaId)===String(r.mediaId)&&\n   Object.keys(d.deadlines).some(k=>k.startsWith(r.requestKey+':')));\n  for(const d of owned){\n   const groupKey=JSON.stringify([r.source,r.userId,r.destinationId,r.mediaType,String(r.mediaId)]);\n   if(!groups.has(groupKey))groups.set(groupKey,{r,files:new Map(),requestKeys:new Set()});\n   groups.get(groupKey).files.set(d.key,d);groups.get(groupKey).requestKeys.add(r.requestKey);\n  }\n }\n const result=[];\n for(const {r,files:map,requestKeys} of groups.values()){\n  const fs=[...map.values()].sort((a,b)=>a.key.localeCompare(b.key));\n  // Each file/deadline is notified once, even when the rest of a batch changes.\n  const fresh=fs.filter(d=>!notices.some(n=>{const p=reminderData(n);return p?.kind==='expiry_reminder'&&\n   n.source===r.source&&p.userId===r.userId&&n.destinationId===r.destinationId&&\n   p.expiryFiles?.some(f=>f.key===d.key&&f.expiresAt===d.expiresAt&&f.importedAt===d.importedAt);}));\n  if(!fresh.length)continue;\n  const earliest=Math.min(...fresh.map(d=>Date.parse(d.expiresAt)));\n  const key=`${r.source}:expiry:${r.userId}:${r.mediaType}:${r.mediaId}:${earliest}`;\n  if(existing.has(key))continue;\n  const count=new Set(fresh.flatMap(d=>d.episodeIds||[])).size;\n  const subject=r.mediaType==='tv'?`${count} episode${count===1?'':'s'} of ${r.title}`:r.title;\n  const text=`\u23f3 ${subject}\\n\\nScheduled for automatic deletion within 24 hours (earliest: ${new Date(earliest).toISOString().replace('T',' ').replace(':00.000Z',' UTC')}).\\n\\nWant more time? Extend 7 days, extend 30 days, or keep permanently.\\nButtons last 6 hours; /extend and /keep remain available.`;\n  result.push({notificationKey:key,requestKey:r.requestKey,fileKey:fresh[0].key,source:r.source,\n   destinationId:r.destinationId,payloadJson:JSON.stringify({kind:'expiry_reminder',newMessage:true,text,\n    userId:r.userId,messageId:r.messageId,retentionControls:true,requestKeys:[...requestKeys],\n    expiryFiles:fresh.map(d=>({key:d.key,path:d.path,importedAt:d.importedAt,expiresAt:d.expiresAt}))}),\n   state:'pending',attempts:0,nextAttemptAt:new Date(now).toISOString(),deliveredAt:null,deliveredMessageId:''});\n }\n return result;\n}\nif(typeof module!=='undefined')module.exports={planReminders,reminderValid};\n\nconst expiryModes=$('Telegram Reminder Mode').all().map(x=>x.json).filter(r=>r.key==='mode');const expiryDeliveryMode=expiryModes.length===1?expiryModes[0].owner:null;const expiryRecords=$('Telegram Reminder Records').all().map(x=>x.json);\nconst r=$('Notice Input').first().json;if(!reminderValid(r,expiryRecords,expiryDeliveryMode))return [];const p=JSON.parse(r.payloadJson);if(r.source!=='telegram'||!/^[-]?[1-9][0-9]*$/.test(r.destinationId)||p.userId==='1')return [];return [{json:{...r,text:String(p.text).slice(0,1800),messageId:p.messageId}}];\n"
         },
         "position": [
           260,
@@ -9810,7 +9810,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "parameters": {
-          "jsCode": "// Shared n8n expiry policy. No media scans, transport, or deletion here.\nconst REMINDER_WINDOW=24*3600000, MAX_SNAPSHOT_AGE=30*60000;\nfunction reminderData(row){try{return JSON.parse(row.payloadJson);}catch{return null;}}\nfunction reminderFiles(records,now){\n const seen=new Set();for(const r of records)if(r.key){if(seen.has(r.key))return [];seen.add(r.key);}\n return records.filter(r=>r.kind==='file').map(r=>({...reminderData(r),key:r.key})).filter(d=>\n  d.state==='tracked'&&!d.identityProtected&&['movie','tv'].includes(d.mediaType)&&\n  Number.isSafeInteger(d.fileId)&&d.fileId>0&&typeof d.path==='string'&&\n  d.path.startsWith(d.mediaType==='movie'?'/movies/':'/tv/')&&!d.path.includes('/../')&&\n  Number.isFinite(Date.parse(d.importedAt))&&d.checkedAt&&Date.parse(d.checkedAt)<=now+60000&&\n  Date.parse(d.checkedAt)>=now-MAX_SNAPSHOT_AGE&&Date.parse(d.expiresAt)>now&&\n  Date.parse(d.expiresAt)<=now+REMINDER_WINDOW&&d.deadlines&&typeof d.deadlines==='object');\n}\nfunction reminderValid(row,records,mode,now=Date.now()){\n const p=reminderData(row);if(p?.kind!=='expiry_reminder')return true;\n if(mode!=='enabled'||!Array.isArray(p.expiryFiles)||!p.expiryFiles.length)return false;\n const files=reminderFiles(records,now);\n return p.expiryFiles.every(f=>files.some(d=>d.key===f.key&&d.path===f.path&&\n  d.importedAt===f.importedAt&&d.expiresAt===f.expiresAt));\n}\nfunction planReminders({requests,records,notices,mode,now=Date.now()}){\n if(mode!=='enabled'||!Number.isFinite(now))return [];\n const files=reminderFiles(records,now),groups=new Map(),existing=new Set(notices.map(n=>n.notificationKey));\n for(const r of requests){\n  if(!r.baselineCaptured||r.state!=='registered'||r.userId==='1'||!['discord','telegram'].includes(r.source)||\n   !r.requestKey||!r.title||!r.destinationId||!r.messageId)continue;\n  const owned=files.filter(d=>d.mediaType===r.mediaType&&String(d.mediaId)===String(r.mediaId)&&\n   Object.keys(d.deadlines).some(k=>k.startsWith(r.requestKey+':')));\n  for(const d of owned){\n   const groupKey=JSON.stringify([r.source,r.userId,r.destinationId,r.mediaType,String(r.mediaId)]);\n   if(!groups.has(groupKey))groups.set(groupKey,{r,files:new Map(),requestKeys:new Set()});\n   groups.get(groupKey).files.set(d.key,d);groups.get(groupKey).requestKeys.add(r.requestKey);\n  }\n }\n const result=[];\n for(const {r,files:map,requestKeys} of groups.values()){\n  const fs=[...map.values()].sort((a,b)=>a.key.localeCompare(b.key));\n  // Each file/deadline is notified once, even when the rest of a batch changes.\n  const fresh=fs.filter(d=>!notices.some(n=>{const p=reminderData(n);return p?.kind==='expiry_reminder'&&\n   n.source===r.source&&p.userId===r.userId&&n.destinationId===r.destinationId&&\n   p.expiryFiles?.some(f=>f.key===d.key&&f.expiresAt===d.expiresAt&&f.importedAt===d.importedAt);}));\n  if(!fresh.length)continue;\n  const earliest=Math.min(...fresh.map(d=>Date.parse(d.expiresAt)));\n  const key=`${r.source}:expiry:${r.userId}:${r.mediaType}:${r.mediaId}:${earliest}`;\n  if(existing.has(key))continue;\n  const count=new Set(fresh.flatMap(d=>d.episodeIds||[])).size;\n  const subject=r.mediaType==='tv'?`${count} episode${count===1?'':'s'} of ${r.title}`:r.title;\n  const text=`\u23f3 ${subject}\\n\\nScheduled for automatic deletion within 24 hours (earliest: ${new Date(earliest).toISOString().replace('T',' ').replace(':00.000Z',' UTC')}).\\n\\nWant more time? Extend 7 days, extend 30 days, or keep permanently.\\nButtons last 5 minutes; /extend and /keep remain available.`;\n  result.push({notificationKey:key,requestKey:r.requestKey,fileKey:fresh[0].key,source:r.source,\n   destinationId:r.destinationId,payloadJson:JSON.stringify({kind:'expiry_reminder',newMessage:true,text,\n    userId:r.userId,messageId:r.messageId,retentionControls:true,requestKeys:[...requestKeys],\n    expiryFiles:fresh.map(d=>({key:d.key,path:d.path,importedAt:d.importedAt,expiresAt:d.expiresAt}))}),\n   state:'pending',attempts:0,nextAttemptAt:new Date(now).toISOString(),deliveredAt:null,deliveredMessageId:''});\n }\n return result;\n}\nif(typeof module!=='undefined')module.exports={planReminders,reminderValid};\n\nconst expiryModes=$('Discord Reminder Mode').all().map(x=>x.json).filter(r=>r.key==='mode');const expiryDeliveryMode=expiryModes.length===1?expiryModes[0].owner:null;const expiryRecords=$('Discord Reminder Records').all().map(x=>x.json);\n// Queue exclusions let healthy recipients advance past deferred notices.\nfunction queueBatch(rows,excluded=[],afterId=null){\n const seen=new Set(),skip=new Set(excluded),notifications=[];\n if(afterId!==null&&(typeof afterId!=='string'||!(/^[1-9][0-9]{0,19}$/).test(afterId)))throw Error('Invalid queue cursor');\n const ordered=rows.filter(r=>(/^[1-9][0-9]{0,19}$/).test(String(r.id)))\n  .sort((a,b)=>BigInt(a.id)<BigInt(b.id)?-1:BigInt(a.id)>BigInt(b.id)?1:0);\n let nextCursor=null;\n for(const r of ordered){\n  if(afterId!==null&&BigInt(r.id)<=BigInt(afterId))continue;\n  if(!r.notificationKey||/:tv:\\d+:episode:\\d+$/.test(r.notificationKey)||seen.has(r.notificationKey)||skip.has(r.notificationKey))continue;\n  seen.add(r.notificationKey);\n  try{\n   const payload=JSON.parse(r.payloadJson);\n   if(!payload||typeof payload!=='object'||Array.isArray(payload))continue;\n   notifications.push({id:String(r.id),notificationKey:r.notificationKey,destinationId:r.destinationId,payload});\n  }catch{}\n  if(notifications.length===10){nextCursor=String(r.id);break;}\n }\n return {version:1,notifications,nextCursor};\n}\nfunction pendingRequests(requests,notices){\n const finished=new Set(notices.filter(n=>['pending','delivered'].includes(n.state)&&\n  typeof n.notificationKey==='string'&&!n.notificationKey.includes(':progress:')&&!n.notificationKey.includes(':expiry:')).map(n=>n.requestKey));\n return requests.filter(r=>r.baselineCaptured&&r.userId!=='1'&&r.state==='registered'&&\n  ['discord','telegram'].includes(r.source)&&!finished.has(r.requestKey));\n}\nif(typeof module!=='undefined')module.exports={queueBatch,pendingRequests};\n\nconst action=$('Validate Queue Action').first().json;\nreturn [{json:queueBatch($('Pending Discord Notices').all().map(x=>x.json).filter(r=>reminderValid(r,expiryRecords,expiryDeliveryMode)),action.excludeNotificationKeys||[],action.afterNotificationId??null)}];"
+          "jsCode": "// Shared n8n expiry policy. No media scans, transport, or deletion here.\nconst REMINDER_WINDOW=24*3600000, MAX_SNAPSHOT_AGE=30*60000;\nfunction reminderData(row){try{return JSON.parse(row.payloadJson);}catch{return null;}}\nfunction reminderFiles(records,now){\n const seen=new Set();for(const r of records)if(r.key){if(seen.has(r.key))return [];seen.add(r.key);}\n return records.filter(r=>r.kind==='file').map(r=>({...reminderData(r),key:r.key})).filter(d=>\n  d.state==='tracked'&&!d.identityProtected&&['movie','tv'].includes(d.mediaType)&&\n  Number.isSafeInteger(d.fileId)&&d.fileId>0&&typeof d.path==='string'&&\n  d.path.startsWith(d.mediaType==='movie'?'/movies/':'/tv/')&&!d.path.includes('/../')&&\n  Number.isFinite(Date.parse(d.importedAt))&&d.checkedAt&&Date.parse(d.checkedAt)<=now+60000&&\n  Date.parse(d.checkedAt)>=now-MAX_SNAPSHOT_AGE&&Date.parse(d.expiresAt)>now&&\n  Date.parse(d.expiresAt)<=now+REMINDER_WINDOW&&d.deadlines&&typeof d.deadlines==='object');\n}\nfunction reminderValid(row,records,mode,now=Date.now()){\n const p=reminderData(row);if(p?.kind!=='expiry_reminder')return true;\n if(mode!=='enabled'||!Array.isArray(p.expiryFiles)||!p.expiryFiles.length)return false;\n const files=reminderFiles(records,now);\n return p.expiryFiles.every(f=>files.some(d=>d.key===f.key&&d.path===f.path&&\n  d.importedAt===f.importedAt&&d.expiresAt===f.expiresAt));\n}\nfunction planReminders({requests,records,notices,mode,now=Date.now()}){\n if(mode!=='enabled'||!Number.isFinite(now))return [];\n const files=reminderFiles(records,now),groups=new Map(),existing=new Set(notices.map(n=>n.notificationKey));\n for(const r of requests){\n  if(!r.baselineCaptured||r.state!=='registered'||r.userId==='1'||!['discord','telegram'].includes(r.source)||\n   !r.requestKey||!r.title||!r.destinationId||!r.messageId)continue;\n  const owned=files.filter(d=>d.mediaType===r.mediaType&&String(d.mediaId)===String(r.mediaId)&&\n   Object.keys(d.deadlines).some(k=>k.startsWith(r.requestKey+':')));\n  for(const d of owned){\n   const groupKey=JSON.stringify([r.source,r.userId,r.destinationId,r.mediaType,String(r.mediaId)]);\n   if(!groups.has(groupKey))groups.set(groupKey,{r,files:new Map(),requestKeys:new Set()});\n   groups.get(groupKey).files.set(d.key,d);groups.get(groupKey).requestKeys.add(r.requestKey);\n  }\n }\n const result=[];\n for(const {r,files:map,requestKeys} of groups.values()){\n  const fs=[...map.values()].sort((a,b)=>a.key.localeCompare(b.key));\n  // Each file/deadline is notified once, even when the rest of a batch changes.\n  const fresh=fs.filter(d=>!notices.some(n=>{const p=reminderData(n);return p?.kind==='expiry_reminder'&&\n   n.source===r.source&&p.userId===r.userId&&n.destinationId===r.destinationId&&\n   p.expiryFiles?.some(f=>f.key===d.key&&f.expiresAt===d.expiresAt&&f.importedAt===d.importedAt);}));\n  if(!fresh.length)continue;\n  const earliest=Math.min(...fresh.map(d=>Date.parse(d.expiresAt)));\n  const key=`${r.source}:expiry:${r.userId}:${r.mediaType}:${r.mediaId}:${earliest}`;\n  if(existing.has(key))continue;\n  const count=new Set(fresh.flatMap(d=>d.episodeIds||[])).size;\n  const subject=r.mediaType==='tv'?`${count} episode${count===1?'':'s'} of ${r.title}`:r.title;\n  const text=`\u23f3 ${subject}\\n\\nScheduled for automatic deletion within 24 hours (earliest: ${new Date(earliest).toISOString().replace('T',' ').replace(':00.000Z',' UTC')}).\\n\\nWant more time? Extend 7 days, extend 30 days, or keep permanently.\\nButtons last 6 hours; /extend and /keep remain available.`;\n  result.push({notificationKey:key,requestKey:r.requestKey,fileKey:fresh[0].key,source:r.source,\n   destinationId:r.destinationId,payloadJson:JSON.stringify({kind:'expiry_reminder',newMessage:true,text,\n    userId:r.userId,messageId:r.messageId,retentionControls:true,requestKeys:[...requestKeys],\n    expiryFiles:fresh.map(d=>({key:d.key,path:d.path,importedAt:d.importedAt,expiresAt:d.expiresAt}))}),\n   state:'pending',attempts:0,nextAttemptAt:new Date(now).toISOString(),deliveredAt:null,deliveredMessageId:''});\n }\n return result;\n}\nif(typeof module!=='undefined')module.exports={planReminders,reminderValid};\n\nconst expiryModes=$('Discord Reminder Mode').all().map(x=>x.json).filter(r=>r.key==='mode');const expiryDeliveryMode=expiryModes.length===1?expiryModes[0].owner:null;const expiryRecords=$('Discord Reminder Records').all().map(x=>x.json);\n// Queue exclusions let healthy recipients advance past deferred notices.\nfunction queueBatch(rows,excluded=[],afterId=null){\n const seen=new Set(),skip=new Set(excluded),notifications=[];\n if(afterId!==null&&(typeof afterId!=='string'||!(/^[1-9][0-9]{0,19}$/).test(afterId)))throw Error('Invalid queue cursor');\n const ordered=rows.filter(r=>(/^[1-9][0-9]{0,19}$/).test(String(r.id)))\n  .sort((a,b)=>BigInt(a.id)<BigInt(b.id)?-1:BigInt(a.id)>BigInt(b.id)?1:0);\n let nextCursor=null;\n for(const r of ordered){\n  if(afterId!==null&&BigInt(r.id)<=BigInt(afterId))continue;\n  if(!r.notificationKey||/:tv:\\d+:episode:\\d+$/.test(r.notificationKey)||seen.has(r.notificationKey)||skip.has(r.notificationKey))continue;\n  seen.add(r.notificationKey);\n  try{\n   const payload=JSON.parse(r.payloadJson);\n   if(!payload||typeof payload!=='object'||Array.isArray(payload))continue;\n   notifications.push({id:String(r.id),notificationKey:r.notificationKey,destinationId:r.destinationId,payload});\n  }catch{}\n  if(notifications.length===10){nextCursor=String(r.id);break;}\n }\n return {version:1,notifications,nextCursor};\n}\nfunction pendingRequests(requests,notices){\n const finished=new Set(notices.filter(n=>['pending','delivered'].includes(n.state)&&\n  typeof n.notificationKey==='string'&&!n.notificationKey.includes(':progress:')&&!n.notificationKey.includes(':expiry:')).map(n=>n.requestKey));\n return requests.filter(r=>r.baselineCaptured&&r.userId!=='1'&&r.state==='registered'&&\n  ['discord','telegram'].includes(r.source)&&!finished.has(r.requestKey));\n}\nif(typeof module!=='undefined')module.exports={queueBatch,pendingRequests};\n\nconst action=$('Validate Queue Action').first().json;\nreturn [{json:queueBatch($('Pending Discord Notices').all().map(x=>x.json).filter(r=>reminderValid(r,expiryRecords,expiryDeliveryMode)),action.excludeNotificationKeys||[],action.afterNotificationId??null)}];"
         },
         "position": [
           1080,
@@ -38361,6 +38361,588 @@
     "pinData": {}
   },
   {
+    "id": "snakeMediaReviewsV1",
+    "name": "Snake Media - Reviews",
+    "active": false,
+    "pinData": {},
+    "settings": {
+      "executionOrder": "v1",
+      "executionTimeout": 30
+    },
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "snake-media-reviews",
+          "authentication": "headerAuth",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "reviews-webhook",
+        "name": "Review Webhook",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "notesInFlow": true,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "CONFIGURE_HTTPHEADERAUTH",
+            "name": "Configure httpHeaderAuth"
+          }
+        },
+        "notes": "Required: select a Header Auth credential. Name: X-Snake-Media-Key. Value: a private random shared secret. Never disable authentication.",
+        "webhookId": "snake-media-reviews-v1"
+      },
+      {
+        "id": "recommend-read-review-authorization",
+        "name": "Read Review Authorization",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "0ZVcAedXFLCitl1z"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": []
+          },
+          "options": {},
+          "returnAll": true
+        },
+        "position": [
+          270,
+          0
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "recommend-read-review-rows",
+        "name": "Read Review Rows",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "rFTTF4E4Or2k7bST"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "source",
+                "condition": "eq",
+                "keyValue": "discord"
+              },
+              {
+                "keyName": "state",
+                "condition": "eq",
+                "keyValue": "review"
+              }
+            ]
+          },
+          "options": {},
+          "returnAll": true
+        },
+        "position": [
+          540,
+          0
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "recommend-read-review-notice",
+        "name": "Read Review Notice",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "HZ2inujBfAj6zwDl"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "id",
+                "condition": "eq",
+                "keyValue": "={{ $('Review Webhook').first().json.body.noticeId || '0' }}"
+              }
+            ]
+          },
+          "options": {},
+          "returnAll": true
+        },
+        "position": [
+          810,
+          0
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "recommend-read-review-request",
+        "name": "Read Review Request",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "wWQ3hhif5v6vP9EU"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $('Read Review Notice').first().json.requestKey || '__review_none__' }}"
+              }
+            ]
+          },
+          "options": {},
+          "returnAll": true
+        },
+        "position": [
+          1080,
+          0
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "recommend-review-decision",
+        "name": "Review Decision",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "// Review decisions and storage belong to n8n, independently of media jobs.\nfunction reviewId(x){return typeof x==='string'&&/^[1-9][0-9]{0,19}$/.test(x)&&BigInt(x)<2n**64n;}\nfunction verdict(loved,total){\n if(!Number.isInteger(loved)||!Number.isInteger(total)||total<1||loved<0||loved>total)throw Error('invalid_votes');\n const label=loved===0?'\ud83d\uddd1\ufe0f Straight to the bargain bin':loved*4<total?'\ud83d\udc0d The snake demands a refund':\n  loved*2<total?'\ud83c\udf7f Popcorn carried this one':loved*2===total?'\u2696\ufe0f The couch is divided':\n  loved*4<total*3?'\ud83d\udc4d Certified pretty good':loved<total?'\ud83d\udd25 The couch approves':'\ud83c\udfc6 All hiss, no miss';\n return {label,text:`${label}\\n${loved} loved it \u00b7 ${total-loved} not for them${total<3?'\\nEarly verdict\u2014small couch.':''}`};\n}\nfunction reviewOperation({body:b,rows,notices,requests,users,owners,channels,now=Date.now()}){\n const fail=error=>({row:null,reply:{version:1,ok:false,error}});\n if(!Array.isArray(rows)||!Array.isArray(notices)||!Array.isArray(requests))return fail('invalid_snapshot');\n if(!b||![b.userId,b.guildId,b.channelId].every(reviewId)||!users.includes(b.userId))return fail('denied');\n const saved=new Map();\n for(const r of rows.filter(r=>r.source==='discord'&&r.state==='review')){\n  let d;try{d=JSON.parse(r.contextJson);}catch{return fail('invalid_snapshot');}\n  if(d.guildId===b.guildId)saved.set(r.requestKey,{...d,_row:r});\n }\n const key=(kind,suffix='')=>`review:${kind}:${b.guildId}${suffix?':'+suffix:''}`;\n const record=(requestKey,d)=>({source:'discord',userId:b.userId,destinationId:b.channelId,messageId:'0',\n  requestedAt:new Date(now).toISOString(),requestKey,state:'review',expiresAt:'2099-01-01T00:00:00.000Z',contextJson:JSON.stringify({...d,guildId:b.guildId})});\n let config=saved.get(key('config'));\n if(b.op==='setup'){\n  if(!owners.includes(b.userId)||!channels.includes(b.channelId)||!reviewId(b.targetChannelId))return fail('denied');\n  return {row:record(key('config'),{kind:'config',channelId:b.targetChannelId}),reply:{version:1,ok:true,channelId:b.targetChannelId}};\n }\n if(b.op==='config')return {row:null,reply:{version:1,ok:true,channelId:config?.channelId||null}};\n let media,post,destination=config?.channelId;\n if(b.postMessageId){\n  post=[...saved.values()].find(d=>d.kind==='post'&&d.messageId===b.postMessageId&&d.messageChannelId===b.channelId);\n  if(!post)return fail('unknown_post');\n  media=post;destination=post.channelId;\n }else if(b.noticeId){\n  const n=notices.find(n=>String(n.id)===b.noticeId);let payload;\n  try{payload=JSON.parse(n?.payloadJson);}catch{return fail('invalid_notice');}\n  if(n.source!=='discord'||n.destinationId!==b.channelId||payload.kind!=='expiry_reminder'||\n   !channels.includes(b.channelId)||!n.deliveredAt||Date.parse(n.deliveredAt)>now||\n   now-Date.parse(n.deliveredAt)>21600000||!Number.isFinite(Date.parse(n.deliveredAt))||\n   (b.originMessageId&&b.originMessageId!==n.deliveredMessageId))return fail('invalid_notice');\n  const r=requests.find(r=>r.requestKey===n.requestKey&&r.source==='discord');\n  if(!r||!['movie','tv'].includes(r.mediaType)||!reviewId(String(r.externalId))||!r.title)return fail('missing_identity');\n  media={mediaKey:r.mediaType+':'+r.externalId,title:String(r.title).slice(0,250)};\n  try{media.posterUrl=JSON.parse(r.contextJson)?.posterUrl;}catch{}\n }else if(['bind','comment','summary'].includes(b.op)){\n  media=[...saved.values()].find(d=>d.kind==='vote'&&d.mediaKey===b.mediaKey&&(owners.includes(b.userId)||d.userId===b.userId));\n  if(!media||!owners.includes(b.userId)&&media.userId!==b.userId)return fail('missing_identity');\n }else return fail('invalid_operation');\n if(!destination)return fail('unconfigured');\n const mk=media.mediaKey,pk=key('post',destination+':'+mk);\n post=post||saved.get(pk);\n let row=null;\n if(b.op==='vote'){\n  if(!['loved','not_for_me'].includes(b.vote))return fail('invalid_vote');\n  const vk=key('vote',mk+':'+b.userId),old=saved.get(vk);\n  if(b.eventId&&old?.eventId===b.eventId&&old.vote!==b.vote)return fail('invalid_event');\n  const d={kind:'vote',mediaKey:mk,title:media.title,posterUrl:media.posterUrl,userId:b.userId,\n   vote:b.vote,username:String(b.username||b.userId).slice(0,80),eventId:String(b.eventId||'').slice(0,100)};\n  row=record(vk,d);saved.set(vk,d);\n }else if(b.op==='bind'){\n  if(![b.threadId,b.messageId,b.messageChannelId].every(reviewId))return fail('invalid_post');\n  if(post&&(post.messageId!==b.messageId||post.threadId!==b.threadId))return fail('post_conflict');\n  post={kind:'post',mediaKey:mk,title:media.title,posterUrl:media.posterUrl,channelId:destination,\n   threadId:b.threadId,messageId:b.messageId,messageChannelId:b.messageChannelId};row=record(pk,post);\n }else if(b.op==='comment'){\n  if(!post||!reviewId(b.commentId))return fail('invalid_post');\n  row=record(key('comment',destination+':'+mk+':'+b.userId),{kind:'comment',mediaKey:mk,userId:b.userId,channelId:destination,messageId:b.commentId});\n }else if(!['resolve','lookup','summary'].includes(b.op))return fail('invalid_operation');\n const votes=[...saved.values()].filter(d=>d.kind==='vote'&&d.mediaKey===mk),total=votes.length,loved=votes.filter(d=>d.vote==='loved').length;\n const mine=votes.find(d=>d.userId===b.userId),comment=saved.get(key('comment',destination+':'+mk+':'+b.userId));\n const summary=total?verdict(loved,total):{text:'Be the first on the couch to review this title.'};\n return {row,reply:{version:1,ok:true,mediaKey:mk,title:media.title,posterUrl:media.posterUrl,\n  channelId:destination,post:post?{threadId:post.threadId,messageId:post.messageId,messageChannelId:post.messageChannelId}:null,\n  total,loved,summary:summary.text,vote:mine?.vote,username:mine?.username,commentId:comment?.messageId||null}};\n}\nif(typeof module!=='undefined')module.exports={verdict,reviewOperation};\n\nconst authorizationId=x=>typeof x==='string'&&/^[1-9][0-9]{0,19}$/.test(x)&&BigInt(x)<2n**64n;\nfunction authorizationUsers(rows, baseline) {\n if(!Array.isArray(rows)||!Array.isArray(baseline)||!baseline.every(authorizationId))throw Error('Invalid authorization snapshot');\n const users=[...baseline];let legacy=false;\n for(const row of rows){\n  if(row.key==='discord-users'){\n   if(legacy||typeof row.owner!=='string')throw Error('Invalid saved authorization');\n   legacy=true;\n   const saved=row.owner.split(',').map(x=>x.trim());\n   if(!saved.every(authorizationId))throw Error('Invalid saved authorization');\n   users.push(...saved);\n  }else if(typeof row.key==='string'&&row.key.startsWith('discord-user:')){\n   const id=row.key.slice('discord-user:'.length);\n   if(!authorizationId(id)||row.owner!==id)throw Error('Invalid saved authorization');\n   users.push(id);\n  }\n }\n return [...new Set(users)].sort((a,b)=>BigInt(a)<BigInt(b)?-1:BigInt(a)>BigInt(b)?1:0);\n}\nfunction authorizationAcknowledgment(rows, baseline, expected) {\n const users=authorizationUsers(rows,baseline);\n if(!Array.isArray(expected)||!expected.length||!expected.every(x=>authorizationId(x)&&users.includes(x)))throw Error('Authorization verification failed');\n return {version:1,synchronized:true,users};\n}\nfunction authorizeAdmin(body, owners, channels, existing) {\n const id=authorizationId;\n if(!body||!owners.includes(body.actor)||!channels.includes(body.channel)||!id(body.guild)||!id(body.user)||!Array.isArray(body.users)||!body.users.length||body.users.length>500||!body.users.every(id)||!body.users.includes(body.user))throw Error('Authorization denied');\n const users=[...new Set([...existing,...owners,...body.users])];\n if(!users.every(id))throw Error('Invalid saved authorization');\n users.sort((a,b)=>BigInt(a)<BigInt(b)?-1:BigInt(a)>BigInt(b)?1:0);\n return users;\n}\nif(typeof module!=='undefined')module.exports={authorizeAdmin,authorizationUsers,authorizationAcknowledgment};\n\nconst result=reviewOperation({body:$(\"Review Webhook\").first().json.body,rows:$(\"Read Review Rows\").all().map(x=>x.json),notices:$(\"Read Review Notice\").all().map(x=>x.json),requests:$input.all().map(x=>x.json),users:authorizationUsers($(\"Read Review Authorization\").all().map(x=>x.json),[\"100000000000000003\", \"100000000000000004\", \"100000000000000005\"]),owners:[\"100000000000000003\"],channels:[\"100000000000000006\"]});return [{json:result}];"
+        },
+        "position": [
+          1350,
+          0
+        ]
+      },
+      {
+        "id": "recommend-review-write",
+        "name": "Review Write?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "parameters": {
+          "conditions": {
+            "options": {
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "Review Write?",
+                "leftValue": "={{ !!$json.row }}",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "position": [
+          0,
+          220
+        ]
+      },
+      {
+        "id": "recommend-save-review-row",
+        "name": "Save Review Row",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "upsert",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "rFTTF4E4Or2k7bST"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "source",
+                "condition": "eq",
+                "keyValue": "discord"
+              },
+              {
+                "keyName": "state",
+                "condition": "eq",
+                "keyValue": "review"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $json.row.requestKey }}"
+              }
+            ]
+          },
+          "options": {},
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "source": "={{ $json.row.source }}",
+              "userId": "={{ $json.row.userId }}",
+              "destinationId": "={{ $json.row.destinationId }}",
+              "requestKey": "={{ $json.row.requestKey }}",
+              "contextJson": "={{ $json.row.contextJson }}",
+              "mediaType": "={{ '' }}",
+              "mediaJson": "={{ '{}' }}",
+              "state": "={{ $json.row.state }}",
+              "claimId": "={{ '' }}",
+              "choice": "={{ '' }}",
+              "expiresAt": "={{ $json.row.expiresAt }}"
+            },
+            "schema": [
+              {
+                "id": "source",
+                "displayName": "source",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "userId",
+                "displayName": "userId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "destinationId",
+                "displayName": "destinationId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "requestKey",
+                "displayName": "requestKey",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "contextJson",
+                "displayName": "contextJson",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "mediaType",
+                "displayName": "mediaType",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "mediaJson",
+                "displayName": "mediaJson",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "state",
+                "displayName": "state",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "claimId",
+                "displayName": "claimId",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "choice",
+                "displayName": "choice",
+                "type": "string",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "expiresAt",
+                "displayName": "expiresAt",
+                "type": "date",
+                "display": true,
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true
+              }
+            ]
+          }
+        },
+        "position": [
+          270,
+          220
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "recommend-verify-review-row",
+        "name": "Verify Review Row",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "parameters": {
+          "resource": "row",
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "rFTTF4E4Or2k7bST"
+          },
+          "matchType": "allConditions",
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "source",
+                "condition": "eq",
+                "keyValue": "discord"
+              },
+              {
+                "keyName": "state",
+                "condition": "eq",
+                "keyValue": "review"
+              },
+              {
+                "keyName": "requestKey",
+                "condition": "eq",
+                "keyValue": "={{ $('Review Decision').first().json.row.requestKey }}"
+              }
+            ]
+          },
+          "options": {},
+          "returnAll": true
+        },
+        "position": [
+          540,
+          220
+        ],
+        "alwaysOutputData": true
+      },
+      {
+        "id": "recommend-review-saved",
+        "name": "Review Saved",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "const d=$('Review Decision').first().json;const rows=$input.all().map(x=>x.json);if(rows.length!==1||rows[0].contextJson!==d.row.contextJson)throw Error('review_write_unconfirmed');return [{json:d.reply}];"
+        },
+        "position": [
+          810,
+          220
+        ]
+      },
+      {
+        "id": "recommend-review-read-result",
+        "name": "Review Read Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "parameters": {
+          "jsCode": "return [{json:$('Review Decision').first().json.reply}];"
+        },
+        "position": [
+          1080,
+          220
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ $json }}",
+          "options": {
+            "responseCode": 200
+          }
+        },
+        "id": "reviews-response",
+        "name": "Review Response",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.4,
+        "position": [
+          1350,
+          220
+        ]
+      }
+    ],
+    "connections": {
+      "Review Webhook": {
+        "main": [
+          [
+            {
+              "node": "Read Review Authorization",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Review Authorization": {
+        "main": [
+          [
+            {
+              "node": "Read Review Rows",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Review Rows": {
+        "main": [
+          [
+            {
+              "node": "Read Review Notice",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Review Notice": {
+        "main": [
+          [
+            {
+              "node": "Read Review Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Review Request": {
+        "main": [
+          [
+            {
+              "node": "Review Decision",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Review Decision": {
+        "main": [
+          [
+            {
+              "node": "Review Write?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Review Write?": {
+        "main": [
+          [
+            {
+              "node": "Save Review Row",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Review Read Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save Review Row": {
+        "main": [
+          [
+            {
+              "node": "Verify Review Row",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verify Review Row": {
+        "main": [
+          [
+            {
+              "node": "Review Saved",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Review Saved": {
+        "main": [
+          [
+            {
+              "node": "Review Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Review Read Result": {
+        "main": [
+          [
+            {
+              "node": "Review Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    }
+  },
+  {
     "id": "snakeExpiryRemindersV1",
     "name": "Snake Media - 24 Hour Expiry Reminders",
     "nodes": [
@@ -38560,7 +39142,7 @@
           0
         ],
         "parameters": {
-          "jsCode": "// Shared n8n expiry policy. No media scans, transport, or deletion here.\nconst REMINDER_WINDOW=24*3600000, MAX_SNAPSHOT_AGE=30*60000;\nfunction reminderData(row){try{return JSON.parse(row.payloadJson);}catch{return null;}}\nfunction reminderFiles(records,now){\n const seen=new Set();for(const r of records)if(r.key){if(seen.has(r.key))return [];seen.add(r.key);}\n return records.filter(r=>r.kind==='file').map(r=>({...reminderData(r),key:r.key})).filter(d=>\n  d.state==='tracked'&&!d.identityProtected&&['movie','tv'].includes(d.mediaType)&&\n  Number.isSafeInteger(d.fileId)&&d.fileId>0&&typeof d.path==='string'&&\n  d.path.startsWith(d.mediaType==='movie'?'/movies/':'/tv/')&&!d.path.includes('/../')&&\n  Number.isFinite(Date.parse(d.importedAt))&&d.checkedAt&&Date.parse(d.checkedAt)<=now+60000&&\n  Date.parse(d.checkedAt)>=now-MAX_SNAPSHOT_AGE&&Date.parse(d.expiresAt)>now&&\n  Date.parse(d.expiresAt)<=now+REMINDER_WINDOW&&d.deadlines&&typeof d.deadlines==='object');\n}\nfunction reminderValid(row,records,mode,now=Date.now()){\n const p=reminderData(row);if(p?.kind!=='expiry_reminder')return true;\n if(mode!=='enabled'||!Array.isArray(p.expiryFiles)||!p.expiryFiles.length)return false;\n const files=reminderFiles(records,now);\n return p.expiryFiles.every(f=>files.some(d=>d.key===f.key&&d.path===f.path&&\n  d.importedAt===f.importedAt&&d.expiresAt===f.expiresAt));\n}\nfunction planReminders({requests,records,notices,mode,now=Date.now()}){\n if(mode!=='enabled'||!Number.isFinite(now))return [];\n const files=reminderFiles(records,now),groups=new Map(),existing=new Set(notices.map(n=>n.notificationKey));\n for(const r of requests){\n  if(!r.baselineCaptured||r.state!=='registered'||r.userId==='1'||!['discord','telegram'].includes(r.source)||\n   !r.requestKey||!r.title||!r.destinationId||!r.messageId)continue;\n  const owned=files.filter(d=>d.mediaType===r.mediaType&&String(d.mediaId)===String(r.mediaId)&&\n   Object.keys(d.deadlines).some(k=>k.startsWith(r.requestKey+':')));\n  for(const d of owned){\n   const groupKey=JSON.stringify([r.source,r.userId,r.destinationId,r.mediaType,String(r.mediaId)]);\n   if(!groups.has(groupKey))groups.set(groupKey,{r,files:new Map(),requestKeys:new Set()});\n   groups.get(groupKey).files.set(d.key,d);groups.get(groupKey).requestKeys.add(r.requestKey);\n  }\n }\n const result=[];\n for(const {r,files:map,requestKeys} of groups.values()){\n  const fs=[...map.values()].sort((a,b)=>a.key.localeCompare(b.key));\n  // Each file/deadline is notified once, even when the rest of a batch changes.\n  const fresh=fs.filter(d=>!notices.some(n=>{const p=reminderData(n);return p?.kind==='expiry_reminder'&&\n   n.source===r.source&&p.userId===r.userId&&n.destinationId===r.destinationId&&\n   p.expiryFiles?.some(f=>f.key===d.key&&f.expiresAt===d.expiresAt&&f.importedAt===d.importedAt);}));\n  if(!fresh.length)continue;\n  const earliest=Math.min(...fresh.map(d=>Date.parse(d.expiresAt)));\n  const key=`${r.source}:expiry:${r.userId}:${r.mediaType}:${r.mediaId}:${earliest}`;\n  if(existing.has(key))continue;\n  const count=new Set(fresh.flatMap(d=>d.episodeIds||[])).size;\n  const subject=r.mediaType==='tv'?`${count} episode${count===1?'':'s'} of ${r.title}`:r.title;\n  const text=`\u23f3 ${subject}\\n\\nScheduled for automatic deletion within 24 hours (earliest: ${new Date(earliest).toISOString().replace('T',' ').replace(':00.000Z',' UTC')}).\\n\\nWant more time? Extend 7 days, extend 30 days, or keep permanently.\\nButtons last 5 minutes; /extend and /keep remain available.`;\n  result.push({notificationKey:key,requestKey:r.requestKey,fileKey:fresh[0].key,source:r.source,\n   destinationId:r.destinationId,payloadJson:JSON.stringify({kind:'expiry_reminder',newMessage:true,text,\n    userId:r.userId,messageId:r.messageId,retentionControls:true,requestKeys:[...requestKeys],\n    expiryFiles:fresh.map(d=>({key:d.key,path:d.path,importedAt:d.importedAt,expiresAt:d.expiresAt}))}),\n   state:'pending',attempts:0,nextAttemptAt:new Date(now).toISOString(),deliveredAt:null,deliveredMessageId:''});\n }\n return result;\n}\nif(typeof module!=='undefined')module.exports={planReminders,reminderValid};\n\nconst modes=$('Reminder Mode').all().map(x=>x.json).filter(r=>r.key==='mode');return planReminders({mode:modes.length===1?modes[0].owner:null,requests:$('Reminder Requests').all().map(x=>x.json),records:$('Reminder Records').all().map(x=>x.json),notices:$('Reminder Notices').all().map(x=>x.json)}).map(json=>({json}));"
+          "jsCode": "// Shared n8n expiry policy. No media scans, transport, or deletion here.\nconst REMINDER_WINDOW=24*3600000, MAX_SNAPSHOT_AGE=30*60000;\nfunction reminderData(row){try{return JSON.parse(row.payloadJson);}catch{return null;}}\nfunction reminderFiles(records,now){\n const seen=new Set();for(const r of records)if(r.key){if(seen.has(r.key))return [];seen.add(r.key);}\n return records.filter(r=>r.kind==='file').map(r=>({...reminderData(r),key:r.key})).filter(d=>\n  d.state==='tracked'&&!d.identityProtected&&['movie','tv'].includes(d.mediaType)&&\n  Number.isSafeInteger(d.fileId)&&d.fileId>0&&typeof d.path==='string'&&\n  d.path.startsWith(d.mediaType==='movie'?'/movies/':'/tv/')&&!d.path.includes('/../')&&\n  Number.isFinite(Date.parse(d.importedAt))&&d.checkedAt&&Date.parse(d.checkedAt)<=now+60000&&\n  Date.parse(d.checkedAt)>=now-MAX_SNAPSHOT_AGE&&Date.parse(d.expiresAt)>now&&\n  Date.parse(d.expiresAt)<=now+REMINDER_WINDOW&&d.deadlines&&typeof d.deadlines==='object');\n}\nfunction reminderValid(row,records,mode,now=Date.now()){\n const p=reminderData(row);if(p?.kind!=='expiry_reminder')return true;\n if(mode!=='enabled'||!Array.isArray(p.expiryFiles)||!p.expiryFiles.length)return false;\n const files=reminderFiles(records,now);\n return p.expiryFiles.every(f=>files.some(d=>d.key===f.key&&d.path===f.path&&\n  d.importedAt===f.importedAt&&d.expiresAt===f.expiresAt));\n}\nfunction planReminders({requests,records,notices,mode,now=Date.now()}){\n if(mode!=='enabled'||!Number.isFinite(now))return [];\n const files=reminderFiles(records,now),groups=new Map(),existing=new Set(notices.map(n=>n.notificationKey));\n for(const r of requests){\n  if(!r.baselineCaptured||r.state!=='registered'||r.userId==='1'||!['discord','telegram'].includes(r.source)||\n   !r.requestKey||!r.title||!r.destinationId||!r.messageId)continue;\n  const owned=files.filter(d=>d.mediaType===r.mediaType&&String(d.mediaId)===String(r.mediaId)&&\n   Object.keys(d.deadlines).some(k=>k.startsWith(r.requestKey+':')));\n  for(const d of owned){\n   const groupKey=JSON.stringify([r.source,r.userId,r.destinationId,r.mediaType,String(r.mediaId)]);\n   if(!groups.has(groupKey))groups.set(groupKey,{r,files:new Map(),requestKeys:new Set()});\n   groups.get(groupKey).files.set(d.key,d);groups.get(groupKey).requestKeys.add(r.requestKey);\n  }\n }\n const result=[];\n for(const {r,files:map,requestKeys} of groups.values()){\n  const fs=[...map.values()].sort((a,b)=>a.key.localeCompare(b.key));\n  // Each file/deadline is notified once, even when the rest of a batch changes.\n  const fresh=fs.filter(d=>!notices.some(n=>{const p=reminderData(n);return p?.kind==='expiry_reminder'&&\n   n.source===r.source&&p.userId===r.userId&&n.destinationId===r.destinationId&&\n   p.expiryFiles?.some(f=>f.key===d.key&&f.expiresAt===d.expiresAt&&f.importedAt===d.importedAt);}));\n  if(!fresh.length)continue;\n  const earliest=Math.min(...fresh.map(d=>Date.parse(d.expiresAt)));\n  const key=`${r.source}:expiry:${r.userId}:${r.mediaType}:${r.mediaId}:${earliest}`;\n  if(existing.has(key))continue;\n  const count=new Set(fresh.flatMap(d=>d.episodeIds||[])).size;\n  const subject=r.mediaType==='tv'?`${count} episode${count===1?'':'s'} of ${r.title}`:r.title;\n  const text=`\u23f3 ${subject}\\n\\nScheduled for automatic deletion within 24 hours (earliest: ${new Date(earliest).toISOString().replace('T',' ').replace(':00.000Z',' UTC')}).\\n\\nWant more time? Extend 7 days, extend 30 days, or keep permanently.\\nButtons last 6 hours; /extend and /keep remain available.`;\n  result.push({notificationKey:key,requestKey:r.requestKey,fileKey:fresh[0].key,source:r.source,\n   destinationId:r.destinationId,payloadJson:JSON.stringify({kind:'expiry_reminder',newMessage:true,text,\n    userId:r.userId,messageId:r.messageId,retentionControls:true,requestKeys:[...requestKeys],\n    expiryFiles:fresh.map(d=>({key:d.key,path:d.path,importedAt:d.importedAt,expiresAt:d.expiresAt}))}),\n   state:'pending',attempts:0,nextAttemptAt:new Date(now).toISOString(),deliveredAt:null,deliveredMessageId:''});\n }\n return result;\n}\nif(typeof module!=='undefined')module.exports={planReminders,reminderValid};\n\nconst modes=$('Reminder Mode').all().map(x=>x.json).filter(r=>r.key==='mode');return planReminders({mode:modes.length===1?modes[0].owner:null,requests:$('Reminder Requests').all().map(x=>x.json),records:$('Reminder Records').all().map(x=>x.json),notices:$('Reminder Notices').all().map(x=>x.json)}).map(json=>({json}));"
         }
       },
       {
