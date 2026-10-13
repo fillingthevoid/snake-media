@@ -5,6 +5,7 @@ import json
 import logging
 import sqlite3
 import weakref
+import re
 import discord
 from .n8n_client import MediaReply
 
@@ -13,7 +14,25 @@ ERRORS={'denied':"⛔ This Discord account isn't authorized to review here.",
     'unconfigured':'Reviews aren’t set up yet. The owner can use /setupreview.',
     'invalid_notice':'This review button expired. You can still react to the title’s review post.',
     'missing_identity':'This title doesn’t have review details yet.',
-    'unknown_post':'This isn’t a registered Snake Media review post.'}
+    'unknown_post':'This isn’t a registered Snake Media review post.',
+    'invalid_menu':'This selection changed or timed out. Open the title again with /status.',
+    'unavailable':'Review is available once the title is ready to watch in Jellyfin. Try Refresh later.'}
+
+def review_post_view():
+    view=discord.ui.View(timeout=None)
+    for label,vote in [('❤️ Loved it','loved'),('🙃 Not for me','not_for_me')]:
+        view.add_item(discord.ui.Button(label=label,custom_id='snake_review_post:'+vote,
+                                       style=discord.ButtonStyle.secondary))
+    return view
+
+def review_request_view(menu_id,media_key):
+    if not re.fullmatch(r'[1-9][0-9]{0,15}',menu_id) or not re.fullmatch(r'(movie|tv):[1-9][0-9]{0,19}',media_key):
+        raise ValueError('invalid_review_choice')
+    view=discord.ui.View(timeout=None)
+    for label,vote in [('❤️ Loved it','loved'),('🙃 Not for me','not_for_me')]:
+        view.add_item(discord.ui.Button(label=label,custom_id=f'snake_review_request:{menu_id}:{media_key}:{vote}',
+                                       style=discord.ButtonStyle.secondary))
+    return view
 
 class ReviewJournal:
     def __init__(self,path):
@@ -52,7 +71,7 @@ def marker(kind,*parts):return 'snake-review-'+kind+':'+hashlib.sha256(':'.join(
 
 def review_embed(data,footer):
     title=discord.utils.escape_mentions(str(data['title']))[:250]
-    embed=discord.Embed(title=title,description=str(data.get('summary',''))+'\n\nReact ❤️ Loved it or 🙃 Not for me. Your latest choice counts.',colour=0x2ECC71)
+    embed=discord.Embed(title=title,description=str(data.get('summary',''))+'\n\nUse the buttons or react ❤️ Loved it / 🙃 Not for me. Your latest choice counts.',colour=0x2ECC71)
     poster=MediaReply('',poster_url=data.get('posterUrl')).poster_url
     if poster:embed.set_thumbnail(url=poster)
     embed.set_footer(text=footer);return embed
@@ -68,12 +87,17 @@ class ReviewController:
     async def vote(self,body,vote):
         if body['userId'] not in self.service.allowed_users:return ERRORS['denied']
         try:
-            data=await self.call(body,op='resolve' if body.get('noticeId') else 'lookup')
-            key=body['guildId']+':'+data['mediaKey']
+            if body.get('myRequestsId') and body.get('expectedMediaKey'):
+                media_key=body['expectedMediaKey']
+            else:
+                data=await self.call(body,op='resolve' if body.get('noticeId') else 'lookup')
+                media_key=data['mediaKey']
+            key=body['guildId']+':'+media_key
             lock=self.locks.setdefault(key,asyncio.Lock())
             async with lock:
                 data=await self.call(body,op='vote',vote=vote)
-                try:await self.publish(body,data)
+                publication_body={k:v for k,v in body.items() if k not in ('myRequestsId','expectedMediaKey')}
+                try:await self.publish(publication_body,data)
                 except Exception as exc:
                     log.warning('Review publication deferred error_type=%s',type(exc).__name__)
                     return '✅ Your review is saved. I couldn’t update the review post yet. Tap again to retry.'
@@ -88,6 +112,25 @@ class ReviewController:
         async for message in channel.history(limit=limit):
             if message.author.id==self.client.user.id and any(e.footer.text==tag for e in message.embeds):return message
         return None
+
+    async def upgrade_posts(self,body):
+        """Edit registered starter controls only. Never invent posts or votes."""
+        cursor=0;updated=failed=0
+        for _ in range(4001):
+            data=await self.call(body,op='posts',cursor=cursor)
+            for post in data['posts']:
+                try:
+                    channel=self.client.get_channel(int(post['messageChannelId'])) or await self.client.fetch_channel(int(post['messageChannelId']))
+                    message=await channel.fetch_message(int(post['messageId']))
+                    if message.author.id!=self.client.user.id:raise ValueError('review_starter_author_changed')
+                    await message.edit(view=review_post_view(),allowed_mentions=discord.AllowedMentions.none())
+                    updated+=1
+                except Exception as exc:
+                    failed+=1;log.warning('Review starter control upgrade deferred error_type=%s',type(exc).__name__)
+            if data.get('nextCursor') is None:return {'updated':updated,'failed':failed}
+            if type(data['nextCursor']) is not int or data['nextCursor']<=cursor:raise ValueError('invalid_review_cursor')
+            cursor=data['nextCursor']
+        raise ValueError('review_upgrade_limit')
 
     async def publish(self,body,data):
         destination=self.client.get_channel(int(data['channelId'])) or await self.client.fetch_channel(int(data['channelId']))
@@ -146,5 +189,5 @@ class ReviewController:
         self.journal.save(comment_tag,{'messageId':str(comment.id)})
         await self.call(body,op='comment',mediaKey=data['mediaKey'],commentId=str(comment.id))
         data=await self.call(body,op='summary',mediaKey=data['mediaKey'])
-        await starter.edit(embed=review_embed(data,tag),allowed_mentions=discord.AllowedMentions.none())
+        await starter.edit(embed=review_embed(data,tag),view=review_post_view(),allowed_mentions=discord.AllowedMentions.none())
         for emoji in ('❤️','🙃'):await starter.add_reaction(emoji)

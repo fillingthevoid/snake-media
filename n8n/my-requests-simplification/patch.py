@@ -30,12 +30,16 @@ def build(source):
                     if 'let result=describe(' not in code or 'now:Date.now()});if(details.length)' not in code:raise ValueError('Unknown status projection')
                     code=code.replace('let result=describe(', 'const projection=describe(',1).replace('now:Date.now()});if(details.length)', 'now:Date.now()},true);let result=projection.text;if(details.length)',1)
                     code=code.replace('text:result,progressState:', 'text:result,summaryText:projection.summaryText,retentionActions:projection.retentionActions,progressState:',1)
+                if 'availability:projection.availability' not in code:
+                    code=code.replace('summaryText:projection.summaryText,','summaryText:projection.summaryText,availability:projection.availability,',1)
                 p['jsCode']=code
             if w['id']=='snakeStatusV1' and n['name']=='Format Status Result':
                 code=p['jsCode']
                 if 'retentionActions:single.retentionActions' not in code:
                     if 'posterUrl:single.posterUrl' not in code:raise ValueError('Unknown status result')
                     code=code.replace('posterUrl:single.posterUrl', "summaryText:($('Recovery Status Warning').first().json.warning||'')+(single.summaryText||text),retentionActions:single.retentionActions,posterUrl:single.posterUrl",1)
+                if 'availability:single.availability' not in code:
+                    code=code.replace('retentionActions:single.retentionActions,','retentionActions:single.retentionActions,availability:single.availability,',1)
                 p['jsCode']=code
     return rows
 if __name__=='__main__':

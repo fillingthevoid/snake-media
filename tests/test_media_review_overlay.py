@@ -15,5 +15,10 @@ class ReviewOverlayTests(unittest.TestCase):
         self.assertEqual(nodes['Save Review Row']['parameters']['operation'],'upsert')
         self.assertEqual({f['keyName'] for f in nodes['Save Review Row']['parameters']['filters']['conditions']},{'source','state','requestKey'})
         self.assertNotIn('mutex',json.dumps(w).lower())
+        self.assertEqual(nodes['Read Review Availability']['parameters']['workflowId']['value'],'snakeStatusV1')
+        self.assertEqual(nodes['Renew Owned Review Menu']['parameters']['operation'],'update')
+        self.assertEqual(set(nodes['Renew Owned Review Menu']['parameters']['columns']['value']),{'expiresAt'})
+        self.assertEqual({f['keyName'] for f in nodes['Renew Owned Review Menu']['parameters']['filters']['conditions']},
+            {'id','source','userId','destinationId','state','claimId','expiresAt'})
         for before,after in zip(old,new):
             if before['id']!='snakeMediaReviewsV1' and not any('// Shared n8n expiry policy' in n.get('parameters',{}).get('jsCode','') for n in before['nodes']):self.assertEqual(before,after)

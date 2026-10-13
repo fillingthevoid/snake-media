@@ -53,6 +53,7 @@ function card(row,now,status=null){
   for(const field of ['posterUrl','jellyfinUrl','localJellyfinUrl'])if(typeof status?.[field]==='string')out[field]=status[field];
   out.choices=[{label:b.details?'Back':'Details',action:b.details?'mr_summary':'mr_details'},{label:'Refresh',action:'mr_refresh'}];
   if(!b.details){
+   if(row.source==='discord'&&Number.isSafeInteger(status?.availability?.available)&&status.availability.available>0)out.choices.push({label:'Review',action:'mr_review'});
    if(status?.retentionActions?.canExtend===true&&!status.retentionActions.permanent)out.choices.push({label:'Extend 7 days',action:'mr_extend_7'},{label:'Extend 30 days',action:'mr_extend_30'});
    if(status?.retentionActions?.canKeep===true&&!status.retentionActions.permanent)out.choices.push({label:'Keep permanently',action:'mr_keep'});
    out.choices.push({label:'Watch address',action:'mr_watch'},{label:'Back',action:'mr_back'});

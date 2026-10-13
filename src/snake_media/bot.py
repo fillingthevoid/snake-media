@@ -15,7 +15,7 @@ from .confirmations import CUSTOM_ID, presentation, edit_presentation, notificat
 from .n8n_client import MediaReply
 from .command_menu import menu_text, menu_choices, NAVIGATION
 from .request_prompt import RequestTitleModal
-from .media_reviews import ReviewController, destination_error
+from .media_reviews import ReviewController, destination_error, review_request_view, ERRORS as REVIEW_ERRORS
 
 log = logging.getLogger("snake_media")
 EXPIRY_NOTE = '\n\nMenu expired. Use /help or /status to reopen.'
@@ -68,6 +68,38 @@ class SnakeMediaClient(discord.Client):
 
     async def help_command(self, interaction: discord.Interaction):
         await self.menu_command(interaction, 'help')
+
+    def review_actor(self,interaction):
+        return {'userId':str(interaction.user.id),'guildId':str(interaction.guild_id) if interaction.guild_id else '',
+            'channelId':str(interaction.channel_id),'username':interaction.user.name,'eventId':str(interaction.id)}
+
+    def own_review_message(self,interaction):
+        return bool(interaction.guild_id and getattr(getattr(interaction,'message',None),'author',None)
+                    and interaction.message.author.id==self.user.id)
+
+    async def open_request_review(self,interaction,menu_id):
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        body=self.review_actor(interaction);view=None
+        if not self.own_review_message(interaction) or not self.service.command_allowed(body['userId'],body['channelId'],interaction.guild_id):
+            text="⛔ This Discord account isn't authorized to review this selection."
+        else:
+            try:
+                data=await self.reviews.call(body,op='open',myRequestsId=menu_id)
+                view=review_request_view(menu_id,data['mediaKey'])
+                text=discord.utils.escape_mentions(discord.utils.escape_markdown(data['title']))+'\nHow did you like it?'
+                if data.get('vote'):text+='\nYour current review: '+('❤️ Loved it' if data['vote']=='loved' else '🙃 Not for me')
+                self.renew_controls(interaction)
+            except Exception as exc:
+                log.warning('Review chooser failed error_type=%s',type(exc).__name__)
+                text=REVIEW_ERRORS.get(str(exc),'⚠️ The review choices couldn’t be opened. Please try again.')
+        sent=await interaction.followup.send(text,ephemeral=True,view=view,wait=True,allowed_mentions=discord.AllowedMentions.none())
+        self.track_controls(sent,body['userId'],body['channelId'],view,interaction)
+
+    async def submit_review_choice(self,interaction,vote,**identity):
+        await interaction.response.defer(ephemeral=True,thinking=True)
+        if not self.own_review_message(interaction):text='This isn’t a Snake Media review post or selection.'
+        else:text=await self.reviews.vote(self.review_actor(interaction)|identity,vote)
+        await interaction.followup.send(text,ephemeral=True,allowed_mentions=discord.AllowedMentions.none())
 
     async def setup_review_command(self, interaction: discord.Interaction,
                                    channel: discord.ForumChannel | discord.TextChannel):
@@ -409,10 +441,23 @@ class SnakeMediaClient(discord.Client):
         if interaction.type != discord.InteractionType.component:
             return
         custom_id = (interaction.data or {}).get('custom_id', '')
+        post_review=re.fullmatch(r'snake_review_post:(loved|not_for_me)',custom_id)
+        if post_review:
+            await self.submit_review_choice(interaction,post_review[1],postMessageId=str(interaction.message.id))
+            return
         if (self.card_registry is not None and getattr(interaction, 'message', None)
                 and self.card_registry.expired(str(interaction.channel_id), str(interaction.message.id))):
             await interaction.response.send_message('This menu timed out. Open a new one with /help or /status.', ephemeral=True)
             await self.cleanup_cards()
+            return
+        open_review=re.fullmatch(r'snake:([1-9][0-9]{0,15}):mr_review',custom_id)
+        if open_review:
+            await self.open_request_review(interaction,open_review[1])
+            return
+        request_review=re.fullmatch(r'snake_review_request:([1-9][0-9]{0,15}):(movie|tv):([1-9][0-9]{0,19}):(loved|not_for_me)',custom_id)
+        if request_review:
+            await self.submit_review_choice(interaction,request_review[4],myRequestsId=request_review[1],
+                expectedMediaKey=request_review[2]+':'+request_review[3])
             return
         if isinstance(custom_id, str) and custom_id.startswith('snake_menu:'):
             section = custom_id[len('snake_menu:'):]

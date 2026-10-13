@@ -188,6 +188,17 @@ and a playful group verdict. Users can also react ❤️ or 🙃 to that starter
 Removing a reaction does not erase a saved vote. Review reactions remain available
 after reminder buttons expire and reviews survive media deletion.
 
+You can also review anytime from **My requests**: open an available title and tap
+**Review**. The private choices last five minutes and keep My requests usable.
+For a series, at least one requested episode must be ready in Jellyfin. The main
+review post has the same two buttons with no menu timeout; they survive bot
+restarts. Buttons and reactions always update the same vote and review comment.
+
+After updating an existing installation, upgrade registered starter-post controls:
+`docker compose exec -T discord-bot python -m snake_media.review_post_upgrade`.
+The owner-authorized helper edits buttons only and reports inaccessible posts;
+it does not create posts or submit ratings.
+
 The bot uses the existing authenticated n8n server address at
 `/webhook/snake-media-reviews`. Native n8n rows own votes and settings; the bot's
 `/state/reviews.sqlite3` holds delivery receipts only. Reviews do not acquire the

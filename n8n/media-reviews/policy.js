@@ -7,7 +7,24 @@ function verdict(loved,total){
   loved*4<total*3?'👍 Certified pretty good':loved<total?'🔥 The couch approves':'🏆 All hiss, no miss';
  return {label,text:`${label}\n${loved} loved it · ${total-loved} not for them${total<3?'\nEarly verdict—small couch.':''}`};
 }
-function reviewOperation({body:b,rows,notices,requests,users,owners,channels,now=Date.now()}){
+function reviewRequestSelection({body:b,menus,requests,channels,now=Date.now()}){
+ if(!b||!Array.isArray(menus)||!Array.isArray(requests)||!channels.includes(b.channelId))return null;
+ const matches=menus.filter(m=>String(m.id)===b.myRequestsId&&m.source==='discord'&&
+  m.userId===b.userId&&m.destinationId===b.channelId&&m.state==='preview'&&Date.parse(m.expiresAt)>now);
+ if(matches.length!==1)return null;
+ let browser;try{browser=JSON.parse(matches[0].contextJson).myRequests;}catch{return null;}
+ if(!Number.isInteger(browser?.selected)||browser.selected<0||browser.settings)return null;
+ const title=browser.titles?.[browser.selected];
+ if(!title||!['movie','tv'].includes(title.mediaType)||!reviewId(String(title.mediaId)))return null;
+ const candidates=requests.filter(r=>r.source==='discord'&&r.userId===b.userId&&r.state==='registered'&&
+  r.mediaType===title.mediaType&&String(r.mediaId)===String(title.mediaId)&&r.title&&reviewId(String(r.externalId)));
+ if(!candidates.length||new Set(candidates.map(r=>String(r.externalId))).size!==1)return null;
+ const r=candidates[0],mediaKey=r.mediaType+':'+r.externalId;
+ if(b.expectedMediaKey&&b.expectedMediaKey!==mediaKey||b.op==='vote'&&!b.expectedMediaKey)return null;
+ return {menu:matches[0],mediaKey,mediaType:r.mediaType,mediaId:String(r.mediaId),title:String(r.title).slice(0,250),
+  statusActor:{source:'discord',userId:b.userId,query:'',mediaType:r.mediaType,mediaId:String(r.mediaId)}};
+}
+function reviewOperation({body:b,rows,notices,requests,users,owners,channels,menus=[],availability=null,now=Date.now()}){
  const fail=error=>({row:null,reply:{version:1,ok:false,error}});
  if(!Array.isArray(rows)||!Array.isArray(notices)||!Array.isArray(requests))return fail('invalid_snapshot');
  if(!b||![b.userId,b.guildId,b.channelId].every(reviewId)||!users.includes(b.userId))return fail('denied');
@@ -25,11 +42,22 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,now
   return {row:record(key('config'),{kind:'config',channelId:b.targetChannelId}),reply:{version:1,ok:true,channelId:b.targetChannelId}};
  }
  if(b.op==='config')return {row:null,reply:{version:1,ok:true,channelId:config?.channelId||null}};
- let media,post,destination=config?.channelId;
+ if(b.op==='posts'){
+  if(!owners.includes(b.userId)||!channels.includes(b.channelId))return fail('denied');
+  const cursor=b.cursor??0;if(!Number.isSafeInteger(cursor)||cursor<0||cursor>100000)return fail('invalid_cursor');
+  const posts=[...saved.values()].filter(d=>d.kind==='post').sort((a,b)=>a._row.requestKey.localeCompare(b._row.requestKey));
+  return {row:null,reply:{version:1,ok:true,posts:posts.slice(cursor,cursor+25).map(d=>({channelId:d.channelId,
+   messageChannelId:d.messageChannelId,messageId:d.messageId,threadId:d.threadId,mediaKey:d.mediaKey})),nextCursor:cursor+25<posts.length?cursor+25:null}};
+ }
+ let media,post,menuOriginal,destination=config?.channelId;
  if(b.postMessageId){
   post=[...saved.values()].find(d=>d.kind==='post'&&d.messageId===b.postMessageId&&d.messageChannelId===b.channelId);
   if(!post)return fail('unknown_post');
   media=post;destination=post.channelId;
+ }else if(b.myRequestsId){
+  media=reviewRequestSelection({body:b,menus,requests,channels,now});
+  if(!media)return fail('invalid_menu');
+  if(!Number.isSafeInteger(availability?.available)||availability.available<1)return fail('unavailable');
  }else if(b.noticeId){
   const n=notices.find(n=>String(n.id)===b.noticeId);let payload;
   try{payload=JSON.parse(n?.payloadJson);}catch{return fail('invalid_notice');}
@@ -49,7 +77,9 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,now
  const mk=media.mediaKey,pk=key('post',destination+':'+mk);
  post=post||saved.get(pk);
  let row=null;
- if(b.op==='vote'){
+ if(b.op==='open'&&b.myRequestsId){
+  menuOriginal=media.menu;row={...menuOriginal,expiresAt:new Date(now+300000).toISOString()};
+ }else if(b.op==='vote'){
   if(!['loved','not_for_me'].includes(b.vote))return fail('invalid_vote');
   const vk=key('vote',mk+':'+b.userId),old=saved.get(vk);
   if(b.eventId&&old?.eventId===b.eventId&&old.vote!==b.vote)return fail('invalid_event');
@@ -68,8 +98,8 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,now
  const votes=[...saved.values()].filter(d=>d.kind==='vote'&&d.mediaKey===mk),total=votes.length,loved=votes.filter(d=>d.vote==='loved').length;
  const mine=votes.find(d=>d.userId===b.userId),comment=saved.get(key('comment',destination+':'+mk+':'+b.userId));
  const summary=total?verdict(loved,total):{text:'Be the first on the couch to review this title.'};
- return {row,reply:{version:1,ok:true,mediaKey:mk,title:media.title,posterUrl:media.posterUrl,
+ return {row,menuOriginal,reply:{version:1,ok:true,mediaKey:mk,title:media.title,posterUrl:media.posterUrl,
   channelId:destination,post:post?{threadId:post.threadId,messageId:post.messageId,messageChannelId:post.messageChannelId}:null,
   total,loved,summary:summary.text,vote:mine?.vote,username:mine?.username,commentId:comment?.messageId||null}};
 }
-if(typeof module!=='undefined')module.exports={verdict,reviewOperation};
+if(typeof module!=='undefined')module.exports={verdict,reviewOperation,reviewRequestSelection};
