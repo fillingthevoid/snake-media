@@ -57,9 +57,9 @@ Files: `src/snake_media/media_reviews.py`, `src/snake_media/review_post_upgrade.
 ## 4. Deploy and verify
 
 - [x] Run Python and JavaScript suites, bundle validation, public-file checks and diff checks.
-- [ ] Save active Reviews, source and prior image. Publish only Reviews, then use
+- [x] Save active Reviews, source and prior image. Publish only Reviews, then use
   `safe_n8n_restart.py`. Preserve live bindings and private credentials.
-- [ ] Build/recreate only the bot; verify Gateway connectivity and installed hashes.
-- [ ] Refresh existing registered post titles using the owner helper. Compare saved
+- [x] Build/recreate only the bot; verify Gateway connectivity and installed hashes.
+- [x] Refresh existing registered post titles using the owner helper. Compare saved
   votes and comments before/after; fetch Discord headings, names, posters and controls.
-- [ ] Document the release, commit/push and verify GitHub CI.
+- [x] Document the release, commit/push and verify GitHub CI.
