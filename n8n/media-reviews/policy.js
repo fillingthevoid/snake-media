@@ -64,6 +64,7 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
  const fail=error=>({row:null,reply:{version:1,ok:false,error}});
  if(!Array.isArray(rows)||!Array.isArray(notices)||!Array.isArray(requests))return fail('invalid_snapshot');
  if(!b||![b.userId,b.guildId,b.channelId].every(reviewId)||!users.includes(b.userId))return fail('denied');
+ if(b.op==='restore_snapshot'&&!owners.includes(b.userId))return fail('denied');
  const saved=new Map();
  for(const r of rows.filter(r=>r.source==='discord'&&r.state==='review')){
   let d;try{d=JSON.parse(r.contextJson);}catch{return fail('invalid_snapshot');}
@@ -107,7 +108,7 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
   if(!r||!['movie','tv'].includes(r.mediaType)||!reviewId(String(r.externalId))||!r.title)return fail('missing_identity');
   media={mediaKey:r.mediaType+':'+r.externalId,title:String(r.title).slice(0,250)};
   media.posterUrl=reviewPoster(posterUrl)||reviewPoster(payload.posterUrl)||reviewRequestPoster(r);
- }else if(['bind','comment','summary'].includes(b.op)){
+ }else if(['bind','comment','summary','forget_comment'].includes(b.op)){
   media=[...saved.values()].find(d=>d.kind==='vote'&&d.mediaKey===b.mediaKey&&(owners.includes(b.userId)||d.userId===b.userId));
   if(!media||!owners.includes(b.userId)&&media.userId!==b.userId)return fail('missing_identity');
  }else return fail('invalid_operation');
@@ -116,7 +117,7 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
  post=post||saved.get(pk);
  media={...media,posterUrl:reviewPoster(media.posterUrl)||reviewPoster(post?.posterUrl)||
   [...saved.values()].filter(d=>d.kind==='vote'&&d.mediaKey===mk).map(d=>reviewPoster(d.posterUrl)).find(Boolean)||null};
- let row=null;
+ let row=null,deleteComment,postOriginal;
  if(b.op==='artwork'){
   if(!post||!owners.includes(b.userId)||!b.postMessageId)return fail('denied');
   const url=reviewPoster(posterUrl)||media.posterUrl;
@@ -133,18 +134,29 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
   row=record(vk,d);saved.set(vk,d);
  }else if(b.op==='bind'){
   if(![b.threadId,b.messageId,b.messageChannelId].every(reviewId))return fail('invalid_post');
-  if(post&&(post.messageId!==b.messageId||post.threadId!==b.threadId))return fail('post_conflict');
+  if(post&&(post.messageId!==b.messageId||post.threadId!==b.threadId)&&
+    !(owners.includes(b.userId)&&b.expectedPostMessageId===post.messageId&&b.expectedPostThreadId===post.threadId&&b.expectedMediaKey===mk))return fail('post_conflict');
+  if(post)postOriginal=post._row;
   post={kind:'post',mediaKey:mk,title:media.title,posterUrl:media.posterUrl,channelId:destination,
    threadId:b.threadId,messageId:b.messageId,messageChannelId:b.messageChannelId};row=record(pk,post);
  }else if(b.op==='comment'){
   if(!post||!reviewId(b.commentId))return fail('invalid_post');
   row=record(key('comment',destination+':'+mk+':'+b.userId),{kind:'comment',mediaKey:mk,userId:b.userId,channelId:destination,messageId:b.commentId});
- }else if(!['resolve','lookup','summary'].includes(b.op))return fail('invalid_operation');
+ }else if(b.op==='forget_comment'){
+  if(!post||!reviewId(b.expectedCommentId))return fail('invalid_comment_reference');
+  const ck=key('comment',destination+':'+mk+':'+b.userId),comment=saved.get(ck);
+  if(comment){
+   if(comment.messageId!==b.expectedCommentId)return fail('comment_reference_changed');
+   if(!Number.isSafeInteger(comment._row.id)||comment._row.id<1)return fail('invalid_comment_reference');
+   deleteComment={id:comment._row.id,requestKey:comment._row.requestKey,contextJson:comment._row.contextJson};saved.delete(ck);
+  }
+ }else if(!['resolve','lookup','summary','restore_snapshot'].includes(b.op))return fail('invalid_operation');
  const votes=[...saved.values()].filter(d=>d.kind==='vote'&&d.mediaKey===mk),total=votes.length,loved=votes.filter(d=>d.vote==='loved').length;
  const mine=votes.find(d=>d.userId===b.userId),comment=saved.get(key('comment',destination+':'+mk+':'+b.userId));
  const summary=total?verdict(loved,total):{text:'Be the first on the couch to review this title.'};
- return {row,menuOriginal,reply:{version:1,ok:true,mediaKey:mk,title:media.title,posterUrl:media.posterUrl,
+ return {row,menuOriginal,deleteComment,postOriginal,reply:{version:1,ok:true,mediaKey:mk,title:media.title,posterUrl:media.posterUrl,
   channelId:destination,post:post?{threadId:post.threadId,messageId:post.messageId,messageChannelId:post.messageChannelId}:null,
-  total,loved,summary:summary.text,vote:mine?.vote,username:mine?.username,commentId:comment?.messageId||null}};
+  total,loved,summary:summary.text,vote:mine?.vote,username:mine?.username,commentId:comment?.messageId||null,
+  ...(b.op==='restore_snapshot'?{votes:votes.map(v=>({userId:v.userId,vote:v.vote,username:v.username}))}:{})}};
 }
 if(typeof module!=='undefined')module.exports={verdict,reviewOperation,reviewRequestSelection,reviewArtworkIdentity,reviewArtworkTarget,reviewArtworkPoster};

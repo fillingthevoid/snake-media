@@ -78,6 +78,7 @@ queue=patch('snakeQueueCandidateV1')
 get(queue,'No Existing Notice')['parameters']['jsCode']=P+"\nconst c=$('Candidate Input').first().json;return completionExists(c,$input.all().map(x=>x.json))?[]:[{json:c}];"
 metadata=http('Read Completion Media','movie',"='movie/'+$('Candidate Input').first().json.request.mediaId")
 series=http('Read Completion Series','tv',"='series/'+$('Candidate Input').first().json.request.mediaId")
+for completion_read in (metadata,series):completion_read.update(alwaysOutputData=True,onError='continueRegularOutput')
 queue['nodes'] += [data('Read Completion Retention','snake_media_retention_records'),
  iff('Completion Movie?',"$('Candidate Input').first().json.request.mediaType==='movie'"),metadata,series,
  code('Enrich Completion Notice',P+"\nconst c=$('Candidate Input').first().json;const original=$('Build Completion Notice').first().json;const item=c.jellyfinItems.find(x=>x.Path===c.jellyfinPath&&x.Id);const meta=completion(c,$('Read Completion Retention').all().map(x=>x.json),item,$json);const payload=JSON.parse(original.payloadJson);payload.text+='\\n'+(meta.quality?'Quality: '+meta.quality+'\\n':'')+meta.expiryText;Object.assign(payload,meta);return [{json:{...original,payloadJson:JSON.stringify(payload)}}];")]

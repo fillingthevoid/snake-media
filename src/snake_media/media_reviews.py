@@ -45,18 +45,24 @@ class ReviewJournal:
         row=self.db.execute('SELECT receipt FROM review_deliveries WHERE key=?',(key,)).fetchone()
         return json.loads(row[0]) if row else None
     def begin(self,key):
-        with self.db:self.db.execute("INSERT OR IGNORE INTO review_deliveries VALUES (?, '{}')",(key,))
+        with self.db:return self.db.execute("INSERT OR IGNORE INTO review_deliveries VALUES (?, '{}')",(key,)).rowcount==1
     def save(self,key,value):
         old=self.get(key)
         if old and old!=value:raise ValueError('review_receipt_conflict')
         with self.db:self.db.execute('INSERT INTO review_deliveries VALUES (?,?) ON CONFLICT(key) DO UPDATE SET receipt=excluded.receipt',(key,json.dumps(value)))
+    def forget_deleted(self,key,message_id):
+        with self.db:
+            old=self.get(key)
+            if old is None:return
+            if not old or old.get('messageId')!=message_id:raise ValueError('review_receipt_conflict')
+            self.db.execute('DELETE FROM review_deliveries WHERE key=? AND receipt=?',(key,json.dumps(old)))
 
-def destination_error(channel,guild_id):
+def destination_error(channel,guild_id,member=None):
     if (not isinstance(channel,(discord.ForumChannel,discord.TextChannel))
             or getattr(channel,'type',None)==discord.ChannelType.media):
         return 'Choose a forum or text channel.'
     if channel.guild.id!=int(guild_id):return 'Choose a channel in the same server.'
-    p=channel.permissions_for(channel.guild.me)
+    p=channel.permissions_for(member or channel.guild.me)
     required={'view_channel':'View Channel','send_messages':'Send Messages / Create Posts',
         'read_message_history':'Read Message History','embed_links':'Embed Links',
         'add_reactions':'Add Reactions','send_messages_in_threads':'Send Messages in Threads'}
@@ -145,9 +151,10 @@ class ReviewController:
             cursor=data['nextCursor']
         raise ValueError('review_upgrade_limit')
 
-    async def publish(self,body,data):
-        destination=self.client.get_channel(int(data['channelId'])) or await self.client.fetch_channel(int(data['channelId']))
-        error=destination_error(destination,body['guildId'])
+    async def publish(self,body,data,destination=None,member=None):
+        if destination is None:destination=self.client.get_channel(int(data['channelId'])) or await self.client.fetch_channel(int(data['channelId']))
+        elif str(destination.id)!=data['channelId']:raise ValueError('review_destination_changed')
+        error=destination_error(destination,body['guildId'],member)
         if error:raise ValueError('review_permissions_missing')
         tag=marker('post',body['guildId'],data['channelId'],data['mediaKey'])
         post=data.get('post') or self.journal.get(tag)
@@ -186,21 +193,29 @@ class ReviewController:
         starter=await channel.fetch_message(int(post['messageId']))
         if starter.author.id!=self.client.user.id:raise ValueError('review_starter_author_changed')
         comment_tag=marker('comment',body['guildId'],data['channelId'],data['mediaKey'],body['userId'])
-        receipt=self.journal.get(comment_tag);comment=None
-        if data.get('commentId') or receipt:
-            comment=await thread.fetch_message(int(data.get('commentId') or receipt['messageId']))
-        else:comment=await self.find_message(thread,comment_tag)
-        comment_embed=discord.Embed(description=f"<@{body['userId']}> — "+('❤️ Loved it' if data['vote']=='loved' else '🙃 Not for me'),colour=0x2ECC71)
-        comment_embed.set_footer(text=comment_tag)
-        if comment:
-            if comment.author.id!=self.client.user.id:raise ValueError('review_comment_author_changed')
-            await comment.edit(embed=comment_embed,allowed_mentions=discord.AllowedMentions.none())
-        else:
-            if receipt=={}:raise ValueError('review_comment_outcome_unknown')
-            self.journal.begin(comment_tag)
-            comment=await thread.send(embed=comment_embed,allowed_mentions=discord.AllowedMentions.none())
-        self.journal.save(comment_tag,{'messageId':str(comment.id)})
-        await self.call(body,op='comment',mediaKey=data['mediaKey'],commentId=str(comment.id))
-        data=await self.call(body,op='summary',mediaKey=data['mediaKey'])
-        await starter.edit(embed=review_embed(data,tag),view=review_post_view(),allowed_mentions=discord.AllowedMentions.none())
-        for emoji in ('❤️','🙃'):await starter.add_reaction(emoji)
+        try:
+            receipt=self.journal.get(comment_tag);comment=None
+            if data.get('commentId') or receipt:
+                previous=str(data.get('commentId') or receipt['messageId'])
+                try:comment=await thread.fetch_message(int(previous))
+                except discord.NotFound as exc:
+                    if exc.code!=10008:raise
+                    await self.call(body,op='forget_comment',mediaKey=data['mediaKey'],expectedCommentId=previous)
+                    self.journal.forget_deleted(comment_tag,previous)
+                    receipt=None
+            if comment is None:comment=await self.find_message(thread,comment_tag)
+            comment_embed=discord.Embed(description=f"<@{body['userId']}> — "+('❤️ Loved it' if data['vote']=='loved' else '🙃 Not for me'),colour=0x2ECC71)
+            comment_embed.set_footer(text=comment_tag)
+            if comment:
+                if comment.author.id!=self.client.user.id:raise ValueError('review_comment_author_changed')
+                await comment.edit(embed=comment_embed,allowed_mentions=discord.AllowedMentions.none())
+            else:
+                if receipt=={}:raise ValueError('review_comment_outcome_unknown')
+                self.journal.begin(comment_tag)
+                comment=await thread.send(embed=comment_embed,allowed_mentions=discord.AllowedMentions.none())
+            self.journal.save(comment_tag,{'messageId':str(comment.id)})
+            await self.call(body,op='comment',mediaKey=data['mediaKey'],commentId=str(comment.id))
+        finally:
+            data=await self.call(body,op='summary',mediaKey=data['mediaKey'])
+            await starter.edit(embed=review_embed(data,tag),view=review_post_view(),allowed_mentions=discord.AllowedMentions.none())
+            for emoji in ('❤️','🙃'):await starter.add_reaction(emoji)

@@ -77,6 +77,9 @@ def validate(workflows):
                     for edge in edges:
                         if edge['node'] not in names:raise ValueError('Unknown edge target in '+w['id'])
         for n in w['nodes']:
+            if n['type'].endswith('.dataTable') and n['parameters'].get('resource')=='row':
+                if n['parameters'].get('operation') not in {'get','insert','update','upsert','deleteRows','rowExists','rowNotExists'}:
+                    raise ValueError('Unsupported native row operation in '+w['id'])
             if not n['type'].endswith('.executeWorkflow'):continue
             ref=n['parameters'].get('workflowId')
             if isinstance(ref,dict):ref=ref.get('value')

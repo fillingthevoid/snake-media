@@ -208,6 +208,21 @@ This owner-only helper lets n8n recover artwork from exact saved media IDs and
 updates existing starter embeds. Missing artwork leaves the post usable; votes
 and discussion comments are preserved. New posts receive artwork automatically.
 
+If a registered forum post was deleted, the owner can explicitly restore that
+title with `docker compose exec -T discord-bot python -m snake_media.review_post_restore --media-key movie:<TMDB_ID>`
+(use `tv:<TVDB_ID>` for a series). The helper requires Discord to confirm the old
+post is missing, preserves saved votes, and restores their comments without
+submitting new ratings. It does not replace posts for permission or connection errors.
+If the starter was restored but comment delivery was interrupted, rerun the helper
+with `--resume` to finish the saved comments on that post. For maintenance, pause
+the bot while running the helper in a one-off container, then start it again so
+two processes do not publish the same review concurrently.
+
+Completion notices remain deliverable when optional artwork metadata is offline.
+Telegram selections update the existing text/caption and buttons when a poster
+cannot be fetched. Deleted individual review comments can be recovered without
+blocking the main post's verdict update.
+
 The bot uses the existing authenticated n8n server address at
 `/webhook/snake-media-reviews`. Native n8n rows own votes and settings; the bot's
 `/state/reviews.sqlite3` holds delivery receipts only. Reviews do not acquire the

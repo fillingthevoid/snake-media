@@ -30,3 +30,10 @@ class WorkflowBundleTests(unittest.TestCase):
         output=tool.apply_efficiency(rows)
         self.assertEqual(rows,before)
         self.assertEqual(tool.validate(output),len(rows))
+
+    def test_unsupported_native_row_operations_are_rejected_before_import(self):
+        w={'id':'a','nodes':[{'id':'n','name':'Remove reference','type':'n8n-nodes-base.dataTable',
+            'parameters':{'resource':'row','operation':'delete'}}],'connections':{}}
+        with self.assertRaisesRegex(ValueError,'Unsupported native row operation'):self.tool().validate([w])
+        w['nodes'][0]['parameters']['operation']='deleteRows'
+        self.assertEqual(self.tool().validate([w]),1)

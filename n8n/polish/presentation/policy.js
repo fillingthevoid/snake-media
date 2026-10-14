@@ -14,7 +14,7 @@ function progress(q){
  const quality=q.quality?.quality?.name;if(typeof quality==='string')parts.push(quality.slice(0,100));
  return parts.join(' · ');
 }
-function poster(media){return (media.images||[]).find(x=>x.coverType==='poster'&&typeof x.remoteUrl==='string'&&/^https:\/\/(image\.tmdb\.org|artworks\.thetvdb\.com)\//.test(x.remoteUrl))?.remoteUrl;}
+function poster(media){return (Array.isArray(media?.images)?media.images:[]).find(x=>x?.coverType==='poster'&&typeof x.remoteUrl==='string'&&/^https:\/\/(image\.tmdb\.org|artworks\.thetvdb\.com)\//.test(x.remoteUrl))?.remoteUrl;}
 function completion(c,records,item,media){
  const key=`file:${c.request.mediaType}:${c.request.mediaId}:${c.fileId}`;
  let v;try{v=JSON.parse(records.find(x=>x.key===key)?.payloadJson||'null');}catch{}

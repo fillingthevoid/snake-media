@@ -51,6 +51,16 @@ async function present(ctx,r,store,owner){
  try{response=await api(method,body);}catch(e){
   const info=errorInfo(e);
   if(callback&&info.status===400&&/message is not modified/i.test(info.description))response={ok:true,result:{...m,reply_markup:markup,...(existingPhoto||photo?{caption:bounded(r.replyText,1000)}:{text:bounded(r.replyText,4000)}),...(photo?{photo:[{file_id:'edited'}]}:{})}};
+  else if(callback&&photo&&info.status===400&&/failed to get HTTP URL content|wrong type of the web page content|IMAGE_PROCESS_FAILED/i.test(info.description)){
+   const fallback={chat_id:r.chatId,message_id:m.message_id,reply_markup:markup,parse_mode:'HTML'};
+   if(existingPhoto)fallback.caption=bounded(r.replyText,1000);
+   else{fallback.text=bounded(r.replyText,4000);fallback.link_preview_options={is_disabled:true};}
+   try{response=await api(existingPhoto?'editMessageCaption':'editMessageText',fallback);}catch(error){
+    const next=errorInfo(error);
+    if(next.status===400&&/message is not modified/i.test(next.description))response={ok:true,result:{...m,reply_markup:markup,...(existingPhoto?{caption:fallback.caption}:{text:fallback.text})}};
+    else throw Error('Telegram card update failed');
+   }
+  }
   else if(callback&&info.status===400&&/message to edit not found|message can't be edited|message cannot be edited/i.test(info.description)){
    const replacement={chat_id:r.chatId,reply_markup:markup,parse_mode:'HTML',text:bounded(r.replyText,4000),link_preview_options:{is_disabled:true}};
    if(photo){delete replacement.text;delete replacement.link_preview_options;replacement.photo=r.posterUrl;replacement.caption=bounded(r.replyText,1000);}

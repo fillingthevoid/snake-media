@@ -27,6 +27,27 @@ test('confirmed expiry changes replace the result and remove controls from clean
  await SnakeTelegramControls.prototype.execute.call(f.ctx);assert.deepEqual(f.calls[0].body.reply_markup.inline_keyboard,[]);
  f.store.expire(Date.now()+600000);assert.equal(f.store.pending(Date.now()/1000+1000).length,0);
 });
+test('confirmed poster fetch failures update the same card and current keyboard without the image',async t=>{
+ for(const photo of [false,true]){
+  const f=fixture(t,photo);f.reply.posterUrl='https://image.tmdb.org/t/p/new.jpg';
+  const success=f.ctx.helpers.httpRequest;
+  f.ctx.helpers.httpRequest=async o=>{
+   if(o.url.endsWith('/editMessageMedia')){f.calls.push(o);throw {statusCode:400,message:'Bad Request: failed to get HTTP URL content'};}
+   return success(o);
+  };
+  const out=await SnakeTelegramControls.prototype.execute.call(f.ctx);
+  assert.equal(f.calls.length,2);assert.ok(f.calls[1].url.endsWith(photo?'/editMessageCaption':'/editMessageText'));
+  assert.equal(f.calls[1].body.message_id,17);assert.equal(out[0][0].json.result.message_id,17);
+  assert.deepEqual(f.calls[1].body.reply_markup.inline_keyboard,[[{text:'Review',callback_data:'snake:124:review'}]]);
+  assert.equal(f.calls[1].body[photo?'caption':'text'],'Selected: Seasons 1, 2');
+  const stored=f.store.ownedCard('333',17,'222');assert.deepEqual(stored.groups,['pending:124']);assert.ok(stored.expiresAt>Date.now());
+ }
+});
+test('uncertain media errors do not trigger a text fallback or replacement',async t=>{
+ const f=fixture(t,true);f.reply.posterUrl='https://image.tmdb.org/t/p/new.jpg';
+ f.ctx.helpers.httpRequest=async o=>{f.calls.push(o);throw {statusCode:503,message:'temporary failure'};};
+ await assert.rejects(()=>SnakeTelegramControls.prototype.execute.call(f.ctx),/Telegram card update failed/);assert.equal(f.calls.length,1);
+});
 test('transient edit failures never send a replacement or expose tokens',async t=>{
  const f=fixture(t);f.ctx.helpers.httpRequest=async o=>{f.calls.push(o);throw {statusCode:503,message:'https://api.telegram.org/bot123:EXAMPLE/editMessageText'};};
  await assert.rejects(()=>SnakeTelegramControls.prototype.execute.call(f.ctx),e=>e.message==='Telegram card update failed');assert.equal(f.calls.length,1);

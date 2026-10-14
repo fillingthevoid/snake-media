@@ -78,4 +78,7 @@ def build(source,env):
             if body and '// Shared n8n expiry policy' in body:n['parameters']['jsCode']=re.sub(pattern,lambda m:reminder,body)
     spec=importlib.util.spec_from_file_location('review_poster_overlay',ROOT/'n8n/review-posters/patch.py')
     posters=importlib.util.module_from_spec(spec);spec.loader.exec_module(posters)
-    return posters.build(out)
+    out=posters.build(out)
+    spec=importlib.util.spec_from_file_location('review_comment_recovery',ROOT/'n8n/review-comment-recovery/patch.py')
+    recovery=importlib.util.module_from_spec(spec);spec.loader.exec_module(recovery)
+    return recovery.build(out)
