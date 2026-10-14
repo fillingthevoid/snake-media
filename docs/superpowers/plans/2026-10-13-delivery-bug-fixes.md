@@ -55,4 +55,4 @@ Files: `src/snake_media/media_reviews.py`, `n8n/media-reviews/policy.js`,
   posts, ratings, comments or media requests. Verify Gateway and publication.
 - [x] Restore the confirmed missing Secret of the Ooze forum starter and saved
   review comment through the owner helper. Verify one saved vote remains one vote.
-- [ ] Record deployment, commit/push and confirm CI.
+- [x] Record deployment, commit/push and confirm CI.

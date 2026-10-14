@@ -209,14 +209,20 @@ updates existing starter embeds. Missing artwork leaves the post usable; votes
 and discussion comments are preserved. New posts receive artwork automatically.
 
 If a registered forum post was deleted, the owner can explicitly restore that
-title with `docker compose exec -T discord-bot python -m snake_media.review_post_restore --media-key movie:<TMDB_ID>`
-(use `tv:<TVDB_ID>` for a series). The helper requires Discord to confirm the old
+title with the following maintenance commands (use `tv:<TVDB_ID>` for a series):
+
+```sh
+docker compose stop discord-bot
+docker compose run --rm --no-deps --entrypoint python discord-bot -m snake_media.review_post_restore --media-key movie:<TMDB_ID>
+docker compose up -d --no-deps discord-bot
+```
+
+Run the last command even if restoration fails. The helper requires Discord to confirm the old
 post is missing, preserves saved votes, and restores their comments without
 submitting new ratings. It does not replace posts for permission or connection errors.
 If the starter was restored but comment delivery was interrupted, rerun the helper
-with `--resume` to finish the saved comments on that post. For maintenance, pause
-the bot while running the helper in a one-off container, then start it again so
-two processes do not publish the same review concurrently.
+with `--resume` to finish the saved comments on that post. Pausing the bot prevents
+two processes from publishing the same review concurrently.
 
 Completion notices remain deliverable when optional artwork metadata is offline.
 Telegram selections update the existing text/caption and buttons when a poster
