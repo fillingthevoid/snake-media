@@ -229,6 +229,12 @@ Telegram selections update the existing text/caption and buttons when a poster
 cannot be fetched. Deleted individual review comments can be recovered without
 blocking the main post's verdict update.
 
+Review titles show the current overall emoji and verdict, for example
+`🏆 The Matrix — All hiss, no miss`. Button and reaction votes update the forum
+name and heading; long names are shortened while keeping the verdict visible.
+The owner can refresh existing registered titles without changing ratings or
+comments with `docker compose exec -T discord-bot python -m snake_media.review_post_upgrade --titles`.
+
 The bot uses the existing authenticated n8n server address at
 `/webhook/snake-media-reviews`. Native n8n rows own votes and settings; the bot's
 `/state/reviews.sqlite3` holds delivery receipts only. Reviews do not acquire the

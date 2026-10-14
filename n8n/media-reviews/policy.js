@@ -41,7 +41,8 @@ function verdict(loved,total){
  const label=loved===0?'🗑️ Straight to the bargain bin':loved*4<total?'🐍 The snake demands a refund':
   loved*2<total?'🍿 Popcorn carried this one':loved*2===total?'⚖️ The couch is divided':
   loved*4<total*3?'👍 Certified pretty good':loved<total?'🔥 The couch approves':'🏆 All hiss, no miss';
- return {label,text:`${label}\n${loved} loved it · ${total-loved} not for them${total<3?'\nEarly verdict—small couch.':''}`};
+ const [emoji,...words]=label.split(' ');
+ return {label,rating:{emoji,label:words.join(' ')},text:`${label}\n${loved} loved it · ${total-loved} not for them${total<3?'\nEarly verdict—small couch.':''}`};
 }
 function reviewRequestSelection({body:b,menus,requests,channels,now=Date.now()}){
  if(!b||!Array.isArray(menus)||!Array.isArray(requests)||!channels.includes(b.channelId))return null;
@@ -153,10 +154,10 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
  }else if(!['resolve','lookup','summary','restore_snapshot'].includes(b.op))return fail('invalid_operation');
  const votes=[...saved.values()].filter(d=>d.kind==='vote'&&d.mediaKey===mk),total=votes.length,loved=votes.filter(d=>d.vote==='loved').length;
  const mine=votes.find(d=>d.userId===b.userId),comment=saved.get(key('comment',destination+':'+mk+':'+b.userId));
- const summary=total?verdict(loved,total):{text:'Be the first on the couch to review this title.'};
+ const summary=total?verdict(loved,total):{rating:{emoji:'💬',label:'Awaiting reviews'},text:'Be the first on the couch to review this title.'};
  return {row,menuOriginal,deleteComment,postOriginal,reply:{version:1,ok:true,mediaKey:mk,title:media.title,posterUrl:media.posterUrl,
   channelId:destination,post:post?{threadId:post.threadId,messageId:post.messageId,messageChannelId:post.messageChannelId}:null,
-  total,loved,summary:summary.text,vote:mine?.vote,username:mine?.username,commentId:comment?.messageId||null,
+  total,loved,summary:summary.text,rating:summary.rating,vote:mine?.vote,username:mine?.username,commentId:comment?.messageId||null,
   ...(b.op==='restore_snapshot'?{votes:votes.map(v=>({userId:v.userId,vote:v.vote,username:v.username}))}:{})}};
 }
 if(typeof module!=='undefined')module.exports={verdict,reviewOperation,reviewRequestSelection,reviewArtworkIdentity,reviewArtworkTarget,reviewArtworkPoster};

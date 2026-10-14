@@ -8,7 +8,7 @@ import discord
 from .config import Config
 from .n8n_client import N8NClient
 from .service import RequestService
-from .media_reviews import ReviewController,ReviewJournal,destination_error,marker,review_embed,review_post_view
+from .media_reviews import ReviewController,ReviewJournal,destination_error,marker,review_embed,review_post_view,review_title
 
 async def restore_post(controller,actor,post,resume=False):
     client=controller.client
@@ -40,7 +40,7 @@ async def restore_post(controller,actor,post,resume=False):
         async for t in destination.archived_threads(limit=100):threads.append(t)
         found=None
         for t in threads:
-            if t.name!=data['title'][:100]:continue
+            if t.owner_id!=client.user.id:continue
             message=await t.fetch_message(t.id)
             if message.author.id==client.user.id and any(e.footer.text==tag for e in message.embeds):found=message;break
         receipt=controller.journal.get(recovery)
@@ -51,7 +51,7 @@ async def restore_post(controller,actor,post,resume=False):
         else:
             if not controller.journal.begin(recovery):raise ValueError('review_restore_outcome_unknown')
             tags=[t for t in destination.available_tags if not t.moderated][:1] if destination.flags.require_tag else []
-            result=await destination.create_thread(name=data['title'][:100],embed=review_embed(data,tag),view=review_post_view(),applied_tags=tags,allowed_mentions=discord.AllowedMentions.none())
+            result=await destination.create_thread(name=review_title(data),embed=review_embed(data,tag),view=review_post_view(),applied_tags=tags,allowed_mentions=discord.AllowedMentions.none())
             replacement={'threadId':str(result.thread.id),'messageId':str(result.message.id),'messageChannelId':str(result.thread.id)}
         controller.journal.save(recovery,replacement)
         await controller.call(body,op='bind',mediaKey=data['mediaKey'],expectedMediaKey=data['mediaKey'],

@@ -75,8 +75,27 @@ def destination_error(channel,guild_id,member=None):
 
 def marker(kind,*parts):return 'snake-review-'+kind+':'+hashlib.sha256(':'.join(parts).encode()).hexdigest()[:24]
 
+def review_title(data,limit=100):
+    """Format n8n's verdict; keep it visible when the media name needs shortening."""
+    title=discord.utils.escape_mentions(' '.join(str(data['title']).split()))
+    rating=data.get('rating')
+    if not isinstance(rating,dict):return title[:limit]
+    emoji,label=rating.get('emoji'),rating.get('label')
+    if not isinstance(emoji,str) or not 1<=len(emoji)<=8 or not isinstance(label,str) or not 1<=len(label)<=60:
+        return title[:limit]
+    prefix=' '.join(emoji.split())+' '
+    suffix=' — '+discord.utils.escape_mentions(' '.join(label.split()))
+    room=limit-len(prefix)-len(suffix)
+    if room<1:return title[:limit]
+    if len(title)>room:title=title[:room-1]+'…'
+    return prefix+title+suffix
+
+async def rename_review_thread(thread,data):
+    name=review_title(data)
+    if thread.name!=name:await thread.edit(name=name)
+
 def review_embed(data,footer):
-    title=discord.utils.escape_mentions(str(data['title']))[:250]
+    title=review_title(data,250)
     embed=discord.Embed(title=title,description=str(data.get('summary',''))+'\n\nUse the buttons or react ❤️ Loved it / 🙃 Not for me. Your latest choice counts.',colour=0x2ECC71)
     poster=MediaReply('',poster_url=data.get('posterUrl')).poster_url
     if poster:embed.set_image(url=poster)
@@ -119,8 +138,8 @@ class ReviewController:
             if message.author.id==self.client.user.id and any(e.footer.text==tag for e in message.embeds):return message
         return None
 
-    async def upgrade_posts(self,body,posters=False):
-        """Edit registered starter controls only. Never invent posts or votes."""
+    async def upgrade_posts(self,body,posters=False,titles=False):
+        """Edit registered starters and names. Never invent posts or votes."""
         cursor=0;updated=failed=missing_artwork=0
         for _ in range(4001):
             data=await self.call(body,op='posts',cursor=cursor)
@@ -130,16 +149,27 @@ class ReviewController:
                     message=await channel.fetch_message(int(post['messageId']))
                     if message.author.id!=self.client.user.id:raise ValueError('review_starter_author_changed')
                     options={'view':review_post_view(),'allowed_mentions':discord.AllowedMentions.none()}
-                    if posters:
+                    if posters or titles:
                         tag=marker('post',body['guildId'],post['channelId'],post['mediaKey'])
                         if len(message.embeds)!=1 or message.embeds[0].footer.text!=tag:
                             raise ValueError('review_starter_identity_changed')
+                        embed=message.embeds[0].copy()
+                    if titles:
+                        rating=await self.call(body,op='lookup',channelId=post['messageChannelId'],postMessageId=post['messageId'])
+                        if rating['mediaKey']!=post['mediaKey']:raise ValueError('review_starter_identity_changed')
+                        embed.title=review_title(rating,250);options['embed']=embed
+                    if posters:
                         artwork=await self.call(body,op='artwork',channelId=post['messageChannelId'],postMessageId=post['messageId'])
                         url=MediaReply('',poster_url=artwork.get('posterUrl')).poster_url
-                        if not url:missing_artwork+=1;continue
-                        embed=message.embeds[0].copy();embed.set_thumbnail(url=None);embed.set_image(url=url)
-                        options['embed']=embed
+                        if not url:
+                            missing_artwork+=1
+                            if not titles:continue
+                        else:
+                            embed.set_thumbnail(url=None);embed.set_image(url=url);options['embed']=embed
                     await message.edit(**options)
+                    if titles:
+                        thread=self.client.get_channel(int(post['threadId'])) or await self.client.fetch_channel(int(post['threadId']))
+                        await rename_review_thread(thread,rating)
                     updated+=1
                 except Exception as exc:
                     failed+=1;log.warning('Review starter control upgrade deferred error_type=%s',type(exc).__name__)
@@ -165,13 +195,13 @@ class ReviewController:
                 threads=list(destination.threads)
                 async for t in destination.archived_threads(limit=100):threads.append(t)
                 for thread in threads:
-                    if thread.name!=data['title'][:100]:continue
+                    if thread.owner_id!=self.client.user.id:continue
                     candidate=await thread.fetch_message(thread.id)
                     if candidate.author.id==self.client.user.id and any(e.footer.text==tag for e in candidate.embeds):found=candidate;break
             else:found=await self.find_message(destination,tag,100)
             if found:
                 if isinstance(destination,discord.ForumChannel):thread=found.channel
-                else:thread=found.thread or await found.create_thread(name=data['title'][:100])
+                else:thread=found.thread or await found.create_thread(name=review_title(data))
                 post={'threadId':str(thread.id),'messageId':str(found.id),'messageChannelId':str(found.channel.id)}
             elif post=={}:
                 raise ValueError('review_creation_outcome_unknown')
@@ -179,11 +209,11 @@ class ReviewController:
                 self.journal.begin(tag)
                 if isinstance(destination,discord.ForumChannel):
                     tags=[t for t in destination.available_tags if not t.moderated][:1] if destination.flags.require_tag else []
-                    result=await destination.create_thread(name=data['title'][:100],embed=review_embed(data,tag),applied_tags=tags,allowed_mentions=discord.AllowedMentions.none())
+                    result=await destination.create_thread(name=review_title(data),embed=review_embed(data,tag),applied_tags=tags,allowed_mentions=discord.AllowedMentions.none())
                     thread,starter=result.thread,result.message
                 else:
                     starter=await destination.send(embed=review_embed(data,tag),allowed_mentions=discord.AllowedMentions.none())
-                    thread=await starter.create_thread(name=data['title'][:100])
+                    thread=await starter.create_thread(name=review_title(data))
                 post={'threadId':str(thread.id),'messageId':str(starter.id),'messageChannelId':str(starter.channel.id)}
             self.journal.save(tag,post)
         data=await self.call(body,op='bind',mediaKey=data['mediaKey'],**post)
@@ -219,3 +249,4 @@ class ReviewController:
             data=await self.call(body,op='summary',mediaKey=data['mediaKey'])
             await starter.edit(embed=review_embed(data,tag),view=review_post_view(),allowed_mentions=discord.AllowedMentions.none())
             for emoji in ('❤️','🙃'):await starter.add_reaction(emoji)
+            await rename_review_thread(thread,data)

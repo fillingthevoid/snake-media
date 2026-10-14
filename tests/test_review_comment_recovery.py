@@ -14,7 +14,7 @@ class ReviewCommentRecoveryTests(unittest.IsolatedAsyncioTestCase):
         starter=SimpleNamespace(author=SimpleNamespace(id=999),edit=AsyncMock(),add_reaction=AsyncMock())
         destination.fetch_message=AsyncMock(return_value=starter)
         replacement=SimpleNamespace(id=81,author=SimpleNamespace(id=999),edit=AsyncMock())
-        thread=SimpleNamespace(archived=False,fetch_message=AsyncMock(side_effect=[error,replacement]),send=AsyncMock(return_value=replacement),history=MagicMock())
+        thread=SimpleNamespace(name='A',archived=False,fetch_message=AsyncMock(side_effect=[error,replacement]),send=AsyncMock(return_value=replacement),history=MagicMock())
         thread.history.return_value.__aiter__.return_value=[]
         operations=[]
         async def review(body):

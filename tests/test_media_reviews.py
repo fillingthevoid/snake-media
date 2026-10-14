@@ -89,7 +89,7 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
         starter=SimpleNamespace(author=SimpleNamespace(id=999),edit=AsyncMock(),add_reaction=AsyncMock())
         destination.fetch_message=AsyncMock(return_value=starter);destination.send=AsyncMock()
         comment=SimpleNamespace(id=80,author=SimpleNamespace(id=999),edit=AsyncMock())
-        thread=SimpleNamespace(archived=False,fetch_message=AsyncMock(return_value=comment),send=AsyncMock())
+        thread=SimpleNamespace(name='A',archived=False,fetch_message=AsyncMock(return_value=comment),send=AsyncMock())
         client=SimpleNamespace(service=SimpleNamespace(backend=backend),user=SimpleNamespace(id=999),
             get_channel=lambda i:thread if i==60 else destination)
         with tempfile.TemporaryDirectory() as folder,ReviewJournal(Path(folder)/'r.sqlite3') as journal:
