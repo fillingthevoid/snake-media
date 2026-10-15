@@ -98,6 +98,6 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
         destination.send.assert_not_awaited();thread.send.assert_not_awaited()
         self.assertIn('Not for me',comment.edit.await_args.kwargs['embed'].description)
         self.assertIn('Couch approves',starter.edit.await_args.kwargs['embed'].description)
-        self.assertEqual(starter.add_reaction.await_count,2)
+        starter.add_reaction.assert_not_awaited()
 
 if __name__=='__main__':unittest.main()

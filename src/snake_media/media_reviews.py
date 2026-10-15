@@ -10,9 +10,11 @@ import discord
 from .n8n_client import MediaReply
 
 log=logging.getLogger('snake_media')
+REVIEW_GUIDANCE='Use the review buttons below. Your latest choice counts.'
+LEGACY_REVIEW_GUIDANCE='Use the buttons or react ❤️ Loved it / 🙃 Not for me. Your latest choice counts.'
 ERRORS={'denied':"⛔ This Discord account isn't authorized to review here.",
     'unconfigured':'Reviews aren’t set up yet. The owner can use /setupreview.',
-    'invalid_notice':'This review button expired. You can still react to the title’s review post.',
+    'invalid_notice':'This review button expired. Use the buttons on the title’s review post.',
     'missing_identity':'This title doesn’t have review details yet.',
     'unknown_post':'This isn’t a registered Snake Media review post.',
     'invalid_menu':'This selection changed or timed out. Open the title again with /status.',
@@ -65,7 +67,7 @@ def destination_error(channel,guild_id,member=None):
     p=channel.permissions_for(member or channel.guild.me)
     required={'view_channel':'View Channel','send_messages':'Send Messages / Create Posts',
         'read_message_history':'Read Message History','embed_links':'Embed Links',
-        'add_reactions':'Add Reactions','send_messages_in_threads':'Send Messages in Threads'}
+        'send_messages_in_threads':'Send Messages in Threads'}
     if isinstance(channel,discord.TextChannel):required['create_public_threads']='Create Public Threads'
     missing=[label for name,label in required.items() if not getattr(p,name,False)]
     if missing:return 'Please give Snake Media these permissions: '+', '.join(missing)+'.'
@@ -96,7 +98,7 @@ async def rename_review_thread(thread,data):
 
 def review_embed(data,footer):
     title=review_title(data,250)
-    embed=discord.Embed(title=title,description=str(data.get('summary',''))+'\n\nUse the buttons or react ❤️ Loved it / 🙃 Not for me. Your latest choice counts.',colour=0x2ECC71)
+    embed=discord.Embed(title=title,description=str(data.get('summary',''))+'\n\n'+REVIEW_GUIDANCE,colour=0x2ECC71)
     poster=MediaReply('',poster_url=data.get('posterUrl')).poster_url
     if poster:embed.set_image(url=poster)
     embed.set_footer(text=footer);return embed
@@ -138,9 +140,9 @@ class ReviewController:
             if message.author.id==self.client.user.id and any(e.footer.text==tag for e in message.embeds):return message
         return None
 
-    async def upgrade_posts(self,body,posters=False,titles=False):
+    async def upgrade_posts(self,body,posters=False,titles=False,cleanup_reactions=False):
         """Edit registered starters and names. Never invent posts or votes."""
-        cursor=0;updated=failed=missing_artwork=0
+        cursor=0;updated=failed=missing_artwork=reactions_removed=0
         for _ in range(4001):
             data=await self.call(body,op='posts',cursor=cursor)
             for post in data['posts']:
@@ -149,11 +151,14 @@ class ReviewController:
                     message=await channel.fetch_message(int(post['messageId']))
                     if message.author.id!=self.client.user.id:raise ValueError('review_starter_author_changed')
                     options={'view':review_post_view(),'allowed_mentions':discord.AllowedMentions.none()}
-                    if posters or titles:
+                    if posters or titles or cleanup_reactions:
                         tag=marker('post',body['guildId'],post['channelId'],post['mediaKey'])
                         if len(message.embeds)!=1 or message.embeds[0].footer.text!=tag:
                             raise ValueError('review_starter_identity_changed')
                         embed=message.embeds[0].copy()
+                    if cleanup_reactions:
+                        embed.description=(embed.description or '').replace(LEGACY_REVIEW_GUIDANCE,REVIEW_GUIDANCE)
+                        options['embed']=embed
                     if titles:
                         rating=await self.call(body,op='lookup',channelId=post['messageChannelId'],postMessageId=post['messageId'])
                         if rating['mediaKey']!=post['mediaKey']:raise ValueError('review_starter_identity_changed')
@@ -163,10 +168,15 @@ class ReviewController:
                         url=MediaReply('',poster_url=artwork.get('posterUrl')).poster_url
                         if not url:
                             missing_artwork+=1
-                            if not titles:continue
+                            if not titles and not cleanup_reactions:continue
                         else:
                             embed.set_thumbnail(url=None);embed.set_image(url=url);options['embed']=embed
                     await message.edit(**options)
+                    if cleanup_reactions:
+                        for reaction in message.reactions:
+                            if reaction.me and str(reaction.emoji) in ('❤','❤️','🙃'):
+                                await message.remove_reaction(reaction.emoji,self.client.user)
+                                reactions_removed+=1
                     if titles:
                         thread=self.client.get_channel(int(post['threadId'])) or await self.client.fetch_channel(int(post['threadId']))
                         await rename_review_thread(thread,rating)
@@ -176,6 +186,7 @@ class ReviewController:
             if data.get('nextCursor') is None:
                 result={'updated':updated,'failed':failed}
                 if posters:result['missing_artwork']=missing_artwork
+                if cleanup_reactions:result['reactions_removed']=reactions_removed
                 return result
             if type(data['nextCursor']) is not int or data['nextCursor']<=cursor:raise ValueError('invalid_review_cursor')
             cursor=data['nextCursor']
@@ -248,5 +259,4 @@ class ReviewController:
         finally:
             data=await self.call(body,op='summary',mediaKey=data['mediaKey'])
             await starter.edit(embed=review_embed(data,tag),view=review_post_view(),allowed_mentions=discord.AllowedMentions.none())
-            for emoji in ('❤️','🙃'):await starter.add_reaction(emoji)
             await rename_review_thread(thread,data)

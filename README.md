@@ -185,10 +185,9 @@ Expiry reminders offer **❤️ Loved it** and **🙃 Not for me** for six hours
 Any authorized Discord user can review, while expiry changes stay requester-only.
 The first review creates a title's discussion. Each person has one vote and one
 review comment; a later choice updates both. The starter post shows the movie or
-series poster, vote counts and a playful group verdict. Users can also react ❤️
-or 🙃 to that starter post.
-Removing a reaction does not erase a saved vote. Review reactions remain available
-after reminder buttons expire and reviews survive media deletion.
+series poster, vote counts and a playful group verdict. Use its **Loved it** and
+**Not for me** buttons to submit a review. The bot does not seed message reactions.
+Reviews survive media deletion.
 
 You can also review anytime from **My requests**: open an available title and tap
 **Review**. The private choices last five minutes and keep My requests usable.
@@ -196,7 +195,12 @@ Direct `/status title:<title>` queries offer the same card, including Review in
 the Details view.
 For a series, at least one requested episode must be ready in Jellyfin. The main
 review post has the same two buttons with no menu timeout; they survive bot
-restarts. Buttons and reactions always update the same vote and review comment.
+restarts. Later choices update the same vote and review comment.
+
+To remove older bot-seeded vote reactions and refresh the instructions, run
+`docker compose exec -T discord-bot python -m snake_media.review_post_upgrade --cleanup-reactions`.
+This removes only the bot's own review reactions from registered starter posts;
+user reactions, saved votes, comments, artwork and titles stay intact.
 
 After updating an existing installation, upgrade registered starter-post controls:
 `docker compose exec -T discord-bot python -m snake_media.review_post_upgrade`.
