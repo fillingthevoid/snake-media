@@ -14,7 +14,7 @@ function select(rows,actor){
 }
 function dateLabel(stamp){return new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(stamp));}
 function describe({requests,records,media,episodes,queue,library,now},projection=false){
- const r=requests[0],title=String(r.title).replace(/[\r\n]/g,' ').slice(0,100),header=(r.mediaType==='movie'?'🎬 ':'📺 ')+title;
+ const r=requests[0],title=String(r.title).replace(/[\r\n]/g,' ').slice(0,150),year=media?.id===Number(r.mediaId)&&Number.isInteger(media.year)&&media.year>=1800&&media.year<=9999?' ('+media.year+')':'',header=(r.mediaType==='movie'?'🎬 ':'📺 ')+title+year;
  if(!media||media.id!==Number(r.mediaId)){const text=header+'\nNo longer listed in '+(r.mediaType==='movie'?'Radarr.':'Sonarr.');return projection?{text,summaryText:text,availability:null,retentionActions:{canExtend:false,canKeep:false,permanent:false}}:text;}
  const saved=new Map(records.filter(x=>x.key).map(x=>[x.key,JSON.parse(x.payloadJson)]));
  const ids=new Set(requests.flatMap(x=>JSON.parse(x.episodeIdsJson||'[]').map(String)));

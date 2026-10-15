@@ -30,7 +30,8 @@ class MyRequests(unittest.TestCase):
         workflow=after['snakeMyRequestsV1'];nodes={n['name']:n for n in workflow['nodes']}
         keys={f['keyName'] for f in nodes['Claim Request Selection']['parameters']['filters']['conditions']}
         self.assertEqual(keys,{'id','state','claimId','source','userId','destinationId'})
-        self.assertEqual(nodes['Read My Requests']['parameters']['limit'],200)
+        # Search must filter all owned rows before applying its 200-title cap.
+        self.assertTrue(nodes['Read My Requests']['parameters']['returnAll'])
         self.assertEqual(nodes['Preview Request Expiry']['parameters']['workflowId']['value'],'snakeRetentionChangePreviewV1')
         self.assertFalse(any(n['type'].endswith('.httpRequest') for n in workflow['nodes']))
         bodies=[]
