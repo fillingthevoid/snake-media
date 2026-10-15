@@ -87,10 +87,14 @@ def playback_probe(config):
 
 def storage_probe():
     rows=[]
-    for label,path in [('Main','/mnt/media'),('SSD','/mnt/media-overflow'),('Pool','/mnt/media-pool')]:
+    overflow=['/mnt/media-overflow']
+    if os.path.ismount('/mnt/media-overflow-2'):overflow.append('/mnt/media-overflow-2')
+    for label,paths in [('Main',['/mnt/media']),('SSD',overflow),('Pool',['/mnt/media-pool'])]:
         try:
-            output=subprocess.check_output(['df','-B1','--output=size,avail',path],timeout=3,text=True)
-            total,free=map(int,output.splitlines()[-1].split())
+            total=free=0
+            for path in paths:
+                output=subprocess.check_output(['df','-B1','--output=size,avail',path],timeout=3,text=True)
+                size,available=map(int,output.splitlines()[-1].split());total+=size;free+=available
             rows.append({'label':label,'totalGiB':total/1024**3,'freeGiB':free/1024**3})
         except Exception:
             rows.append({'label':label,'totalGiB':None,'freeGiB':None})

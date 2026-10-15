@@ -5,7 +5,8 @@ import unittest
 import threading
 import urllib.request
 import urllib.error
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock,patch
+from types import SimpleNamespace
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"tools"))
 
 from snake_media.bot import SnakeMediaClient
@@ -14,6 +15,19 @@ from snake_media.config import Config
 
 
 class HealthTests(unittest.IsolatedAsyncioTestCase):
+    def test_storage_totals_include_the_mounted_second_ssd_without_changing_report_contract(self):
+        spec=importlib.util.spec_from_file_location('health',Path(__file__).resolve().parents[1]/'tools/server_health.py')
+        mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
+        gib=1024**3
+        sizes={'/mnt/media':(1800,300),'/mnt/media-overflow':(457,400),'/mnt/media-overflow-2':(457,450),'/mnt/media-pool':(2714,1150)}
+        def df(args,**kwargs):
+            total,free=sizes[args[-1]];return f'Size Avail\n{total*gib} {free*gib}\n'
+        for mounted,want_total,want_free in [(False,457,400),(True,914,850)]:
+            with patch.object(mod.os.path,'ismount',return_value=mounted),patch.object(mod.subprocess,'check_output',side_effect=df),patch.object(mod.subprocess,'run',return_value=SimpleNamespace(returncode=0)):
+                result=mod.storage_probe()
+            self.assertTrue(result['guard']);self.assertEqual([r['label'] for r in result['disks']],['Main','SSD','Pool'])
+            self.assertEqual(result['disks'][1],{'label':'SSD','totalGiB':want_total,'freeGiB':want_free})
+
     def test_collector_denies_missing_secret_before_probes(self):
         spec=importlib.util.spec_from_file_location('health',Path(__file__).resolve().parents[1]/'tools/server_health.py')
         mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
