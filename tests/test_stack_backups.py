@@ -11,6 +11,57 @@ from unittest.mock import patch
 
 
 class StackBackupTests(unittest.TestCase):
+    def test_snapshot_read_cantopen_reopens_readonly_source_and_discards_partial_target(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source,target=Path(folder)/'source.db',Path(folder)/'target.db'
+            with closing(sqlite3.connect(source)) as writer:
+                writer.execute('pragma journal_mode=wal');writer.execute('create table sample(value text)')
+                writer.execute("insert into sample values ('latest WAL commit')");writer.commit()
+                original=self.backup.open_readonly_database;opened=[]
+                class TemporaryUnavailable:
+                    def __init__(self,connection):self.connection=connection
+                    def backup(self,destination,**kwargs):
+                        destination.execute('create table partial(value text)');destination.commit()
+                        error=sqlite3.OperationalError('private snapshot detail');error.sqlite_errorcode=sqlite3.SQLITE_CANTOPEN;raise error
+                    def close(self):self.connection.close()
+                def open_reader(path):
+                    connection=original(path);opened.append(connection)
+                    return TemporaryUnavailable(connection) if len(opened)==1 else connection
+                output=io.StringIO()
+                with patch.object(self.backup,'open_readonly_database',side_effect=open_reader),patch.object(self.backup.time,'sleep') as sleep,redirect_stdout(output):
+                    self.backup.snapshot_database(source,target)
+                with closing(sqlite3.connect(target)) as restored:
+                    self.assertEqual(restored.execute('select value from sample').fetchall(),[('latest WAL commit',)])
+                    self.assertEqual(restored.execute("select count(*) from sqlite_master where name='partial'").fetchone()[0],0)
+                self.assertEqual(len(opened),2);sleep.assert_called_once_with(1)
+                self.assertEqual(writer.execute('select value from sample').fetchall(),[('latest WAL commit',)])
+                self.assertIn('stage=snapshot code=14',output.getvalue());self.assertNotIn('private snapshot detail',output.getvalue())
+
+    def test_persistent_snapshot_cantopen_stops_after_three_attempts(self):
+        error=sqlite3.OperationalError('private detail');error.sqlite_errorcode=sqlite3.SQLITE_CANTOPEN
+        class Unavailable:
+            def backup(self,*args,**kwargs):raise error
+            def close(self):pass
+        with tempfile.TemporaryDirectory() as folder,patch.object(self.backup,'open_readonly_database',side_effect=lambda _:Unavailable()) as opened,patch.object(self.backup.time,'sleep') as sleep,redirect_stdout(io.StringIO()):
+            with self.assertRaises(sqlite3.OperationalError):self.backup.snapshot_database(Path(folder)/'source.db',Path(folder)/'target.db')
+        self.assertEqual(opened.call_count,3);self.assertEqual([c.args[0] for c in sleep.call_args_list],[1,2])
+
+    def test_retry_never_removes_a_preexisting_target_or_retries_corruption(self):
+        for code,existing in [(sqlite3.SQLITE_CANTOPEN,True),(sqlite3.SQLITE_CORRUPT,False)]:
+            error=sqlite3.OperationalError('private detail');error.sqlite_errorcode=code
+            class Unavailable:
+                def backup(self,*args,**kwargs):raise error
+                def close(self):pass
+            with tempfile.TemporaryDirectory() as folder:
+                target=Path(folder)/'target.db'
+                if existing:
+                    with closing(sqlite3.connect(target)) as db:db.execute('create table preserved(value text)');db.commit()
+                before=target.read_bytes() if existing else None
+                with patch.object(self.backup,'open_readonly_database',return_value=Unavailable()) as opened,patch.object(self.backup.time,'sleep') as sleep,redirect_stdout(io.StringIO()):
+                    with self.assertRaises(sqlite3.OperationalError):self.backup.snapshot_database(Path(folder)/'source.db',target)
+                self.assertEqual(opened.call_count,1);sleep.assert_not_called()
+                if existing:self.assertEqual(target.read_bytes(),before)
+
     def test_snapshot_failure_logs_only_stage_and_numeric_sqlite_code(self):
         error = sqlite3.OperationalError('private credential must not appear')
         error.sqlite_errorcode = sqlite3.SQLITE_CANTOPEN

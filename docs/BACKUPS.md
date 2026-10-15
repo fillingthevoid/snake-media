@@ -82,3 +82,10 @@ Never extract onto working appdata or restore a database while its application i
 ### Failed snapshot diagnostics
 
 SQLite snapshot failures log the operation stage and numeric SQLite error code. Raw exception messages stay private because they can contain paths or other sensitive values. A failed snapshot still stops the backup; these diagnostics do not weaken integrity checks or change source database access.
+
+SQLite can report a temporary `SQLITE_CANTOPEN` when the first snapshot read runs,
+after its connection was accepted. That exact read-stage failure gets up to three
+attempts, each with fresh read-only source and destination connections. Only the
+new incomplete destination is discarded between attempts. Pre-existing targets,
+corruption, integrity failures and other error types are not retried by this rule.
+All attempts failing still fails the backup and leaves the alert active.

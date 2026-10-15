@@ -31,23 +31,38 @@ def open_readonly_database(source):
             time.sleep(2**attempt)
 
 def snapshot_database(source, target):
-    stage = 'source-open'
-    try:
-        with closing(open_readonly_database(source)) as live:
-            stage = 'target-open'
-            with closing(sqlite3.connect(target)) as backup:
-                stage = 'snapshot'
-                live.backup(backup, pages=512, sleep=0.05)
-                stage = 'integrity-check'
-                if backup.execute('PRAGMA quick_check').fetchall() != [('ok',)]:
-                    raise ValueError('snapshot_integrity_failed')
-    except sqlite3.Error as error:
-        code = getattr(error, 'sqlite_errorcode', None)
-        # Raw exception messages can include private paths or values.
-        safe_code = str(code) if type(code) is int else 'unknown'
-        print('SQLite snapshot failed: stage=' + stage + ' code=' + safe_code, flush=True)
-        raise
-    os.chmod(target, 0o600)
+    target = Path(target)
+    existing = target.exists() or target.is_symlink()
+    for attempt in range(3):
+        stage = 'source-open'
+        try:
+            with closing(open_readonly_database(source)) as live:
+                stage = 'target-open'
+                with closing(sqlite3.connect(target)) as backup:
+                    stage = 'snapshot'
+                    live.backup(backup, pages=512, sleep=0.05)
+                    stage = 'integrity-check'
+                    if backup.execute('PRAGMA quick_check').fetchall() != [('ok',)]:
+                        raise ValueError('snapshot_integrity_failed')
+        except sqlite3.Error as error:
+            code = getattr(error, 'sqlite_errorcode', None)
+            # Raw exception messages can include private paths or values.
+            safe_code = str(code) if type(code) is int else 'unknown'
+            print('SQLite snapshot failed: stage=' + stage + ' code=' + safe_code, flush=True)
+            if stage != 'snapshot' or code != sqlite3.SQLITE_CANTOPEN or existing or attempt == 2:
+                raise
+            # Both connections are closed. Discard only this call's incomplete
+            # private destination; never modify live database/WAL/SHM files.
+            for suffix in ('', '-wal', '-shm', '-journal'):
+                partial = Path(str(target) + suffix)
+                if partial.is_symlink():
+                    raise ValueError('snapshot_target_changed') from None
+                partial.unlink(missing_ok=True)
+            print('SQLite snapshot read temporarily unavailable; retrying fresh read-only snapshot', flush=True)
+            time.sleep(2**attempt)
+            continue
+        os.chmod(target, 0o600)
+        return
 
 
 def digest(path):
