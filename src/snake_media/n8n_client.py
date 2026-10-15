@@ -187,6 +187,25 @@ class N8NClient:
             log.error('n8n transport failed error_type=%s', type(exc).__name__)
             raise N8NError('transport_error') from None
 
+    async def catalog(self,payload):
+        """Owner-authorized n8n catalog work; no media application calls."""
+        if self._session is None:raise N8NError('client_not_open')
+        target=urlsplit(self._url)
+        url=urlunsplit((target.scheme,target.netloc,'/webhook/snake-media-review-catalog','',''))
+        try:
+            async with self._session.post(url,json=payload,allow_redirects=False,
+                    timeout=aiohttp.ClientTimeout(total=290,connect=5)) as response:
+                if response.status!=200 or response.content_type!='application/json':raise N8NError('catalog_http_error')
+                body=bytearray()
+                async for chunk in response.content.iter_chunked(8192):
+                    body.extend(chunk)
+                    if len(body)>MAX_RESPONSE_BYTES:raise N8NError('catalog_response_too_large')
+                data=json.loads(body)
+                if not isinstance(data,dict) or data.get('version')!=1 or type(data.get('ok')) is not bool:raise N8NError('invalid_catalog_response')
+                return data
+        except (aiohttp.ClientError,asyncio.TimeoutError,ValueError):
+            raise N8NError('catalog_transport_error') from None
+
     async def review(self, payload):
         """Separate authenticated contract; transport only."""
         if self._session is None:raise N8NError('client_not_open')

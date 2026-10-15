@@ -98,7 +98,19 @@ async def rename_review_thread(thread,data):
 
 def review_embed(data,footer):
     title=review_title(data,250)
-    embed=discord.Embed(title=title,description=str(data.get('summary',''))+'\n\n'+REVIEW_GUIDANCE,colour=0x2ECC71)
+    availability=data.get('availability');line=''
+    if isinstance(availability,dict):
+        state,kind=availability.get('state'),availability.get('mediaType')
+        if state=='available':line='✅ Episodes available in Jellyfin' if kind=='tv' else '✅ Available in Jellyfin'
+        elif state=='unavailable':line='🗃️ No episodes currently on the server' if kind=='tv' else '🗃️ No longer on the server'
+        elif state=='delayed':
+            line='⚠️ Availability check delayed'
+            if availability.get('lastKnown') in ('available','unavailable'):
+                line+='\nLast confirmed: '+('available' if availability['lastKnown']=='available' else 'unavailable')
+        checked=availability.get('checkedAt')
+        if line and type(checked) in (int,float) and 0<checked<253402300800000:line+='\nLast verified <t:'+str(int(checked/1000))+':R>'
+        if line:line+='\n\n'
+    embed=discord.Embed(title=title,description=line+str(data.get('summary',''))+'\n\n'+REVIEW_GUIDANCE,colour=0x2ECC71)
     poster=MediaReply('',poster_url=data.get('posterUrl')).poster_url
     if poster:embed.set_image(url=poster)
     embed.set_footer(text=footer);return embed
@@ -192,7 +204,7 @@ class ReviewController:
             cursor=data['nextCursor']
         raise ValueError('review_upgrade_limit')
 
-    async def publish(self,body,data,destination=None,member=None):
+    async def ensure_post(self,body,data,destination=None,member=None):
         if destination is None:destination=self.client.get_channel(int(data['channelId'])) or await self.client.fetch_channel(int(data['channelId']))
         elif str(destination.id)!=data['channelId']:raise ValueError('review_destination_changed')
         error=destination_error(destination,body['guildId'],member)
@@ -233,6 +245,11 @@ class ReviewController:
         channel=self.client.get_channel(int(post['messageChannelId'])) or await self.client.fetch_channel(int(post['messageChannelId']))
         starter=await channel.fetch_message(int(post['messageId']))
         if starter.author.id!=self.client.user.id:raise ValueError('review_starter_author_changed')
+        return data,thread,starter
+
+    async def publish(self,body,data,destination=None,member=None):
+        data,thread,starter=await self.ensure_post(body,data,destination,member)
+        tag=marker('post',body['guildId'],data['channelId'],data['mediaKey'])
         comment_tag=marker('comment',body['guildId'],data['channelId'],data['mediaKey'],body['userId'])
         try:
             receipt=self.journal.get(comment_tag);comment=None

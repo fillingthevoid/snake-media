@@ -16,6 +16,38 @@ COOLDOWN=120
 READ_CHILDREN=('snakeTargetLibraryV1','snakeStatusInspectV1','snakeInspectRequestV1')
 # Pin reviewed code with CRLF normalized to LF, matching Git's line-ending policy.
 CLEANUP_HASH='fff5b1dc5f12ed1b7f41e5323bac8b7d4c310f8b13078647020014dc9c4a6d67'
+CATALOG_PIN_PATH=Path('/mnt/media/appdata/discord-bot/n8n/review-catalog/published-private-pin.json')
+
+
+def verified_catalog_versions(connection):
+    """Only the deployed, reviewed catalog may run independently of media jobs.
+
+    Its HTTP calls are reads and its native writes affect only its own catalog
+    lease/queue. Interrupting it is recoverable and cannot mutate media. Bind this
+    exception to an exact published definition AND each execution's version.
+    """
+    try:
+        pin=json.loads(CATALOG_PIN_PATH.read_text(encoding='utf-8'))
+        if pin.get('workflowId')!='snakeReviewCatalogV1':return ()
+        row=connection.execute('SELECT activeVersionId,settings FROM workflow_entity WHERE id=?',('snakeReviewCatalogV1',)).fetchone()
+        if not row or row[0]!=pin.get('versionId'):return ()
+        versions=pin.get('versions') or [{**pin,'settings':json.loads(row[1] or '{}')}]
+        if not isinstance(versions,list) or len(versions)>64:return ()
+        verified=[]
+        for version in versions:
+            ident=version.get('versionId');data=connection.execute('SELECT nodes,connections FROM workflow_history WHERE workflowId=? AND versionId=?',('snakeReviewCatalogV1',ident)).fetchone()
+            if not data:continue
+            settings=json.loads(row[1] or '{}') if ident==row[0] else version.get('settings')
+            if not isinstance(settings,dict) or settings.get('errorWorkflow'):continue
+            encoded=json.dumps({'nodes':json.loads(data[0]),'connections':json.loads(data[1]),'settings':settings},sort_keys=True,separators=(',',':'))
+            if hashlib.sha256(encoded.encode()).hexdigest()==version.get('sha256'):verified.append(ident)
+        return tuple(set(verified)) if row[0] in verified else ()
+    except (OSError,ValueError,TypeError,AttributeError,sqlite3.Error):return ()
+
+
+def verified_catalog_version(connection):
+    versions=verified_catalog_versions(connection)
+    return versions[0] if versions else None
 
 def timestamp(value):
     if not isinstance(value,str):raise ValueError('missing_timestamp')
@@ -46,13 +78,18 @@ def blocking_activity(rows,parents,executions,now,cleanup_safe=False):
 
 def activity_count(connection,now):
     """Read a consistent snapshot. Any incomplete evidence keeps work blocking."""
-    query="SELECT count(*) FROM execution_entity WHERE status IS NULL OR status NOT IN (?,?,?,?)"
-    count=connection.execute(query,TERMINAL).fetchone()[0]
+    where="(status IS NULL OR status NOT IN (?,?,?,?))"
+    parameters=TERMINAL
+    catalog_versions=verified_catalog_versions(connection)
+    if catalog_versions:
+        where+=' AND NOT (workflowId=? AND COALESCE(workflowVersionId,\'\') IN ('+','.join('?' for _ in catalog_versions)+'))'
+        parameters=(*parameters,'snakeReviewCatalogV1',*catalog_versions)
+    count=connection.execute('SELECT count(*) FROM execution_entity WHERE '+where,parameters).fetchone()[0]
     if not count:return 0
     try:
         data=connection.execute('SELECT e.id,e.workflowId,e.status,e.startedAt,e.deletedAt,ed.data '
             'FROM execution_entity e LEFT JOIN execution_data ed ON ed.executionId=e.id '
-            'WHERE e.status IS NULL OR e.status NOT IN (?,?,?,?)',TERMINAL).fetchall()
+            'WHERE '+where.replace('workflowId','e.workflowId').replace('workflowVersionId','e.workflowVersionId').replace('status','e.status'),parameters).fetchall()
         if len(data)>2000 or len(data)!=count:return count
         rows=[dict(zip(('id','workflowId','status','startedAt','deletedAt'),r[:5])) for r in data]
         raw={str(r[0]):r[5] for r in data if r[1] in READ_CHILDREN and r[5]}

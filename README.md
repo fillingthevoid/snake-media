@@ -197,6 +197,12 @@ For a series, at least one requested episode must be ready in Jellyfin. The main
 review post has the same two buttons with no menu timeout; they survive bot
 restarts. Later choices update the same vote and review comment.
 
+The optional [review library catalog](n8n/review-catalog/README.md) automatically
+creates discussions for existing and newly available movies/series, including
+Telegram and direct imports. Each post shows whether media is still available.
+Posts and saved reviews remain after deletion, and reimports reuse the discussion.
+New posts start with zero votes; automatic posting never reviews on your behalf.
+
 To remove older bot-seeded vote reactions and refresh the instructions, run
 `docker compose exec -T discord-bot python -m snake_media.review_post_upgrade --cleanup-reactions`.
 This removes only the bot's own review reactions from registered starter posts;

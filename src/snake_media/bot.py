@@ -16,6 +16,7 @@ from .n8n_client import MediaReply
 from .command_menu import menu_text, menu_choices, NAVIGATION
 from .request_prompt import RequestTitleModal
 from .media_reviews import ReviewController, destination_error, review_request_view, ERRORS as REVIEW_ERRORS
+from .review_catalog import ReviewCatalogWorker
 
 log = logging.getLogger("snake_media")
 EXPIRY_NOTE = '\n\nMenu expired. Use /help or /status to reopen.'
@@ -36,6 +37,7 @@ class SnakeMediaClient(discord.Client):
         self.notification_journal = notification_journal
         self.card_registry = card_registry
         self.card_cleanup_task = None
+        self.review_catalog_task = None
         self.reviews = ReviewController(self, review_journal)
         self.tree = app_commands.CommandTree(self)
         self.tree.add_command(app_commands.Command(name='setupreview',
@@ -247,6 +249,8 @@ class SnakeMediaClient(discord.Client):
         self.remember_card(reply, sent or getattr(interaction, 'message', None), str(interaction.user.id), str(interaction.channel_id), interaction)
 
     async def setup_hook(self):
+        if self.reviews.journal is not None and self.service.config.admin_user_ids:
+            self.review_catalog_task=asyncio.create_task(ReviewCatalogWorker(self).run())
         if self.card_registry is not None:
             self.card_cleanup_task = asyncio.create_task(self.run_card_cleanup())
         guilds = set()
@@ -318,6 +322,9 @@ class SnakeMediaClient(discord.Client):
         return str(message.id)
 
     async def close(self):
+        if self.review_catalog_task:
+            self.review_catalog_task.cancel()
+            await asyncio.gather(self.review_catalog_task,return_exceptions=True)
         if self.card_cleanup_task:
             self.card_cleanup_task.cancel()
             await asyncio.gather(self.card_cleanup_task, return_exceptions=True)

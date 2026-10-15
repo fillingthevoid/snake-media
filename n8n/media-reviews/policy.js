@@ -75,6 +75,7 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
  const record=(requestKey,d)=>({source:'discord',userId:b.userId,destinationId:b.channelId,messageId:'0',
   requestedAt:new Date(now).toISOString(),requestKey,state:'review',expiresAt:'2099-01-01T00:00:00.000Z',contextJson:JSON.stringify({...d,guildId:b.guildId})});
  let config=saved.get(key('config'));
+ const catalog=saved.get(key('catalog'));
  if(b.op==='setup'){
   if(!owners.includes(b.userId)||!channels.includes(b.channelId)||!reviewId(b.targetChannelId))return fail('denied');
   return {row:record(key('config'),{kind:'config',channelId:b.targetChannelId}),reply:{version:1,ok:true,channelId:b.targetChannelId}};
@@ -111,6 +112,7 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
   media.posterUrl=reviewPoster(posterUrl)||reviewPoster(payload.posterUrl)||reviewRequestPoster(r);
  }else if(['bind','comment','summary','forget_comment'].includes(b.op)){
   media=[...saved.values()].find(d=>d.kind==='vote'&&d.mediaKey===b.mediaKey&&(owners.includes(b.userId)||d.userId===b.userId));
+  if(!media&&owners.includes(b.userId)&&['bind','summary'].includes(b.op)&&/^(movie|tv):[1-9][0-9]{0,19}$/.test(b.mediaKey||''))media=catalog?.entries?.[b.mediaKey];
   if(!media||!owners.includes(b.userId)&&media.userId!==b.userId)return fail('missing_identity');
  }else return fail('invalid_operation');
  if(!destination)return fail('unconfigured');
@@ -158,6 +160,7 @@ function reviewOperation({body:b,rows,notices,requests,users,owners,channels,men
  return {row,menuOriginal,deleteComment,postOriginal,reply:{version:1,ok:true,mediaKey:mk,title:media.title,posterUrl:media.posterUrl,
   channelId:destination,post:post?{threadId:post.threadId,messageId:post.messageId,messageChannelId:post.messageChannelId}:null,
   total,loved,summary:summary.text,rating:summary.rating,vote:mine?.vote,username:mine?.username,commentId:comment?.messageId||null,
+  ...(catalog?.entries?.[mk]?.availability?{availability:catalog.entries[mk].availability}:{}),
   ...(b.op==='restore_snapshot'?{votes:votes.map(v=>({userId:v.userId,vote:v.vote,username:v.username}))}:{})}};
 }
 if(typeof module!=='undefined')module.exports={verdict,reviewOperation,reviewRequestSelection,reviewArtworkIdentity,reviewArtworkTarget,reviewArtworkPoster};
