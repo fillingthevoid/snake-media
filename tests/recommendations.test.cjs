@@ -56,3 +56,38 @@ test('history-free prompts are genre based and contain no account IDs or raw tex
  assert.match(g.prompt,/comedy/i);assert.equal(g.prompt.includes('111'),false);assert.equal(g.prompt.includes('IGNORE RULES'),false);
  assert.equal(g.history.length,0);
 });
+
+
+test('recommendation cards preserve Unicode media icons and titles on both platforms',()=>{
+ for(const source of ['discord','telegram'])for(const [type,icon] of [['movie','\u{1F3AC}'],['tv','\u{1F4FA}']]){
+  let r={...p.record({...actor,source},now),id:5};
+  r=p.transition(r,{...actor,source,action:type==='movie'?'rec_movie':'rec_tv'},now,'unicode').record;
+  assert.ok(p.card(r,now).text.includes(' \u2014 choose a genre.'));
+  const ctx=JSON.parse(r.contextJson);
+  Object.assign(ctx.recommendation,{stage:'results',cursor:0,items:[{media:{...media,title:'Am\u00e9lie'},reason:'A warm story.',available:false}]});
+  r={...r,contextJson:JSON.stringify(ctx)};
+  assert.ok(p.card(r,now).text.startsWith(icon+' Am\u00e9lie (1979)\n'));
+ }
+});
+
+
+test('shipped workflow recommendation renderers emit valid movie and TV icons',()=>{
+ const workflows=JSON.parse(require('node:fs').readFileSync(require('node:path').join(__dirname,'../config-templates/n8n-current-media-workflows.json'),'utf8'));
+ let checked=0;
+ for(const workflow of workflows)for(const node of workflow.nodes){
+  const code=node.parameters?.jsCode||'';
+  if(!code.includes('Suggestion ${'))continue;
+  const end=code.indexOf("\nif(typeof module!=='undefined')module.exports={GENRES");
+  assert.ok(end>0,node.name);
+  const render=new Function('row','now',code.slice(0,end)+'\nreturn card(row,now);');
+  for(const [type,icon] of [['movie','\u{1F3AC}'],['tv','\u{1F4FA}']]){
+   const row={...p.record(actor,now),id:5};
+   const ctx=JSON.parse(row.contextJson);
+   Object.assign(ctx.recommendation,{type,stage:'results',cursor:0,items:[{media,reason:'A classic.',available:false}]});
+   row.contextJson=JSON.stringify(ctx);
+   assert.ok(render(row,now).text.startsWith(icon+' Alien (1979)\n'),workflow.id+': '+node.name);
+  }
+  checked++;
+ }
+ assert.ok(checked>0);
+});
